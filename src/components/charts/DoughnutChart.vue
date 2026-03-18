@@ -11,19 +11,46 @@ import { Doughnut } from "vue-chartjs";
 const props = defineProps({
   labels: Array,
   data: Array,
-  colors: { type: Array, default: () => ["#0F2D69", "#30DD92", "#FFA600", "#E53935", "#8b5cf6", "#e5e7eb"] },
+  colors: { type: Array, default: () => ["#1E4E66", "#30DD92", "#FFA600", "#E53935", "#6F45FF", "#e5e7eb"] },
   showLabels: { type: Boolean, default: true },
+  activeLabel: { type: String, default: null },
 });
 
-const chartData = computed(() => ({
-  labels: props.labels,
-  datasets: [{ data: props.data, backgroundColor: props.colors, borderWidth: 0, spacing: 2 }],
-}));
+const emit = defineEmits(["select"]);
 
-const chartOptions = {
+function dimColor(hex, alpha) {
+  if (!hex || hex[0] !== "#") return hex;
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+const chartData = computed(() => {
+  const colors = (props.labels || []).map((label, i) => {
+    const base = props.colors[i % props.colors.length];
+    if (props.activeLabel && label !== props.activeLabel) return dimColor(base, 0.2);
+    return base;
+  });
+  return {
+    labels: props.labels,
+    datasets: [{ data: props.data, backgroundColor: colors, borderWidth: 0, spacing: 2 }],
+  };
+});
+
+const chartOptions = computed(() => ({
   cutout: "68%",
   responsive: true,
   maintainAspectRatio: true,
+  onClick: (event, elements) => {
+    if (elements.length > 0) {
+      emit("select", props.labels[elements[0].index]);
+    }
+  },
+  onHover: (event, elements) => {
+    const canvas = event.native?.target;
+    if (canvas) canvas.style.cursor = elements.length > 0 ? "pointer" : "default";
+  },
   plugins: {
     legend: { display: false },
     datalabels: {
@@ -39,5 +66,5 @@ const chartOptions = {
       },
     },
   },
-};
+}));
 </script>

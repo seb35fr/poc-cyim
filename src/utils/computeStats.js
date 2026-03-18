@@ -19,7 +19,7 @@ function getCountryCode(d) {
   return d.primaryAddress?.countryCode || d.primaryAddress?.country?.code || null;
 }
 
-export function computeAllStats(delegates) {
+export function computeAllStats(delegates, mobileAppId = null) {
   const total = delegates.length;
 
   // --- DEMOGRAPHICS ---
@@ -224,6 +224,7 @@ export function computeAllStats(delegates) {
   // --- BADGES ---
   const badgeDayMap = {};
   const badge15minMap = {};
+  const badgeDeviceMap = {};
   let totalBadgesDelivered = 0;
 
   for (const d of delegates) {
@@ -240,8 +241,16 @@ export function computeAllStats(delegates) {
       const m = Math.floor(date.getUTCMinutes() / 15) * 15;
       const slotKey = `${dayStr}|${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
       badge15minMap[slotKey] = (badge15minMap[slotKey] || 0) + 1;
+
+      // Par device
+      const device = b.deliveredBy || "Inconnu";
+      badgeDeviceMap[device] = (badgeDeviceMap[device] || 0) + 1;
     }
   }
+
+  const badgesByDevice = Object.entries(badgeDeviceMap)
+    .map(([device, count]) => ({ device, count }))
+    .sort((a, b) => b.count - a.count);
 
   const badgesByDay = Object.entries(badgeDayMap)
     .map(([date, count]) => ({ date, count }))
@@ -261,6 +270,18 @@ export function computeAllStats(delegates) {
     { date: "-", time: "-", count: 0 }
   );
 
+  // --- ONBOARDING TIMELINE ---
+  const onboardingDailyMap = {};
+  for (const d of delegates) {
+    if (!d.firstOnboardingConnection) continue;
+    const date = new Date(d.firstOnboardingConnection);
+    const dayStr = date.toISOString().slice(0, 10);
+    onboardingDailyMap[dayStr] = (onboardingDailyMap[dayStr] || 0) + 1;
+  }
+  const onboardingDaily = Object.entries(onboardingDailyMap)
+    .map(([date, count]) => ({ date, count }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
   // --- GLOBALS ---
   const checkedInCount = delegates.filter((d) => d.checkedInDate).length;
   const onboardingCount = delegates.filter(
@@ -268,7 +289,26 @@ export function computeAllStats(delegates) {
   ).length;
   const gdprCount = delegates.filter((d) => d.gdpr).length;
   const withAccountCount = delegates.filter((d) => d.contactId).length;
-  const pendingCount = delegates.filter((d) => d.status === "PENDING").length;
+  const pendingCount = delegates.filter((d) => d.status?.toLowerCase() === "pending").length;
+
+  // --- MOBILE APP ---
+  const threeMonthsAgo = new Date();
+  threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+  const mobileAppDailyMap = {};
+  let mobileAppCount = 0;
+  if (mobileAppId) {
+    for (const d of delegates) {
+      const app = (d.contact?.apps || []).find((a) => a.id === mobileAppId && a.lastUsed);
+      if (!app) continue;
+      const lastUsed = new Date(app.lastUsed);
+      if (lastUsed >= threeMonthsAgo) mobileAppCount++;
+      const dayStr = lastUsed.toISOString().slice(0, 10);
+      mobileAppDailyMap[dayStr] = (mobileAppDailyMap[dayStr] || 0) + 1;
+    }
+  }
+  const mobileAppDaily = Object.entries(mobileAppDailyMap)
+    .map(([date, count]) => ({ date, count }))
+    .sort((a, b) => a.date.localeCompare(b.date));
 
   // Transform checkinFlow to object format {hourLabel: count} and {dateStr: count}
   const checkinHourlyObj = {};
@@ -291,6 +331,7 @@ export function computeAllStats(delegates) {
       accountsCount: withAccountCount,
       pendingCount,
       totalBadgesDelivered,
+      mobileAppCount,
     },
     demographics: {
       countries,
@@ -322,6 +363,12 @@ export function computeAllStats(delegates) {
         firstDate: minDate ? minDate.toISOString().slice(0, 10) : "-",
       },
     },
+    onboarding: {
+      daily: onboardingDaily,
+    },
+    mobileApp: {
+      daily: mobileAppDaily,
+    },
     checkinFlow: {
       hourly: checkinHourlyObj,
       byDay: checkinByDayObj,
@@ -330,6 +377,7 @@ export function computeAllStats(delegates) {
       byDay: badgesByDay,
       per15min: badgesPer15min,
       peakSlot,
+      byDevice: badgesByDevice,
     },
   };
 }

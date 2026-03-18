@@ -1,28 +1,37 @@
 <template>
   <div v-if="stats">
+    <FilterBanner
+      :has-filters="hasFilters"
+      :active-filters="activeFilters"
+      :filtered-count="filteredCount"
+      :total-count="stats.global.totalDelegatesCount"
+      @remove="removeFilter"
+      @clear="clearFilters"
+    />
+
     <div v-if="hasCheckinData" class="live-banner">
-      Check-in en cours — {{ fmt(stats.global.checkedInCount) }} / {{ fmt(stats.global.totalDelegatesCount) }} ({{ checkinPct }})
+      Check-in en cours — {{ fmt(fs.global.checkedInCount) }} / {{ fmt(fs.global.totalDelegatesCount) }} ({{ checkinPct }})
     </div>
 
     <div class="kpi-grid">
       <div class="kpi-card green">
         <div class="kpi-label">Checked-in</div>
-        <div class="kpi-value">{{ fmt(stats.global.checkedInCount) }}</div>
+        <div class="kpi-value">{{ fmt(fs.global.checkedInCount) }}</div>
         <div class="kpi-sub">{{ checkinPct }} du total</div>
       </div>
       <div class="kpi-card blue">
-        <div class="kpi-label">Restants</div>
-        <div class="kpi-value">{{ fmt(remaining) }}</div>
+        <div class="kpi-label">Restants (validés)</div>
+        <div class="kpi-value">{{ fmt(confirmedRemaining) }}</div>
       </div>
       <div class="kpi-card orange">
         <div class="kpi-label">RGPD signés</div>
-        <div class="kpi-value">{{ fmt(stats.global.gdprSignedCount) }}</div>
-        <div class="kpi-sub">{{ pct(stats.global.gdprSignedCount, stats.global.totalDelegatesCount) }} des inscrits</div>
+        <div class="kpi-value">{{ fmt(fs.global.gdprSignedCount) }}</div>
+        <div class="kpi-sub">{{ pct(fs.global.gdprSignedCount, fs.global.totalDelegatesCount) }} des inscrits</div>
       </div>
       <div class="kpi-card purple">
         <div class="kpi-label">Comptes créés</div>
-        <div class="kpi-value">{{ fmt(stats.global.accountsCount) }}</div>
-        <div class="kpi-sub">{{ pct(stats.global.accountsCount, stats.global.totalDelegatesCount) }} des inscrits</div>
+        <div class="kpi-value">{{ fmt(fs.global.accountsCount) }}</div>
+        <div class="kpi-sub">{{ pct(fs.global.accountsCount, fs.global.totalDelegatesCount) }} des inscrits</div>
       </div>
     </div>
 
@@ -31,9 +40,9 @@
       <div class="progress-bar-container">
         <div class="progress-bar" :style="{ width: checkinPct }"></div>
       </div>
-      <div style="display: flex; justify-content: space-between; font-size: 12px; color: #6b7280; margin-top: 4px;">
+      <div style="display: flex; justify-content: space-between; font-size: 12px; color: #646464; margin-top: 4px;">
         <span>0</span>
-        <span>{{ fmt(stats.global.totalDelegatesCount) }}</span>
+        <span>{{ fmt(fs.global.totalDelegatesCount) }}</span>
       </div>
     </div>
 
@@ -56,6 +65,8 @@
           :data="checkinByDayData"
           color="#30DD92"
           :height="200"
+          :active-label="afm.checkinDay"
+          @select="onCheckinDaySelect"
         />
         <p v-else class="empty-msg">Aucun check-in enregistré</p>
       </div>
@@ -67,8 +78,10 @@
         <div style="max-width: 200px; margin: 0 auto;">
           <DoughnutChart
             :labels="['RGPD signé', 'Non signé']"
-            :data="[stats.global.gdprSignedCount, stats.global.totalDelegatesCount - stats.global.gdprSignedCount]"
+            :data="[fs.global.gdprSignedCount, fs.global.totalDelegatesCount - fs.global.gdprSignedCount]"
             :colors="['#30DD92', '#e5e7eb']"
+            :active-label="afm.gdpr"
+            @select="onGdprSelect"
           />
         </div>
       </div>
@@ -76,13 +89,11 @@
         <h3>Onboarding / Comptes</h3>
         <div style="max-width: 200px; margin: 0 auto;">
           <DoughnutChart
-            :labels="['Connecté onboarding', 'Compte créé (pas connecté)', 'Aucun compte']"
-            :data="[
-              stats.global.onboardingCount,
-              stats.global.accountsCount - stats.global.onboardingCount,
-              stats.global.totalDelegatesCount - stats.global.accountsCount
-            ]"
+            :labels="onboardingLabels"
+            :data="onboardingData"
             :colors="['#30DD92', '#FFA600', '#e5e7eb']"
+            :active-label="afm.onboarding"
+            @select="onOnboardingSelect"
           />
         </div>
       </div>
@@ -95,22 +106,60 @@ import { computed } from "vue";
 import LineChart from "../charts/LineChart.vue";
 import HBarChart from "../charts/HBarChart.vue";
 import DoughnutChart from "../charts/DoughnutChart.vue";
+import FilterBanner from "../FilterBanner.vue";
+import { useFilteredStats } from "../../composables/useFilteredStats.js";
 
-const props = defineProps({ stats: Object });
+const props = defineProps({ stats: Object, delegates: Array });
+
+const {
+  filteredStats: fs, activeFilters, activeFilterMap: afm,
+  hasFilters, filteredCount, toggleFilter, removeFilter, clearFilters,
+} = useFilteredStats(() => props.delegates);
 
 const fmt = (n) => (n ?? 0).toLocaleString("fr-FR");
 const pct = (a, b) => (b > 0 ? ((a / b) * 100).toFixed(1) + "%" : "0%");
 
-const remaining = computed(() => (props.stats?.global?.totalDelegatesCount || 0) - (props.stats?.global?.checkedInCount || 0));
-const checkinPct = computed(() => pct(props.stats?.global?.checkedInCount, props.stats?.global?.totalDelegatesCount));
-const hasCheckinData = computed(() => (props.stats?.global?.checkedInCount || 0) > 0);
+// --- Filtres ---
+function onCheckinDaySelect(label) {
+  // label est au format "MM-DD", on cherche la date complète
+  const byDay = fs.value?.checkinFlow?.byDay || {};
+  const fullDate = Object.keys(byDay).find((d) => d.endsWith(label));
+  if (!fullDate) return;
+  toggleFilter("checkinDay", label, (d) =>
+    d.checkedInDate && d.checkedInDate.startsWith(fullDate)
+  );
+}
+function onGdprSelect(label) {
+  toggleFilter("gdpr", label, (d) =>
+    label === "RGPD signé" ? !!d.gdpr : !d.gdpr
+  );
+}
+function onOnboardingSelect(label) {
+  toggleFilter("onboarding", label, (d) => {
+    if (label === "Connecté onboarding") return !!d.firstOnboardingConnection;
+    if (label === "Compte créé (pas connecté)") return !!d.contactId && !d.firstOnboardingConnection;
+    return !d.contactId;
+  });
+}
+
+// --- Computed ---
+// Restants = delegates VALIDATED non checked-in
+const confirmedRemaining = computed(() => {
+  const delegates = props.delegates || [];
+  return delegates.filter(
+    (d) => d.status?.toLowerCase() === "validated" && !d.checkedInDate
+  ).length;
+});
+
+const checkinPct = computed(() => pct(fs.value?.global?.checkedInCount, fs.value?.global?.totalDelegatesCount));
+const hasCheckinData = computed(() => (fs.value?.global?.checkedInCount || 0) > 0);
 
 const hourlyLabels = computed(() => {
-  const h = props.stats?.checkinFlow?.hourly || {};
+  const h = fs.value?.checkinFlow?.hourly || {};
   return Object.keys(h).sort();
 });
 const hourlyDatasets = computed(() => {
-  const h = props.stats?.checkinFlow?.hourly || {};
+  const h = fs.value?.checkinFlow?.hourly || {};
   const sorted = Object.keys(h).sort();
   const data = sorted.map((k) => h[k]);
   let cumul = 0;
@@ -119,8 +168,8 @@ const hourlyDatasets = computed(() => {
     {
       label: "Check-in cumulés",
       data: cumulData,
-      borderColor: "#0F2D69",
-      backgroundColor: "rgba(15,45,105,0.08)",
+      borderColor: "#1E4E66",
+      backgroundColor: "rgba(30,78,102,0.08)",
       fill: true,
       tension: 0.3,
       pointRadius: 2,
@@ -140,13 +189,20 @@ const hourlyDatasets = computed(() => {
 });
 
 const checkinByDayLabels = computed(() => {
-  const d = props.stats?.checkinFlow?.byDay || {};
-  return Object.keys(d).sort();
+  const d = fs.value?.checkinFlow?.byDay || {};
+  return Object.keys(d).sort().map((k) => k.slice(5));
 });
 const checkinByDayData = computed(() => {
-  const d = props.stats?.checkinFlow?.byDay || {};
+  const d = fs.value?.checkinFlow?.byDay || {};
   return Object.keys(d).sort().map((k) => d[k]);
 });
+
+const onboardingLabels = ["Connecté onboarding", "Compte créé (pas connecté)", "Aucun compte"];
+const onboardingData = computed(() => [
+  fs.value.global.onboardingCount,
+  fs.value.global.accountsCount - fs.value.global.onboardingCount,
+  fs.value.global.totalDelegatesCount - fs.value.global.accountsCount,
+]);
 </script>
 
 <style scoped>
@@ -164,5 +220,5 @@ const checkinByDayData = computed(() => {
   height: 100%; border-radius: 8px; transition: width .5s ease;
   min-width: 2px;
 }
-.empty-msg { text-align: center; color: #9ca3af; padding: 20px; font-size: 13px; }
+.empty-msg { text-align: center; color: #646464; padding: 20px; font-size: 13px; }
 </style>

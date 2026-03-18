@@ -9,12 +9,12 @@ export function useExportPdf() {
       const html2pdf = (await import("html2pdf.js")).default;
       await html2pdf()
         .set({
-          margin: 10,
+          margin: [12, 10, 12, 10],
           filename,
           image: { type: "jpeg", quality: 0.95 },
-          html2canvas: { scale: 2, useCORS: true },
+          html2canvas: { scale: 2, useCORS: true, logging: false },
           jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
-          pagebreak: { mode: ["avoid-all", "css", "legacy"] },
+          pagebreak: { mode: ["css", "legacy"], before: ".pdf-page-break" },
         })
         .from(element)
         .save();

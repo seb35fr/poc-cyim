@@ -1,14 +1,23 @@
 <template>
   <div v-if="stats">
-    <div class="kpi-grid" v-if="stats.temporal.insights">
+    <FilterBanner
+      :has-filters="hasFilters"
+      :active-filters="activeFilters"
+      :filtered-count="filteredCount"
+      :total-count="stats.global.totalDelegatesCount"
+      @remove="removeFilter"
+      @clear="clearFilters"
+    />
+
+    <div class="kpi-grid" v-if="fs.temporal.insights">
       <div class="kpi-card blue">
         <div class="kpi-label">Jour pic d'inscriptions</div>
-        <div class="kpi-value">{{ stats.temporal.insights.peakDay?.date || '—' }}</div>
-        <div class="kpi-sub">{{ fmt(stats.temporal.insights.peakDay?.count || 0) }} inscriptions</div>
+        <div class="kpi-value">{{ fs.temporal.insights.peakDay?.date || '—' }}</div>
+        <div class="kpi-sub">{{ fmt(fs.temporal.insights.peakDay?.count || 0) }} inscriptions</div>
       </div>
       <div class="kpi-card green">
         <div class="kpi-label">Moyenne / jour</div>
-        <div class="kpi-value">{{ stats.temporal.insights.avgPerDay?.toFixed(1) || '0' }}</div>
+        <div class="kpi-value">{{ fs.temporal.insights.avgPerDay?.toFixed(1) || '0' }}</div>
       </div>
       <div class="kpi-card orange">
         <div class="kpi-label">Dernière semaine</div>
@@ -20,7 +29,7 @@
       </div>
     </div>
 
-    <div class="chart-card" v-if="stats.temporal.dailyRegistrations.length > 0" style="margin-bottom: 16px;">
+    <div class="chart-card" v-if="fs.temporal.dailyRegistrations.length > 0" style="margin-bottom: 16px;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
         <h3>Courbe d'inscriptions cumulées</h3>
         <div class="period-selector">
@@ -48,8 +57,10 @@
         <HBarChart
           :labels="dayOfWeekLabels"
           :data="dayOfWeekData"
-          color="#8b5cf6"
+          color="#6F45FF"
           :height="200"
+          :active-label="afm.dayOfWeek"
+          @select="onDayOfWeekSelect"
         />
       </div>
     </div>
@@ -84,9 +95,16 @@ import { ref, computed } from "vue";
 import LineChart from "../charts/LineChart.vue";
 import HBarChart from "../charts/HBarChart.vue";
 import StackedBarChart from "../charts/StackedBarChart.vue";
+import FilterBanner from "../FilterBanner.vue";
+import { useFilteredStats } from "../../composables/useFilteredStats.js";
 
-const props = defineProps({ stats: Object });
+const props = defineProps({ stats: Object, delegates: Array });
 const fmt = (n) => (n ?? 0).toLocaleString("fr-FR");
+
+const {
+  filteredStats: fs, activeFilters, activeFilterMap: afm,
+  hasFilters, filteredCount, toggleFilter, removeFilter, clearFilters,
+} = useFilteredStats(() => props.delegates);
 
 const selectedPeriod = ref("all");
 const periods = [
@@ -95,7 +113,21 @@ const periods = [
   { value: "all", label: "Tout" },
 ];
 
-const dailyRegs = computed(() => props.stats?.temporal?.dailyRegistrations || []);
+// --- Filtres ---
+const DAY_NAMES = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+const ISO_TO_JS = { 0: 1, 1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 6: 0 }; // index in DAY_NAMES → JS getDay()
+
+function onDayOfWeekSelect(label) {
+  const dayIndex = DAY_NAMES.indexOf(label);
+  const jsDay = ISO_TO_JS[dayIndex];
+  toggleFilter("dayOfWeek", label, (d) => {
+    if (!d.createdAt) return false;
+    return new Date(d.createdAt).getDay() === jsDay;
+  });
+}
+
+// --- Computed ---
+const dailyRegs = computed(() => fs.value?.temporal?.dailyRegistrations || []);
 
 const periodData = computed(() => {
   const d = dailyRegs.value;
@@ -114,8 +146,8 @@ const cumulDatasets = computed(() => {
     {
       label: "Inscriptions cumulées",
       data: cumulData,
-      borderColor: "#0F2D69",
-      backgroundColor: "rgba(15,45,105,0.08)",
+      borderColor: "#1E4E66",
+      backgroundColor: "rgba(30,78,102,0.08)",
       fill: true,
       tension: 0.3,
       pointRadius: 0,
@@ -140,8 +172,8 @@ const dailyBarDataset = computed(() => [
   {
     label: "Inscriptions",
     data: last30.value.map((d) => d.count),
-    borderColor: "#0F2D69",
-    backgroundColor: "rgba(15,45,105,0.6)",
+    borderColor: "#1E4E66",
+    backgroundColor: "rgba(30,78,102,0.6)",
     type: "bar",
     borderRadius: 3,
     barThickness: 10,
@@ -151,28 +183,27 @@ const dailyBarDataset = computed(() => [
 const lastWeekCount = computed(() => dailyRegs.value.slice(-7).reduce((s, d) => s + d.count, 0));
 
 const cancellationRate = computed(() => {
-  const cancelled = props.stats?.registrations?.statuses?.find((s) => s.value === "cancelled");
-  const total = props.stats?.global?.totalDelegatesCount || 0;
+  const cancelled = fs.value?.registrations?.statuses?.find((s) => s.value === "cancelled");
+  const total = fs.value?.global?.totalDelegatesCount || 0;
   return total > 0 && cancelled ? ((cancelled.totalCount / total) * 100).toFixed(1) + "%" : "0%";
 });
 
-const DAY_NAMES = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 const dayOfWeekLabels = computed(() => {
-  const dist = props.stats?.temporal?.dayOfWeekDistribution || {};
+  const dist = fs.value?.temporal?.dayOfWeekDistribution || {};
   return DAY_NAMES.filter((_, i) => (dist[i + 1] || 0) > 0 || true);
 });
 const dayOfWeekData = computed(() => {
-  const dist = props.stats?.temporal?.dayOfWeekDistribution || {};
+  const dist = fs.value?.temporal?.dayOfWeekDistribution || {};
   return DAY_NAMES.map((_, i) => dist[i + 1] || 0);
 });
 
-const TYPE_COLORS = ["#0F2D69", "#30DD92", "#FFA600", "#E53935", "#8b5cf6", "#3b82f6", "#f59e0b", "#6366f1"];
+const TYPE_COLORS = ["#1E4E66", "#30DD92", "#FFA600", "#E53935", "#6F45FF", "#3b82f6", "#f59e0b", "#6366f1"];
 
 const weeklyByTypeLabels = computed(() =>
-  (props.stats?.temporal?.weeklyByType || []).slice(-8).map((w) => w.week)
+  (fs.value?.temporal?.weeklyByType || []).slice(-8).map((w) => w.week)
 );
 const weeklyByTypeDatasets = computed(() => {
-  const weeks = (props.stats?.temporal?.weeklyByType || []).slice(-8);
+  const weeks = (fs.value?.temporal?.weeklyByType || []).slice(-8);
   const allTypes = [...new Set(weeks.flatMap((w) => Object.keys(w.types || {})))];
   return allTypes.map((type, i) => ({
     label: type,
@@ -183,11 +214,11 @@ const weeklyByTypeDatasets = computed(() => {
 });
 
 const weeklyStatusLabels = computed(() =>
-  (props.stats?.temporal?.weeklyStatuses || []).slice(-8).map((w) => w.week)
+  (fs.value?.temporal?.weeklyStatuses || []).slice(-8).map((w) => w.week)
 );
 const weeklyStatusDatasets = computed(() => {
-  const weeks = (props.stats?.temporal?.weeklyStatuses || []).slice(-8);
-  const STATUS_MAP = { confirmed: "#30DD92", pending: "#FFA600", cancelled: "#E53935", refused: "#8b5cf6" };
+  const weeks = (fs.value?.temporal?.weeklyStatuses || []).slice(-8);
+  const STATUS_MAP = { confirmed: "#30DD92", pending: "#FFA600", cancelled: "#E53935", refused: "#6F45FF" };
   const allStatuses = [...new Set(weeks.flatMap((w) => Object.keys(w.statuses || {})))];
   return allStatuses.map((status) => ({
     label: status,
@@ -202,8 +233,8 @@ const weeklyStatusDatasets = computed(() => {
 .period-selector { display: flex; gap: 4px; }
 .period-btn {
   padding: 4px 12px; border: 1px solid #d1d5db; background: #fff;
-  border-radius: 4px; font-size: 12px; cursor: pointer; color: #6b7280;
+  border-radius: 4px; font-size: 12px; cursor: pointer; color: var(--text-secondary);
 }
-.period-btn.active { background: #0F2D69; color: #fff; border-color: #0F2D69; }
-.empty-msg { text-align: center; color: #9ca3af; padding: 20px; font-size: 13px; }
+.period-btn.active { background: #1E4E66; color: #fff; border-color: #1E4E66; }
+.empty-msg { text-align: center; color: var(--text-muted); padding: 20px; font-size: 13px; }
 </style>

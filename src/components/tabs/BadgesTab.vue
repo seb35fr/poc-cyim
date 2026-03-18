@@ -1,26 +1,47 @@
 <template>
   <div v-if="stats">
+    <FilterBanner
+      :has-filters="hasFilters"
+      :active-filters="activeFilters"
+      :filtered-count="filteredCount"
+      :total-count="stats.global.totalDelegatesCount"
+      @remove="removeFilter"
+      @clear="clearFilters"
+    />
+
     <div class="kpi-grid">
       <div class="kpi-card blue">
         <div class="kpi-label">Badges délivrés</div>
-        <div class="kpi-value">{{ fmt(stats.global.totalBadgesDelivered) }}</div>
-        <div class="kpi-sub">{{ pct(stats.global.totalBadgesDelivered, stats.global.totalDelegatesCount) }} des inscrits</div>
+        <div class="kpi-value">{{ fmt(fs.global.totalBadgesDelivered) }}</div>
+        <div class="kpi-sub">{{ pct(fs.global.totalBadgesDelivered, registeredCount) }} des attendus</div>
       </div>
       <div class="kpi-card green">
         <div class="kpi-label">Check-in effectués</div>
-        <div class="kpi-value">{{ fmt(stats.global.checkedInCount) }}</div>
-        <div class="kpi-sub">{{ pct(stats.global.checkedInCount, stats.global.totalDelegatesCount) }} des inscrits</div>
+        <div class="kpi-value">{{ fmt(fs.global.checkedInCount) }}</div>
+        <div class="kpi-sub">{{ pct(fs.global.checkedInCount, registeredCount) }} des attendus</div>
       </div>
       <div class="kpi-card orange">
         <div class="kpi-label">Pic de performance (15 min)</div>
-        <div class="kpi-value">{{ stats.badges.peakSlot.count > 0 ? stats.badges.peakSlot.count + ' badges' : '—' }}</div>
-        <div class="kpi-sub" v-if="stats.badges.peakSlot.count > 0">
-          le {{ stats.badges.peakSlot.date }} à {{ stats.badges.peakSlot.time }}
+        <div class="kpi-value">{{ fs.badges.peakSlot.count > 0 ? fs.badges.peakSlot.count + ' badges' : '—' }}</div>
+        <div class="kpi-sub" v-if="fs.badges.peakSlot.count > 0">
+          le {{ fs.badges.peakSlot.date }} à {{ fs.badges.peakSlot.time }}
         </div>
       </div>
       <div class="kpi-card purple">
-        <div class="kpi-label">Restants sans badge</div>
-        <div class="kpi-value">{{ fmt(stats.global.totalDelegatesCount - stats.global.totalBadgesDelivered) }}</div>
+        <div class="kpi-label">Restants sans badge (validés)</div>
+        <div class="kpi-value">{{ fmt(confirmedWithoutBadge) }}</div>
+      </div>
+    </div>
+
+    <!-- Progression du check-in -->
+    <div class="chart-card" style="margin-bottom: 16px;">
+      <h3>Progression du check-in</h3>
+      <div class="progress-bar-container">
+        <div class="progress-bar-fill-checkin" :style="{ width: checkinPct }"></div>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 12px; color: #646464; margin-top: 4px;">
+        <span>{{ fmt(fs.global.checkedInCount) }} checked-in ({{ checkinPct }})</span>
+        <span>{{ fmt(registeredCount) }} attendus (registered)</span>
       </div>
     </div>
 
@@ -60,15 +81,43 @@
       <p v-else class="empty-msg">Aucune donnée de distribution</p>
     </div>
 
-    <!-- Check-in par jour -->
-    <div class="chart-card">
-      <h3>Check-in par jour</h3>
-      <template v-if="checkinDayLabels.length > 0">
-        <div :style="{ position: 'relative', height: '260px' }">
-          <Bar :data="checkinDayChartData" :options="barOptions" />
-        </div>
+    <!-- Badges imprimés par device -->
+    <div class="chart-card" style="margin-bottom: 16px;">
+      <h3>Badges imprimés par device</h3>
+      <template v-if="deviceLabels.length > 0">
+        <HBarChart
+          :labels="deviceLabels"
+          :data="deviceData"
+          color="#6F45FF"
+          :height="deviceChartHeight"
+          :active-label="afm.device"
+          @select="onDeviceSelect"
+        />
       </template>
-      <p v-else class="empty-msg">Aucun check-in enregistré</p>
+      <p v-else class="empty-msg">Aucune donnée de device</p>
+    </div>
+
+    <!-- Flux de check-in par heure -->
+    <div class="charts-row">
+      <div class="chart-card">
+        <h3>Flux de check-in par heure</h3>
+        <LineChart
+          v-if="hourlyLabels.length > 0"
+          :labels="hourlyLabels"
+          :datasets="hourlyDatasets"
+          :height="220"
+        />
+        <p v-else class="empty-msg">Aucun check-in enregistré</p>
+      </div>
+      <div class="chart-card">
+        <h3>Check-in par jour</h3>
+        <template v-if="checkinDayLabels.length > 0">
+          <div :style="{ position: 'relative', height: '260px' }">
+            <Bar :data="checkinDayChartData" :options="barOptions" />
+          </div>
+        </template>
+        <p v-else class="empty-msg">Aucun check-in enregistré</p>
+      </div>
     </div>
   </div>
 </template>
@@ -76,20 +125,52 @@
 <script setup>
 import { ref, computed } from "vue";
 import { Bar } from "vue-chartjs";
+import HBarChart from "../charts/HBarChart.vue";
+import LineChart from "../charts/LineChart.vue";
+import FilterBanner from "../FilterBanner.vue";
+import { useFilteredStats } from "../../composables/useFilteredStats.js";
 
-const props = defineProps({ stats: Object });
+const props = defineProps({ stats: Object, delegates: Array });
+
+const {
+  filteredStats: fs, activeFilters, activeFilterMap: afm,
+  hasFilters, filteredCount, toggleFilter, removeFilter, clearFilters,
+} = useFilteredStats(() => props.delegates);
 
 const fmt = (n) => (n ?? 0).toLocaleString("fr-FR");
 const pct = (a, b) => (b > 0 ? ((a / b) * 100).toFixed(1) + "%" : "0%");
 
+// --- Filtres ---
+function onDeviceSelect(label) {
+  toggleFilter("device", label, (d) =>
+    (d.badges || []).some((b) => (b.deliveredBy || "Inconnu") === label)
+  );
+}
+
+// Restants sans badge = delegates VALIDATED sans checkedInDate
+const confirmedWithoutBadge = computed(() => {
+  const delegates = props.delegates || [];
+  return delegates.filter(
+    (d) => d.status?.toLowerCase() === "registered" && !d.checkedInDate
+  ).length;
+});
+
+// Base = delegates au statut REGISTERED (ceux qui auront un badge)
+const registeredCount = computed(() => {
+  const delegates = props.delegates || [];
+  return delegates.filter((d) => d.status?.toLowerCase() === "registered").length;
+});
+
+const checkinPct = computed(() => pct(fs.value?.global?.checkedInCount, registeredCount.value));
+
 // --- Badges par jour ---
-const badgesDayLabels = computed(() => (props.stats?.badges?.byDay || []).map((d) => d.date.slice(5)));
+const badgesDayLabels = computed(() => (fs.value?.badges?.byDay || []).map((d) => d.date.slice(5)));
 const badgesDayChartData = computed(() => ({
   labels: badgesDayLabels.value,
   datasets: [{
     label: "Badges délivrés",
-    data: (props.stats?.badges?.byDay || []).map((d) => d.count),
-    backgroundColor: "#0F2D69",
+    data: (fs.value?.badges?.byDay || []).map((d) => d.count),
+    backgroundColor: "#1E4E66",
     borderRadius: 4,
     barThickness: Math.max(8, Math.min(32, 600 / (badgesDayLabels.value.length || 1))),
   }],
@@ -98,12 +179,12 @@ const badgesDayChartData = computed(() => ({
 // --- Performance 15 min ---
 const selectedDay = ref("all");
 const availableDays = computed(() => {
-  const days = [...new Set((props.stats?.badges?.per15min || []).map((s) => s.date))];
+  const days = [...new Set((fs.value?.badges?.per15min || []).map((s) => s.date))];
   return days.length > 1 ? ["all", ...days] : days;
 });
 
 const filtered15min = computed(() => {
-  const data = props.stats?.badges?.per15min || [];
+  const data = fs.value?.badges?.per15min || [];
   if (selectedDay.value === "all") return data;
   return data.filter((s) => s.date === selectedDay.value);
 });
@@ -123,7 +204,7 @@ const perf15ChartData = computed(() => ({
       const ratio = v / max;
       if (ratio > 0.8) return "#30DD92";
       if (ratio > 0.5) return "#FFA600";
-      return "#0F2D69";
+      return "#1E4E66";
     },
     borderRadius: 3,
     barThickness: Math.max(4, Math.min(16, 800 / (perf15Labels.value.length || 1))),
@@ -159,9 +240,50 @@ const perf15Options = {
   },
 };
 
+// --- Badges par device ---
+const byDevice = computed(() => fs.value?.badges?.byDevice || []);
+const deviceLabels = computed(() => byDevice.value.map((d) => d.device));
+const deviceData = computed(() => byDevice.value.map((d) => d.count));
+const deviceChartHeight = computed(() => Math.max(180, byDevice.value.length * 36));
+
+// --- Flux de check-in par heure ---
+const hourlyLabels = computed(() => {
+  const h = fs.value?.checkinFlow?.hourly || {};
+  return Object.keys(h).sort();
+});
+const hourlyDatasets = computed(() => {
+  const h = fs.value?.checkinFlow?.hourly || {};
+  const sorted = Object.keys(h).sort();
+  const data = sorted.map((k) => h[k]);
+  let cumul = 0;
+  const cumulData = data.map((v) => { cumul += v; return cumul; });
+  return [
+    {
+      label: "Check-in cumulés",
+      data: cumulData,
+      borderColor: "#1E4E66",
+      backgroundColor: "rgba(30,78,102,0.08)",
+      fill: true,
+      tension: 0.3,
+      pointRadius: 2,
+      borderWidth: 2,
+    },
+    {
+      label: "Check-in / heure",
+      data,
+      borderColor: "#30DD92",
+      backgroundColor: "rgba(48,221,146,0.5)",
+      type: "bar",
+      borderRadius: 3,
+      barThickness: 16,
+      yAxisID: "y1",
+    },
+  ];
+});
+
 // --- Check-in par jour ---
 const checkinByDay = computed(() => {
-  const obj = props.stats?.checkinFlow?.byDay || {};
+  const obj = fs.value?.checkinFlow?.byDay || {};
   return Object.entries(obj).sort(([a], [b]) => a.localeCompare(b));
 });
 const checkinDayLabels = computed(() => checkinByDay.value.map(([d]) => d.slice(5)));
@@ -185,7 +307,7 @@ const barOptions = {
       display: true,
       anchor: "end",
       align: "end",
-      color: "#374151",
+      color: "#414141",
       font: { weight: 600, size: 11 },
     },
   },
@@ -199,13 +321,21 @@ const barOptions = {
 <style scoped>
 .perf-summary {
   display: flex; gap: 24px; margin-top: 12px; padding: 10px 16px;
-  background: #f9fafb; border-radius: 8px; font-size: 13px; color: #374151;
+  background: #f9fafb; border-radius: 8px; font-size: 13px; color: #414141;
 }
 .period-selector { display: flex; gap: 4px; flex-wrap: wrap; }
 .period-btn {
   padding: 4px 10px; border: 1px solid #d1d5db; background: #fff;
-  border-radius: 4px; font-size: 11px; cursor: pointer; color: #6b7280;
+  border-radius: 4px; font-size: 11px; cursor: pointer; color: #646464;
 }
-.period-btn.active { background: #0F2D69; color: #fff; border-color: #0F2D69; }
+.period-btn.active { background: #1E4E66; color: #fff; border-color: #1E4E66; }
+.progress-bar-container {
+  background: #e5e7eb; border-radius: 8px; height: 24px; overflow: hidden;
+}
+.progress-bar-fill-checkin {
+  background: linear-gradient(90deg, #30DD92, #22c55e);
+  height: 100%; border-radius: 8px; transition: width .5s ease;
+  min-width: 2px;
+}
 .empty-msg { text-align: center; color: #9ca3af; padding: 20px; font-size: 13px; }
 </style>

@@ -56,6 +56,17 @@ const DELEGATE_FIELDS = `
     deliveredAt
     deliveredBy
   }
+  contact {
+    ... on Person {
+      apps {
+        id
+        lastUsed
+        version
+        name
+        platform
+      }
+    }
+  }
 `;
 
 export async function fetchMetrics(eventId) {
@@ -144,5 +155,24 @@ export async function fetchEventConfig(eventId) {
     }
   `;
   const data = await gqlFetch(query, { eventId });
-  return data.event.config;
+  const config = data.event.config || {};
+
+  // Requete separee via getEvent pour le mobileApplicationId
+  try {
+    const regQuery = `
+      query GetRegConfig($eventId: ID!) {
+        getEvent(id: $eventId) {
+          config {
+            mobileApplicationId
+          }
+        }
+      }
+    `;
+    const regData = await gqlFetch(regQuery, { eventId });
+    config.mobileAppId = regData.getEvent?.config?.mobileApplicationId || null;
+  } catch {
+    config.mobileAppId = null;
+  }
+
+  return config;
 }

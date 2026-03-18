@@ -8,7 +8,7 @@
       <HBarChart
         :labels="topCountries.map(c => c.value)"
         :data="topCountries.map(c => c.totalCount)"
-        color="#1a5cb0"
+        color="#2a6a8a"
         :height="300"
       />
     </div>
@@ -126,5 +126,5 @@ watch(() => props.countries, () => {
 
 <style scoped>
 .map-fallback { margin-top: 8px; }
-.map-fallback p { text-align: center; color: #9ca3af; font-size: 12px; margin-bottom: 8px; }
+.map-fallback p { text-align: center; color: #646464; font-size: 12px; margin-bottom: 8px; }
 </style>

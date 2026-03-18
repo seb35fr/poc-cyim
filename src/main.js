@@ -28,7 +28,7 @@ Chart.register(
   ChartDataLabels
 );
 
-Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+Chart.defaults.font.family = "'Poppins', system-ui, sans-serif";
 Chart.defaults.plugins.datalabels.display = false;
 
 const router = createRouter({
