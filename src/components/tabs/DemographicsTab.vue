@@ -25,13 +25,19 @@
     </div>
 
     <div class="chart-card" style="margin-bottom: 16px;">
-      <h3>Répartition géographique</h3>
+      <div class="chart-header">
+        <h3>Répartition géographique</h3>
+        <CsvButton filename="pays" :headers="['Pays', 'Nombre']" :rows="fs.demographics.countries.map(c => [c.value, c.totalCount])" />
+      </div>
       <ChoroplethMap :countries="fs.demographics.countries" :height="380" />
     </div>
 
     <div class="charts-row">
       <div class="chart-card">
-        <h3>Top 15 pays</h3>
+        <div class="chart-header">
+          <h3>Top 15 pays</h3>
+          <CsvButton filename="top15-pays" :headers="['Pays', 'Nombre']" :rows="top15Countries.map(c => [c.value, c.totalCount])" />
+        </div>
         <HBarChart
           :labels="top15Countries.map(c => c.value)"
           :data="top15Countries.map(c => c.totalCount)"
@@ -42,7 +48,10 @@
         />
       </div>
       <div class="chart-card">
-        <h3>Répartition par continent</h3>
+        <div class="chart-header">
+          <h3>Répartition par continent</h3>
+          <CsvButton filename="continents" :headers="['Continent', 'Nombre']" :rows="continentLabels.map((c, i) => [c, continentData[i]])" />
+        </div>
         <DoughnutChart
           :labels="continentLabels"
           :data="continentData"
@@ -60,7 +69,10 @@
 
     <div class="charts-row">
       <div class="chart-card">
-        <h3>Genre</h3>
+        <div class="chart-header">
+          <h3>Genre</h3>
+          <CsvButton filename="genre" :headers="['Genre', 'Nombre']" :rows="fs.demographics.genders.map(g => [g.value || 'Non renseigné', g.totalCount])" />
+        </div>
         <div style="max-width: 200px; margin: 0 auto;">
           <DoughnutChart
             :labels="fs.demographics.genders.map(g => g.value || 'Non renseigné')"
@@ -77,7 +89,10 @@
         </div>
       </div>
       <div class="chart-card">
-        <h3>Top 10 professions</h3>
+        <div class="chart-header">
+          <h3>Top 10 professions</h3>
+          <CsvButton filename="professions" :headers="['Profession', 'Nombre']" :rows="fs.demographics.occupations.slice(0,10).map(o => [o.value || 'Non renseigné', o.totalCount])" />
+        </div>
         <HBarChart
           :labels="fs.demographics.occupations.slice(0,10).map(o => o.value || 'Non renseigné')"
           :data="fs.demographics.occupations.slice(0,10).map(o => o.totalCount)"
@@ -90,7 +105,10 @@
 
     <div class="charts-row">
       <div class="chart-card">
-        <h3>Top 10 qualifications</h3>
+        <div class="chart-header">
+          <h3>Top 10 qualifications</h3>
+          <CsvButton filename="qualifications" :headers="['Qualification', 'Nombre']" :rows="fs.demographics.qualifications.slice(0,10).map(q => [q.value || 'Non renseigné', q.totalCount])" />
+        </div>
         <HBarChart
           :labels="fs.demographics.qualifications.slice(0,10).map(q => q.value || 'Non renseigné')"
           :data="fs.demographics.qualifications.slice(0,10).map(q => q.totalCount)"
@@ -100,7 +118,10 @@
         />
       </div>
       <div class="chart-card">
-        <h3>Top 10 entreprises / institutions</h3>
+        <div class="chart-header">
+          <h3>Top 10 entreprises / institutions</h3>
+          <CsvButton filename="entreprises" :headers="['Entreprise', 'Nombre']" :rows="fs.demographics.companies.slice(0,10).map(c => [c.value || 'Non renseigné', c.totalCount])" />
+        </div>
         <HBarChart
           :labels="fs.demographics.companies.slice(0,10).map(c => c.value || 'Non renseigné')"
           :data="fs.demographics.companies.slice(0,10).map(c => c.totalCount)"
@@ -112,7 +133,10 @@
     </div>
 
     <div class="chart-card" v-if="fs.demographics.countries.length > 0">
-      <h3>Tous les pays</h3>
+      <div class="chart-header">
+        <h3>Tous les pays</h3>
+        <CsvButton filename="tous-pays" :headers="['Pays', 'Inscrits', '%']" :rows="fs.demographics.countries.map(c => [c.value, c.totalCount, (c.totalCount / fs.global.totalDelegatesCount * 100).toFixed(1)])" />
+      </div>
       <table class="data-table">
         <thead>
           <tr><th>Pays</th><th>Inscrits</th><th>%</th></tr>
@@ -135,6 +159,7 @@ import DoughnutChart from "../charts/DoughnutChart.vue";
 import HBarChart from "../charts/HBarChart.vue";
 import ChoroplethMap from "../charts/ChoroplethMap.vue";
 import FilterBanner from "../FilterBanner.vue";
+import CsvButton from "../CsvButton.vue";
 import { countryCodeToFlag, COUNTRY_CONTINENTS } from "../../utils/countries.js";
 import { useFilteredStats } from "../../composables/useFilteredStats.js";
 

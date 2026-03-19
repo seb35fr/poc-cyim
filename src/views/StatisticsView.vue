@@ -237,6 +237,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   box-shadow: 0 1px 3px rgba(0,0,0,.06);
 }
 .chart-card h3 { font-size: 14px; color: var(--text); margin-bottom: 12px; }
+.chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.chart-header h3 { margin-bottom: 0; }
 
 .legend-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; justify-content: center; }
 .legend-pill {

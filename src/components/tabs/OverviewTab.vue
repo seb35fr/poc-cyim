@@ -52,7 +52,10 @@
 
     <div class="charts-row" style="margin-top: 16px;">
       <div class="chart-card" v-if="onboardingDaily.length > 0">
-        <h3>Evolution des connexions onboarding</h3>
+        <div class="chart-header">
+          <h3>Evolution des connexions onboarding</h3>
+          <CsvButton filename="onboarding" :headers="['Date', 'Connexions']" :rows="onboardingDaily.map(d => [d.date, d.count])" />
+        </div>
         <LineChart
           :labels="onboardingLabels"
           :datasets="onboardingDatasets"
@@ -60,7 +63,10 @@
         />
       </div>
       <div class="chart-card" v-if="mobileAppDaily.length > 0">
-        <h3>Utilisation de l'application mobile</h3>
+        <div class="chart-header">
+          <h3>Utilisation de l'application mobile</h3>
+          <CsvButton filename="mobile-app" :headers="['Date', 'Utilisateurs']" :rows="mobileAppDaily.map(d => [d.date, d.count])" />
+        </div>
         <LineChart
           :labels="mobileAppLabels"
           :datasets="mobileAppDatasets"
@@ -70,7 +76,10 @@
     </div>
 
     <div class="chart-card" v-if="fs.temporal.dailyRegistrations.length > 0" style="margin-top: 16px;">
-      <h3>Evolution des inscriptions</h3>
+      <div class="chart-header">
+        <h3>Evolution des inscriptions</h3>
+        <CsvButton filename="inscriptions" :headers="['Date', 'Inscriptions']" :rows="allDailyRegs.map(d => [d.date, d.count])" />
+      </div>
       <LineChart
         :labels="allDailyLabels"
         :datasets="timelineDatasets"
@@ -80,7 +89,10 @@
 
     <div class="charts-row" style="margin-top: 16px;">
       <div class="chart-card">
-        <h3>Repartition par type d'inscription</h3>
+        <div class="chart-header">
+          <h3>Repartition par type d'inscription</h3>
+          <CsvButton filename="types-inscription" :headers="['Type', 'Nombre']" :rows="fs.registrations.types.slice(0, 8).map(t => [t.value, t.totalCount])" />
+        </div>
         <HBarChart
           :labels="fs.registrations.types.slice(0, 8).map(t => t.value)"
           :data="fs.registrations.types.slice(0, 8).map(t => t.totalCount)"
@@ -89,7 +101,10 @@
         />
       </div>
       <div class="chart-card">
-        <h3>Top 10 categories</h3>
+        <div class="chart-header">
+          <h3>Top 10 categories</h3>
+          <CsvButton filename="categories" :headers="['Catégorie', 'Nombre']" :rows="topCategories.map(c => [c.value, c.totalCount])" />
+        </div>
         <HBarChart
           :labels="topCategories.map(c => c.value)"
           :data="topCategories.map(c => c.totalCount)"
@@ -108,6 +123,7 @@ import DoughnutChart from "../charts/DoughnutChart.vue";
 import HBarChart from "../charts/HBarChart.vue";
 import LineChart from "../charts/LineChart.vue";
 import FilterBanner from "../FilterBanner.vue";
+import CsvButton from "../CsvButton.vue";
 import { useFilteredStats } from "../../composables/useFilteredStats.js";
 
 const props = defineProps({ stats: Object, delegates: Array, mobileAppId: String });

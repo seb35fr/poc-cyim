@@ -32,6 +32,8 @@
     <div class="chart-card" v-if="fs.temporal.dailyRegistrations.length > 0" style="margin-bottom: 16px;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
         <h3>Courbe d'inscriptions cumulées</h3>
+        <div style="display: flex; align-items: center; gap: 8px;">
+        <CsvButton filename="inscriptions-cumulees" :headers="['Date', 'Inscriptions']" :rows="periodData.map(d => [d.date, d.count])" />
         <div class="period-selector">
           <button v-for="p in periods" :key="p.value"
             :class="['period-btn', { active: selectedPeriod === p.value }]"
@@ -39,13 +41,17 @@
             {{ p.label }}
           </button>
         </div>
+        </div>
       </div>
       <LineChart :labels="periodLabels" :datasets="cumulDatasets" :height="260" />
     </div>
 
     <div class="charts-row">
       <div class="chart-card">
-        <h3>Inscriptions par jour (30 derniers jours)</h3>
+        <div class="chart-header">
+          <h3>Inscriptions par jour (30 derniers jours)</h3>
+          <CsvButton filename="inscriptions-30j" :headers="['Date', 'Inscriptions']" :rows="last30.map(d => [d.date, d.count])" />
+        </div>
         <LineChart
           :labels="last30Labels"
           :datasets="dailyBarDataset"
@@ -53,7 +59,10 @@
         />
       </div>
       <div class="chart-card">
-        <h3>Distribution par jour de la semaine</h3>
+        <div class="chart-header">
+          <h3>Distribution par jour de la semaine</h3>
+          <CsvButton filename="jours-semaine" :headers="['Jour', 'Inscriptions']" :rows="dayOfWeekLabels.map((d, i) => [d, dayOfWeekData[i]])" />
+        </div>
         <HBarChart
           :labels="dayOfWeekLabels"
           :data="dayOfWeekData"
@@ -67,7 +76,10 @@
 
     <div class="charts-row">
       <div class="chart-card">
-        <h3>Inscriptions par semaine et par type (8 dernières)</h3>
+        <div class="chart-header">
+          <h3>Inscriptions par semaine et par type (8 dernières)</h3>
+          <CsvButton filename="hebdo-par-type" :headers="['Semaine', ...weeklyByTypeDatasets.map(d => d.label)]" :rows="weeklyByTypeLabels.map((w, i) => [w, ...weeklyByTypeDatasets.map(d => d.data[i])])" />
+        </div>
         <StackedBarChart
           v-if="weeklyByTypeLabels.length > 0"
           :labels="weeklyByTypeLabels"
@@ -77,7 +89,10 @@
         <p v-else class="empty-msg">Pas assez de données</p>
       </div>
       <div class="chart-card">
-        <h3>Évolution des statuts par semaine</h3>
+        <div class="chart-header">
+          <h3>Évolution des statuts par semaine</h3>
+          <CsvButton filename="hebdo-statuts" :headers="['Semaine', ...weeklyStatusDatasets.map(d => d.label)]" :rows="weeklyStatusLabels.map((w, i) => [w, ...weeklyStatusDatasets.map(d => d.data[i])])" />
+        </div>
         <StackedBarChart
           v-if="weeklyStatusLabels.length > 0"
           :labels="weeklyStatusLabels"
@@ -96,6 +111,7 @@ import LineChart from "../charts/LineChart.vue";
 import HBarChart from "../charts/HBarChart.vue";
 import StackedBarChart from "../charts/StackedBarChart.vue";
 import FilterBanner from "../FilterBanner.vue";
+import CsvButton from "../CsvButton.vue";
 import { useFilteredStats } from "../../composables/useFilteredStats.js";
 
 const props = defineProps({ stats: Object, delegates: Array });

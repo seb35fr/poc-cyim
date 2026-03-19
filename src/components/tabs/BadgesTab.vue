@@ -47,7 +47,10 @@
 
     <!-- Badges délivrés par jour -->
     <div class="chart-card" style="margin-bottom: 16px;">
-      <h3>Badges délivrés par jour</h3>
+      <div class="chart-header">
+        <h3>Badges délivrés par jour</h3>
+        <CsvButton filename="badges-par-jour" :headers="['Date', 'Badges']" :rows="(fs.badges.byDay || []).map(d => [d.date, d.count])" />
+      </div>
       <template v-if="badgesDayLabels.length > 0">
         <div :style="{ position: 'relative', height: '260px' }">
           <Bar :data="badgesDayChartData" :options="barOptions" />
@@ -60,12 +63,15 @@
     <div class="chart-card" style="margin-bottom: 16px;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
         <h3>Performance de distribution (créneaux de 15 min)</h3>
+        <div style="display: flex; align-items: center; gap: 8px;">
+        <CsvButton filename="perf-15min" :headers="['Date', 'Heure', 'Badges']" :rows="filtered15min.map(s => [s.date, s.time, s.count])" />
         <div v-if="availableDays.length > 1" class="period-selector">
           <button v-for="day in availableDays" :key="day"
             :class="['period-btn', { active: selectedDay === day }]"
             @click="selectedDay = day">
             {{ day === 'all' ? 'Tous' : day.slice(5) }}
           </button>
+        </div>
         </div>
       </div>
       <template v-if="perf15Labels.length > 0">
@@ -83,7 +89,10 @@
 
     <!-- Badges imprimés par device -->
     <div class="chart-card" style="margin-bottom: 16px;">
-      <h3>Badges imprimés par device</h3>
+      <div class="chart-header">
+        <h3>Badges imprimés par device</h3>
+        <CsvButton filename="badges-par-device" :headers="['Device', 'Badges']" :rows="byDevice.map(d => [d.device, d.count])" />
+      </div>
       <template v-if="deviceLabels.length > 0">
         <HBarChart
           :labels="deviceLabels"
@@ -100,7 +109,10 @@
     <!-- Flux de check-in par heure -->
     <div class="charts-row">
       <div class="chart-card">
-        <h3>Flux de check-in par heure</h3>
+        <div class="chart-header">
+          <h3>Flux de check-in par jour et heure</h3>
+          <CsvButton filename="checkin-par-heure" :headers="['Heure', ...checkinDays.map(d => d.slice(5))]" :rows="allCheckinHours.map(h => [h, ...checkinDays.map(day => (fs.checkinFlow?.byDayAndHour?.[day]?.[h] || 0))])" />
+        </div>
         <LineChart
           v-if="hourlyLabels.length > 0"
           :labels="hourlyLabels"
@@ -110,7 +122,10 @@
         <p v-else class="empty-msg">Aucun check-in enregistré</p>
       </div>
       <div class="chart-card">
-        <h3>Check-in par jour</h3>
+        <div class="chart-header">
+          <h3>Check-in par jour</h3>
+          <CsvButton filename="checkin-par-jour" :headers="['Date', 'Check-in']" :rows="checkinByDay.map(([d, c]) => [d, c])" />
+        </div>
         <template v-if="checkinDayLabels.length > 0">
           <div :style="{ position: 'relative', height: '260px' }">
             <Bar :data="checkinDayChartData" :options="barOptions" />
@@ -128,6 +143,7 @@ import { Bar } from "vue-chartjs";
 import HBarChart from "../charts/HBarChart.vue";
 import LineChart from "../charts/LineChart.vue";
 import FilterBanner from "../FilterBanner.vue";
+import CsvButton from "../CsvButton.vue";
 import { useFilteredStats } from "../../composables/useFilteredStats.js";
 
 const props = defineProps({ stats: Object, delegates: Array });
@@ -246,39 +262,34 @@ const deviceLabels = computed(() => byDevice.value.map((d) => d.device));
 const deviceData = computed(() => byDevice.value.map((d) => d.count));
 const deviceChartHeight = computed(() => Math.max(180, byDevice.value.length * 36));
 
-// --- Flux de check-in par heure ---
-const hourlyLabels = computed(() => {
-  const h = fs.value?.checkinFlow?.hourly || {};
-  return Object.keys(h).sort();
+// --- Flux de check-in par jour et heure ---
+const checkinDays = computed(() => {
+  const obj = fs.value?.checkinFlow?.byDayAndHour || {};
+  return Object.keys(obj).sort();
 });
+const allCheckinHours = computed(() => {
+  const obj = fs.value?.checkinFlow?.byDayAndHour || {};
+  const hours = new Set();
+  for (const dayData of Object.values(obj)) {
+    for (const h of Object.keys(dayData)) hours.add(h);
+  }
+  return [...hours].sort();
+});
+const hourlyLabels = computed(() => allCheckinHours.value);
+const dayColors = ["#1E4E66", "#30DD92", "#6F45FF", "#FFA600", "#FF6B6B", "#00BCD4", "#9C27B0"];
 const hourlyDatasets = computed(() => {
-  const h = fs.value?.checkinFlow?.hourly || {};
-  const sorted = Object.keys(h).sort();
-  const data = sorted.map((k) => h[k]);
-  let cumul = 0;
-  const cumulData = data.map((v) => { cumul += v; return cumul; });
-  return [
-    {
-      label: "Check-in cumulés",
-      data: cumulData,
-      borderColor: "#1E4E66",
-      backgroundColor: "rgba(30,78,102,0.08)",
-      fill: true,
-      tension: 0.3,
-      pointRadius: 2,
-      borderWidth: 2,
-    },
-    {
-      label: "Check-in / heure",
-      data,
-      borderColor: "#30DD92",
-      backgroundColor: "rgba(48,221,146,0.5)",
-      type: "bar",
-      borderRadius: 3,
-      barThickness: 16,
-      yAxisID: "y1",
-    },
-  ];
+  const obj = fs.value?.checkinFlow?.byDayAndHour || {};
+  const hours = allCheckinHours.value;
+  return checkinDays.value.map((day, i) => ({
+    label: day.slice(5),
+    data: hours.map((h) => obj[day]?.[h] || 0),
+    borderColor: dayColors[i % dayColors.length],
+    backgroundColor: dayColors[i % dayColors.length] + "33",
+    fill: false,
+    tension: 0.3,
+    pointRadius: 3,
+    borderWidth: 2,
+  }));
 });
 
 // --- Check-in par jour ---

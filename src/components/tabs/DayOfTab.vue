@@ -48,7 +48,10 @@
 
     <div class="charts-row">
       <div class="chart-card">
-        <h3>Flux de check-in par heure</h3>
+        <div class="chart-header">
+          <h3>Flux de check-in par heure</h3>
+          <CsvButton filename="checkin-horaire" :headers="['Heure', 'Check-in']" :rows="hourlyLabels.map(h => [h, (fs.checkinFlow?.hourly || {})[h] || 0])" />
+        </div>
         <LineChart
           v-if="hourlyLabels.length > 0"
           :labels="hourlyLabels"
@@ -58,7 +61,10 @@
         <p v-else class="empty-msg">Aucun check-in enregistré</p>
       </div>
       <div class="chart-card">
-        <h3>Check-in par jour</h3>
+        <div class="chart-header">
+          <h3>Check-in par jour</h3>
+          <CsvButton filename="checkin-jour" :headers="['Date', 'Check-in']" :rows="checkinByDayLabels.map((d, i) => [d, checkinByDayData[i]])" />
+        </div>
         <HBarChart
           v-if="checkinByDayLabels.length > 0"
           :labels="checkinByDayLabels"
@@ -74,7 +80,10 @@
 
     <div class="charts-row">
       <div class="chart-card">
-        <h3>Conformité RGPD</h3>
+        <div class="chart-header">
+          <h3>Conformité RGPD</h3>
+          <CsvButton filename="rgpd" :headers="['Statut', 'Nombre']" :rows="[['RGPD signé', fs.global.gdprSignedCount], ['Non signé', fs.global.totalDelegatesCount - fs.global.gdprSignedCount]]" />
+        </div>
         <div style="max-width: 200px; margin: 0 auto;">
           <DoughnutChart
             :labels="['RGPD signé', 'Non signé']"
@@ -86,7 +95,10 @@
         </div>
       </div>
       <div class="chart-card">
-        <h3>Onboarding / Comptes</h3>
+        <div class="chart-header">
+          <h3>Onboarding / Comptes</h3>
+          <CsvButton filename="onboarding" :headers="['Statut', 'Nombre']" :rows="onboardingLabels.map((l, i) => [l, onboardingData[i]])" />
+        </div>
         <div style="max-width: 200px; margin: 0 auto;">
           <DoughnutChart
             :labels="onboardingLabels"
@@ -107,6 +119,7 @@ import LineChart from "../charts/LineChart.vue";
 import HBarChart from "../charts/HBarChart.vue";
 import DoughnutChart from "../charts/DoughnutChart.vue";
 import FilterBanner from "../FilterBanner.vue";
+import CsvButton from "../CsvButton.vue";
 import { useFilteredStats } from "../../composables/useFilteredStats.js";
 
 const props = defineProps({ stats: Object, delegates: Array });

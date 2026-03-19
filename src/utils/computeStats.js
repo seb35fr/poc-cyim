@@ -312,9 +312,12 @@ export function computeAllStats(delegates, mobileAppId = null) {
 
   // Transform checkinFlow to object format {hourLabel: count} and {dateStr: count}
   const checkinHourlyObj = {};
+  const checkinByDayAndHour = {};
   for (const item of checkinHourly) {
     const label = `${String(item.hour).padStart(2, "0")}:00`;
     checkinHourlyObj[label] = (checkinHourlyObj[label] || 0) + item.count;
+    if (!checkinByDayAndHour[item.date]) checkinByDayAndHour[item.date] = {};
+    checkinByDayAndHour[item.date][label] = (checkinByDayAndHour[item.date][label] || 0) + item.count;
   }
   const checkinByDayObj = {};
   for (const item of checkinByDay) {
@@ -371,6 +374,7 @@ export function computeAllStats(delegates, mobileAppId = null) {
     },
     checkinFlow: {
       hourly: checkinHourlyObj,
+      byDayAndHour: checkinByDayAndHour,
       byDay: checkinByDayObj,
     },
     badges: {

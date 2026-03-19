@@ -30,7 +30,10 @@
 
     <div class="charts-row">
       <div class="chart-card">
-        <h3>Répartition par type d'inscription</h3>
+        <div class="chart-header">
+          <h3>Répartition par type d'inscription</h3>
+          <CsvButton filename="types-inscription" :headers="['Type', 'Nombre']" :rows="fs.registrations.types.map(t => [t.value, t.totalCount])" />
+        </div>
         <HBarChart
           :labels="fs.registrations.types.map(t => t.value)"
           :data="fs.registrations.types.map(t => t.totalCount)"
@@ -41,7 +44,10 @@
         />
       </div>
       <div class="chart-card">
-        <h3>Statut par type (top 8)</h3>
+        <div class="chart-header">
+          <h3>Statut par type (top 8)</h3>
+          <CsvButton filename="statut-par-type" :headers="['Type', ...statusByTypeDatasets.map(d => d.label)]" :rows="statusByTypeLabels.map((label, i) => [label, ...statusByTypeDatasets.map(d => d.data[i])])" />
+        </div>
         <StackedBarChart
           :labels="statusByTypeLabels"
           :datasets="statusByTypeDatasets"
@@ -53,7 +59,10 @@
 
     <div class="charts-row">
       <div class="chart-card">
-        <h3>Top 15 catégories</h3>
+        <div class="chart-header">
+          <h3>Top 15 catégories</h3>
+          <CsvButton filename="categories" :headers="['Catégorie', 'Nombre']" :rows="fs.registrations.categories.slice(0,15).map(c => [c.value, c.totalCount])" />
+        </div>
         <HBarChart
           :labels="fs.registrations.categories.slice(0,15).map(c => c.value)"
           :data="fs.registrations.categories.slice(0,15).map(c => c.totalCount)"
@@ -64,7 +73,10 @@
         />
       </div>
       <div class="chart-card">
-        <h3>Jours d'accès</h3>
+        <div class="chart-header">
+          <h3>Jours d'accès</h3>
+          <CsvButton filename="jours-acces" :headers="['Jour', 'Nombre']" :rows="fs.registrations.accessDays.map(a => [a.value, a.totalCount])" />
+        </div>
         <HBarChart
           v-if="fs.registrations.accessDays.length > 0"
           :labels="fs.registrations.accessDays.map(a => a.value)"
@@ -79,7 +91,10 @@
     </div>
 
     <div class="chart-card" v-if="fs.registrations.multiRegistrations.length > 0" style="margin-top: 16px;">
-      <h3>Délégués avec inscriptions multiples ({{ fs.registrations.multiRegistrations.length }})</h3>
+      <div class="chart-header">
+        <h3>Délégués avec inscriptions multiples ({{ fs.registrations.multiRegistrations.length }})</h3>
+        <CsvButton filename="multi-inscriptions" :headers="['Nom', 'Email', 'Nb inscriptions', 'Types']" :rows="fs.registrations.multiRegistrations.map(d => [d.name, d.email, d.count, d.types.join(', ')])" />
+      </div>
       <table class="data-table">
         <thead>
           <tr><th>Nom</th><th>Email</th><th>Nb inscriptions</th><th>Types</th></tr>
@@ -105,6 +120,7 @@ import { computed } from "vue";
 import HBarChart from "../charts/HBarChart.vue";
 import StackedBarChart from "../charts/StackedBarChart.vue";
 import FilterBanner from "../FilterBanner.vue";
+import CsvButton from "../CsvButton.vue";
 import { useFilteredStats } from "../../composables/useFilteredStats.js";
 
 const props = defineProps({ stats: Object, delegates: Array });
