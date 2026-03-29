@@ -24,7 +24,7 @@ Copy `.env.example` to `.env` with:
 
 ## Stack
 
-Vue 3 + Vite 6 + Vue Router + Chart.js 4 (vue-chartjs) + chartjs-chart-geo (world map) + html2pdf.js (client-side PDF export). No UI framework (custom CSS with CSS variables defined in `App.vue`).
+Vue 3 + Vite 6 + Vue Router + Chart.js 4 (vue-chartjs) + chartjs-chart-geo (world map) + html2pdf.js (client-side PDF export) + pptxgenjs (PowerPoint export). No UI framework (custom CSS with CSS variables defined in `App.vue`).
 
 ## Architecture
 
@@ -39,13 +39,17 @@ Vue 3 + Vite 6 + Vue Router + Chart.js 4 (vue-chartjs) + chartjs-chart-geo (worl
 | Composables | `src/composables/useStatistics.js` | Loads data, auto-refresh 10min, exposes `stats`, `delegates`, `mobileAppId`, `loading`, `refreshing`, `reload` |
 | | `src/composables/useFilteredStats.js` | Cross-filtering: filters delegates + recomputes stats per tab |
 | | `src/composables/useExportPdf.js` | PDF export via html2pdf.js (all tabs in one PDF) |
-| View | `src/views/StatisticsView.vue` | Main layout with tab navigation, refresh countdown, export button |
-| Tabs | `src/components/tabs/*.vue` | 5 tabs: Overview, Demographics, Registrations, Temporal, Badges & Check-in |
+| | `src/composables/useExportPptx.js` | PPTX export via pptxgenjs (slides with chart screenshots + textual analysis) |
+| View | `src/views/StatisticsView.vue` | Main layout with tab navigation, refresh countdown, export buttons |
+| Tabs | `src/components/tabs/*.vue` | 6 tabs: Overview, Demographics, Registrations, Temporal, Badges & Check-in, Day-of |
 | Charts | `src/components/charts/*.vue` | Reusable chart wrappers: Doughnut, HBar, Line, StackedBar, ChoroplethMap |
 | Filter | `src/components/FilterBanner.vue` | Reusable filter banner showing active filters with clear buttons |
+| CSV | `src/components/CsvButton.vue` | Per-chart CSV download button, uses `src/utils/exportCsv.js` |
 | Utils | `src/utils/countries.js` | Country code → continent/flag mapping |
+| | `src/utils/exportCsv.js` | CSV string generation + browser download trigger (semicolon-separated, FR locale) |
+| | `src/utils/generateAnalysis.js` | Textual analysis generator from stats (used in PPTX export) |
 
-**Stats object structure** (returned by `computeAllStats`): `{ global, demographics, registrations, temporal, onboarding, checkinFlow, badges }` — each tab consumes a subset.
+**Stats object structure** (returned by `computeAllStats`): `{ global, demographics, registrations, temporal, onboarding, checkinFlow, badges }` — each tab consumes a subset. The Day-of tab focuses on live check-in flow (check-in counts by day+hour).
 
 **Cross-filtering:** Each tab uses `useFilteredStats(getDelegates, getMobileAppId)` independently. Clicking a chart segment filters delegates and recomputes all stats within that tab. Charts accept `activeLabel` prop to dim non-selected segments. Filter state resets when switching tabs (v-if destroys/recreates components).
 
@@ -79,12 +83,23 @@ Delegate fields include `contact { ... on Person { apps { id lastUsed version na
 - Manual refresh shows a confirmation dialog
 - During refresh, a progress bar appears above the tabs (not replacing content)
 
-## Export PDF
+## Exports
 
-- Exports all 5 tabs in a single A4 landscape PDF with page breaks between tabs
+**PDF** (`useExportPdf.js`):
+- Exports all 6 tabs in a single A4 landscape PDF with page breaks between tabs
 - Temporarily renders all tabs simultaneously during export
 - Filename: `stats-{eventName}-{date}.pdf`
-- Button shows spinner + "Export en cours…" during generation
+
+**PPTX** (`useExportPptx.js`):
+- Generates a PowerPoint deck with chart screenshots (via html2canvas) + auto-generated textual analysis (`generateAnalysis.js`)
+- Uses CYIM brand colors and Poppins font
+- Filename: `stats-{eventName}-{date}.pptx`
+
+**CSV** (`CsvButton.vue` + `exportCsv.js`):
+- Per-chart CSV export button available on individual charts/tables
+- Semicolon-separated (`;`), FR locale, with proper escaping
+
+All export buttons show spinner + disabled state during generation.
 
 ## Conventions
 
