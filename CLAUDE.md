@@ -41,7 +41,7 @@ Vue 3 + Vite 6 + Vue Router + Chart.js 4 (vue-chartjs) + chartjs-chart-geo (worl
 | | `src/composables/useExportPdf.js` | PDF export via html2pdf.js (all tabs in one PDF) |
 | | `src/composables/useExportPptx.js` | PPTX export via pptxgenjs (slides with chart screenshots + textual analysis) |
 | View | `src/views/StatisticsView.vue` | Main layout with tab navigation, refresh countdown, export buttons |
-| Tabs | `src/components/tabs/*.vue` | 6 tabs: Overview, Demographics, Registrations, Temporal, Badges & Check-in, Day-of |
+| Tabs | `src/components/tabs/*.vue` | 7 tabs: Overview, Demographics, Registrations, Temporal, Badges & Check-in, Day-of, Donnees |
 | Charts | `src/components/charts/*.vue` | Reusable chart wrappers: Doughnut, HBar, Line, StackedBar, ChoroplethMap |
 | Filter | `src/components/FilterBanner.vue` | Reusable filter banner showing active filters with clear buttons |
 | CSV | `src/components/CsvButton.vue` | Per-chart CSV download button, uses `src/utils/exportCsv.js` |

@@ -35,7 +35,7 @@
       </div>
     </div>
 
-    <div class="chart-card" style="margin-bottom: 16px;">
+    <div class="chart-card">
       <h3>Progression du check-in</h3>
       <div class="progress-bar-container">
         <div class="progress-bar" :style="{ width: checkinPct }"></div>

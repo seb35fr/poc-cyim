@@ -24,7 +24,7 @@
       </div>
     </div>
 
-    <div class="chart-card" style="margin-bottom: 16px;">
+    <div class="chart-card">
       <div class="chart-header">
         <h3>Répartition géographique</h3>
         <CsvButton filename="pays" :headers="['Pays', 'Nombre']" :rows="fs.demographics.countries.map(c => [c.value, c.totalCount])" />

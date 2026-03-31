@@ -9,7 +9,7 @@
       @clear="clearFilters"
     />
 
-    <div class="kpi-row-all">
+    <div class="kpi-grid kpi-overview">
       <div class="kpi-card blue">
         <div class="kpi-label">Total inscrits</div>
         <div class="kpi-value">{{ fmt(fs.global.totalDelegatesCount) }}</div>
@@ -50,7 +50,7 @@
       </div>
     </div>
 
-    <div class="charts-row" style="margin-top: 16px;">
+    <div class="charts-row" >
       <div class="chart-card" v-if="onboardingDaily.length > 0">
         <div class="chart-header">
           <h3>Evolution des connexions onboarding</h3>
@@ -75,7 +75,7 @@
       </div>
     </div>
 
-    <div class="chart-card" v-if="fs.temporal.dailyRegistrations.length > 0" style="margin-top: 16px;">
+    <div class="chart-card" v-if="fs.temporal.dailyRegistrations.length > 0" >
       <div class="chart-header">
         <h3>Evolution des inscriptions</h3>
         <CsvButton filename="inscriptions" :headers="['Date', 'Inscriptions']" :rows="allDailyRegs.map(d => [d.date, d.count])" />
@@ -87,7 +87,7 @@
       />
     </div>
 
-    <div class="charts-row" style="margin-top: 16px;">
+    <div class="charts-row" >
       <div class="chart-card">
         <div class="chart-header">
           <h3>Repartition par type d'inscription</h3>
@@ -252,23 +252,16 @@ const onboardingDatasets = computed(() => {
 </script>
 
 <style scoped>
-.kpi-row-all {
-  display: flex; gap: 16px; margin-bottom: 0; align-items: stretch;
+.kpi-overview {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 }
-.kpi-row-all > .kpi-card { flex: 1; min-width: 0; }
 .kpi-card-status {
-  flex: 1.5; min-width: 0;
-  background: #fff; border-radius: 10px; padding: 16px;
-  box-shadow: 0 1px 3px rgba(0,0,0,.06);
+  grid-column: span 2; min-width: 0;
+  background: var(--card); border-radius: 10px; padding: 14px 16px;
+  box-shadow: var(--shadow);
 }
-.kpi-card-status .kpi-label { font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
-.status-row { display: flex; align-items: center; gap: 12px; }
+.kpi-card-status .kpi-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; font-weight: 600; }
+.status-row { display: flex; align-items: center; gap: 10px; }
 .legend-col { display: flex; flex-direction: column; gap: 3px; }
-@media (max-width: 1024px) {
-  .kpi-row-all { flex-wrap: wrap; }
-  .kpi-row-all > .kpi-card, .kpi-card-status { flex-basis: calc(50% - 8px); }
-}
-@media (max-width: 640px) {
-  .kpi-row-all { flex-direction: column; }
-}
+.legend-col .legend-pill { font-size: 10px; }
 </style>

@@ -90,7 +90,7 @@
       </div>
     </div>
 
-    <div class="chart-card" v-if="fs.registrations.multiRegistrations.length > 0" style="margin-top: 16px;">
+    <div class="chart-card" v-if="fs.registrations.multiRegistrations.length > 0">
       <div class="chart-header">
         <h3>Délégués avec inscriptions multiples ({{ fs.registrations.multiRegistrations.length }})</h3>
         <CsvButton filename="multi-inscriptions" :headers="['Nom', 'Email', 'Nb inscriptions', 'Types']" :rows="fs.registrations.multiRegistrations.map(d => [d.name, d.email, d.count, d.types.join(', ')])" />

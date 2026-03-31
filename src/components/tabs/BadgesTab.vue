@@ -34,19 +34,19 @@
     </div>
 
     <!-- Progression du check-in -->
-    <div class="chart-card" style="margin-bottom: 16px;">
+    <div class="chart-card">
       <h3>Progression du check-in</h3>
       <div class="progress-bar-container">
         <div class="progress-bar-fill-checkin" :style="{ width: checkinPct }"></div>
       </div>
-      <div style="display: flex; justify-content: space-between; font-size: 12px; color: #646464; margin-top: 4px;">
+      <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-secondary); margin-top: 4px;">
         <span>{{ fmt(fs.global.checkedInCount) }} checked-in ({{ checkinPct }})</span>
         <span>{{ fmt(registeredCount) }} attendus (registered)</span>
       </div>
     </div>
 
     <!-- Badges délivrés par jour -->
-    <div class="chart-card" style="margin-bottom: 16px;">
+    <div class="chart-card">
       <div class="chart-header">
         <h3>Badges délivrés par jour</h3>
         <CsvButton filename="badges-par-jour" :headers="['Date', 'Badges']" :rows="(fs.badges.byDay || []).map(d => [d.date, d.count])" />
@@ -60,10 +60,10 @@
     </div>
 
     <!-- Performance par créneau de 15 min -->
-    <div class="chart-card" style="margin-bottom: 16px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-        <h3>Performance de distribution (créneaux de 15 min)</h3>
-        <div style="display: flex; align-items: center; gap: 8px;">
+    <div class="chart-card">
+      <div class="chart-header">
+        <h3>Performance de distribution (creneaux de 15 min)</h3>
+        <div style="display: flex; align-items: center; gap: 6px;">
         <CsvButton filename="perf-15min" :headers="['Date', 'Heure', 'Badges']" :rows="filtered15min.map(s => [s.date, s.time, s.count])" />
         <div v-if="availableDays.length > 1" class="period-selector">
           <button v-for="day in availableDays" :key="day"
@@ -88,7 +88,7 @@
     </div>
 
     <!-- Badges imprimés par device -->
-    <div class="chart-card" style="margin-bottom: 16px;">
+    <div class="chart-card">
       <div class="chart-header">
         <h3>Badges imprimés par device</h3>
         <CsvButton filename="badges-par-device" :headers="['Device', 'Badges']" :rows="byDevice.map(d => [d.device, d.count])" />

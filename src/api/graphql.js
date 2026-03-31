@@ -36,6 +36,8 @@ const DELEGATE_FIELDS = `
   gdpr
   categories
   contactId
+  externalContactId
+  externalId
   firstOnboardingConnection
   primaryAddress {
     countryCode
@@ -53,11 +55,25 @@ const DELEGATE_FIELDS = `
   }
   badges {
     id
+    type
     deliveredAt
     deliveredBy
+    qrCode {
+      value
+      decodedValue
+    }
   }
   contact {
     ... on Person {
+      externalIds {
+        value
+        type
+      }
+      memberships(first: 50, includeFormer: false) {
+        items {
+          type
+        }
+      }
       apps {
         id
         lastUsed

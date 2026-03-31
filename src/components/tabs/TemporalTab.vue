@@ -29,8 +29,8 @@
       </div>
     </div>
 
-    <div class="chart-card" v-if="fs.temporal.dailyRegistrations.length > 0" style="margin-bottom: 16px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+    <div class="chart-card" v-if="fs.temporal.dailyRegistrations.length > 0">
+      <div class="chart-header">
         <h3>Courbe d'inscriptions cumulées</h3>
         <div style="display: flex; align-items: center; gap: 8px;">
         <CsvButton filename="inscriptions-cumulees" :headers="['Date', 'Inscriptions']" :rows="periodData.map(d => [d.date, d.count])" />
