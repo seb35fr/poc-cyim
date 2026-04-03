@@ -91,7 +91,7 @@
       <div class="chart-card">
         <div class="chart-header">
           <h3>Repartition par type d'inscription</h3>
-          <CsvButton filename="types-inscription" :headers="['Type', 'Nombre']" :rows="fs.registrations.types.slice(0, 8).map(t => [t.value, t.totalCount])" />
+          <CsvButton filename="types-inscription" :headers="['Type', 'Nombre']" :rows="fs.registrations.types.map(t => [t.value, t.totalCount])" />
         </div>
         <HBarChart
           :labels="fs.registrations.types.slice(0, 8).map(t => t.value)"

@@ -209,6 +209,7 @@ function exportDetailedCsv() {
     "country", "countryCode",
     "checkedInDate", "status",
     "type", "value", "decodedValue",
+    "externalId",
   ];
 
   const rows = [];
@@ -228,6 +229,7 @@ function exportDetailedCsv() {
         d.familyName || "", d.givenName || "",
         city, countryName, countryCode,
         checkIn, d.status || "", "", "", "",
+        d.externalId || "",
       ]);
     } else {
       for (const badge of badges) {
@@ -237,6 +239,7 @@ function exportDetailedCsv() {
           city, countryName, countryCode,
           checkIn, d.status || "",
           badge.type || "", badge.qrCode?.value || "", badge.qrCode?.decodedValue || "",
+          d.externalId || "",
         ]);
       }
     }

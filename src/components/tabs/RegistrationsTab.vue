@@ -61,7 +61,7 @@
       <div class="chart-card">
         <div class="chart-header">
           <h3>Top 15 catégories</h3>
-          <CsvButton filename="categories" :headers="['Catégorie', 'Nombre']" :rows="fs.registrations.categories.slice(0,15).map(c => [c.value, c.totalCount])" />
+          <CsvButton filename="categories" :headers="['Catégorie', 'Nombre']" :rows="fs.registrations.categories.map(c => [c.value, c.totalCount])" />
         </div>
         <HBarChart
           :labels="fs.registrations.categories.slice(0,15).map(c => c.value)"

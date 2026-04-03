@@ -91,7 +91,7 @@
       <div class="chart-card">
         <div class="chart-header">
           <h3>Top 10 professions</h3>
-          <CsvButton filename="professions" :headers="['Profession', 'Nombre']" :rows="fs.demographics.occupations.slice(0,10).map(o => [o.value || 'Non renseigné', o.totalCount])" />
+          <CsvButton filename="professions" :headers="['Profession', 'Nombre']" :rows="fs.demographics.occupations.map(o => [o.value || 'Non renseigné', o.totalCount])" />
         </div>
         <HBarChart
           :labels="fs.demographics.occupations.slice(0,10).map(o => o.value || 'Non renseigné')"
@@ -107,7 +107,7 @@
       <div class="chart-card">
         <div class="chart-header">
           <h3>Top 10 qualifications</h3>
-          <CsvButton filename="qualifications" :headers="['Qualification', 'Nombre']" :rows="fs.demographics.qualifications.slice(0,10).map(q => [q.value || 'Non renseigné', q.totalCount])" />
+          <CsvButton filename="qualifications" :headers="['Qualification', 'Nombre']" :rows="fs.demographics.qualifications.map(q => [q.value || 'Non renseigné', q.totalCount])" />
         </div>
         <HBarChart
           :labels="fs.demographics.qualifications.slice(0,10).map(q => q.value || 'Non renseigné')"
@@ -120,7 +120,7 @@
       <div class="chart-card">
         <div class="chart-header">
           <h3>Top 10 entreprises / institutions</h3>
-          <CsvButton filename="entreprises" :headers="['Entreprise', 'Nombre']" :rows="fs.demographics.companies.slice(0,10).map(c => [c.value || 'Non renseigné', c.totalCount])" />
+          <CsvButton filename="entreprises" :headers="['Entreprise', 'Nombre']" :rows="fs.demographics.companies.map(c => [c.value || 'Non renseigné', c.totalCount])" />
         </div>
         <HBarChart
           :labels="fs.demographics.companies.slice(0,10).map(c => c.value || 'Non renseigné')"
