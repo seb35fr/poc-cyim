@@ -1,4 +1,4 @@
-const GRAPHQL_URL = import.meta.env.VITE_GRAPHQL_URL;
+const GRAPHQL_URL = import.meta.env.DEV ? "/api/graphql" : import.meta.env.VITE_GRAPHQL_URL;
 const AUTH_TOKEN = import.meta.env.VITE_AUTH_TOKEN;
 
 async function gqlFetch(query, variables = {}) {
@@ -46,6 +46,7 @@ const DELEGATE_FIELDS = `
       code
     }
   }
+  options
   registrations {
     id
     type
@@ -58,6 +59,9 @@ const DELEGATE_FIELDS = `
     type
     deliveredAt
     deliveredBy
+    storage {
+      publicUrl
+    }
     qrCode {
       value
       decodedValue

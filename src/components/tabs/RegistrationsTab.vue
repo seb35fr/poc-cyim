@@ -90,17 +90,17 @@
       </div>
     </div>
 
-    <div class="chart-card" v-if="fs.registrations.multiRegistrations.length > 0">
+    <div class="chart-card" v-if="sortedMultiRegistrations.length > 0">
       <div class="chart-header">
-        <h3>Délégués avec inscriptions multiples ({{ fs.registrations.multiRegistrations.length }})</h3>
-        <CsvButton filename="multi-inscriptions" :headers="['Nom', 'Email', 'Nb inscriptions', 'Types']" :rows="fs.registrations.multiRegistrations.map(d => [d.name, d.email, d.count, d.types.join(', ')])" />
+        <h3>Délégués avec inscriptions multiples ({{ sortedMultiRegistrations.length }})</h3>
+        <CsvButton filename="multi-inscriptions" :headers="['Nom', 'Email', 'Nb inscriptions', 'Types']" :rows="sortedMultiRegistrations.map(d => [d.name, d.email, d.count, d.types.join(', ')])" />
       </div>
       <table class="data-table">
         <thead>
           <tr><th>Nom</th><th>Email</th><th>Nb inscriptions</th><th>Types</th></tr>
         </thead>
         <tbody>
-          <tr v-for="d in fs.registrations.multiRegistrations.slice(0, 50)" :key="d.id">
+          <tr v-for="d in sortedMultiRegistrations.slice(0, 50)" :key="d.id">
             <td>{{ d.name }}</td>
             <td>{{ d.email }}</td>
             <td>{{ d.count }}</td>
@@ -108,8 +108,8 @@
           </tr>
         </tbody>
       </table>
-      <p v-if="fs.registrations.multiRegistrations.length > 50" class="empty-msg">
-        ... et {{ fs.registrations.multiRegistrations.length - 50 }} autres
+      <p v-if="sortedMultiRegistrations.length > 50" class="empty-msg">
+        ... et {{ sortedMultiRegistrations.length - 50 }} autres
       </p>
     </div>
   </div>
@@ -155,6 +155,12 @@ function onAccessDaySelect(label) {
 }
 
 // --- Computed ---
+const sortedMultiRegistrations = computed(() =>
+  [...(fs.value?.registrations?.multiRegistrations || [])].sort((a, b) =>
+    a.types.join(", ").localeCompare(b.types.join(", "))
+  )
+);
+
 const statusByTypeLabels = computed(() =>
   (fs.value?.registrations?.types || []).slice(0, 8).map((t) => t.value)
 );

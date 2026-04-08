@@ -26,6 +26,29 @@
       </div>
     </div>
 
+    <!-- Filtres -->
+    <div class="filter-bar" v-if="allRegTypes.length > 0 || allAddonContents.length > 0">
+      <div class="filter-group" v-if="allRegTypes.length > 0">
+        <label class="filter-label">Type d'inscription</label>
+        <select v-model="filterRegType" class="filter-select">
+          <option value="">Tous</option>
+          <option v-for="t in allRegTypes" :key="t" :value="t">{{ t }}</option>
+        </select>
+      </div>
+      <div class="filter-group" v-if="allAddonContents.length > 0">
+        <label class="filter-label">Option / Addon</label>
+        <select v-model="filterAddonContent" class="filter-select">
+          <option value="">Tous</option>
+          <option v-for="c in allAddonContents" :key="c" :value="c">{{ c }}</option>
+        </select>
+      </div>
+      <button
+        v-if="filterRegType || filterAddonContent"
+        class="filter-clear-btn"
+        @click="filterRegType = ''; filterAddonContent = '';"
+      >Effacer les filtres</button>
+    </div>
+
     <!-- Table -->
     <div class="table-container">
       <table class="dtable">
@@ -53,7 +76,24 @@
             <td>{{ getMembershipTypes(d) || '—' }}</td>
             <td class="cell-mono">{{ d.externalContactId || '—' }}</td>
             <td class="cell-mono">{{ d.externalId || '—' }}</td>
+            <td>{{ getRegTypes(d) || '—' }}</td>
             <td class="cell-center">{{ d.badges?.length || 0 }}</td>
+            <td class="cell-center">
+              <template v-if="d.badges?.length">
+                <a
+                  v-for="b in d.badges.filter(b => b.storage?.publicUrl)"
+                  :key="b.id"
+                  :href="b.storage.publicUrl"
+                  target="_blank"
+                  class="badge-pdf-link"
+                  :title="b.type"
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 1h5l4 4v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z"/><polyline points="9 1 9 5 13 5"/></svg>
+                  {{ b.type }}
+                </a>
+              </template>
+              <span v-else>—</span>
+            </td>
           </tr>
           <tr v-if="filteredDelegates.length === 0">
             <td :colspan="columns.length" class="cell-empty">Aucun resultat</td>
@@ -107,6 +147,8 @@ const sortKey = ref("familyName");
 const sortDir = ref("asc");
 const currentPage = ref(1);
 const pageSize = ref(100);
+const filterRegType = ref("");
+const filterAddonContent = ref("");
 
 const columns = [
   { key: "familyName", label: "Nom" },
@@ -119,7 +161,9 @@ const columns = [
   { key: "membershipType", label: "Adhesion" },
   { key: "externalContactId", label: "Contact ext." },
   { key: "externalId", label: "Participant ext." },
+  { key: "regTypes", label: "Types inscr." },
   { key: "badgesCount", label: "Badges" },
+  { key: "badgePdf", label: "Badge PDF" },
 ];
 
 function getCountryCode(d) {
@@ -151,29 +195,99 @@ function getMembershipTypes(d) {
   return items.map((m) => m.type).filter(Boolean).join(", ");
 }
 
+function getRegTypes(d) {
+  return (d.registrations || []).map((r) => r.type).filter(Boolean).join(", ");
+}
+
+function formatOptions(d) {
+  const opts = d.options;
+  if (!opts || typeof opts !== "object") return "";
+  return Object.entries(opts)
+    .map(([k, v]) => {
+      if (Array.isArray(v)) return `${k}: ${v.join(", ")}`;
+      if (v === true) return k;
+      if (v === false || v == null) return null;
+      return `${k}: ${v}`;
+    })
+    .filter(Boolean)
+    .join(" | ");
+}
+
+// --- Listes uniques pour filtres ---
+const allRegTypes = computed(() => {
+  const set = new Set();
+  for (const d of props.delegates || []) {
+    for (const r of d.registrations || []) {
+      if (r.type) set.add(r.type);
+    }
+  }
+  return [...set].sort((a, b) => a.localeCompare(b, "fr"));
+});
+
+const allAddonContents = computed(() => {
+  const set = new Set();
+  for (const d of props.delegates || []) {
+    const addons = d.options?.addons;
+    if (Array.isArray(addons)) {
+      for (const a of addons) {
+        if (Array.isArray(a.content)) {
+          a.content.forEach((c) => { if (c) set.add(c); });
+        }
+      }
+    }
+  }
+  return [...set].sort((a, b) => a.localeCompare(b, "fr"));
+});
+
 function getSortValue(d, key) {
   if (key === "country") return getCountryName(d).toLowerCase();
   if (key === "badgesCount") return d.badges?.length || 0;
+  if (key === "badgePdf") return d.badges?.filter((b) => b.storage?.publicUrl).length || 0;
   if (key === "createdAt") return d.createdAt || "";
   if (key === "rpps") return getRpps(d).toLowerCase();
   if (key === "membershipType") return getMembershipTypes(d).toLowerCase();
+  if (key === "regTypes") return getRegTypes(d).toLowerCase();
+  if (key === "options") return formatOptions(d).toLowerCase();
   const val = d[key];
   return typeof val === "string" ? val.toLowerCase() : val || "";
 }
 
 const filteredDelegates = computed(() => {
   const q = searchQuery.value.toLowerCase().trim();
+  const regTypeFilter = filterRegType.value;
+  const addonContentFilter = filterAddonContent.value;
   let list = props.delegates || [];
+
+  // Filtre par type d'inscription
+  if (regTypeFilter) {
+    list = list.filter((d) =>
+      (d.registrations || []).some((r) => r.type === regTypeFilter)
+    );
+  }
+
+  // Filtre par addon content
+  if (addonContentFilter) {
+    list = list.filter((d) => {
+      const addons = d.options?.addons;
+      if (!Array.isArray(addons)) return false;
+      return addons.some((a) =>
+        Array.isArray(a.content) && a.content.includes(addonContentFilter)
+      );
+    });
+  }
+
+  // Recherche texte
   if (q) {
     list = list.filter((d) => {
       const hay = [
         d.familyName, d.givenName, d.email, d.status,
         getCountryName(d), getRpps(d), getMembershipTypes(d),
-        d.externalContactId, d.externalId,
+        d.externalContactId, d.externalId, getRegTypes(d), formatOptions(d),
       ].filter(Boolean).join(" ").toLowerCase();
       return hay.includes(q);
     });
   }
+
   const key = sortKey.value;
   const dir = sortDir.value === "asc" ? 1 : -1;
   return [...list].sort((a, b) => {
@@ -191,7 +305,7 @@ const paginatedDelegates = computed(() => {
   return filteredDelegates.value.slice(start, start + pageSize.value);
 });
 
-watch([searchQuery, sortKey, sortDir, pageSize], () => { currentPage.value = 1; });
+watch([searchQuery, sortKey, sortDir, pageSize, filterRegType, filterAddonContent], () => { currentPage.value = 1; });
 
 function toggleSort(key) {
   if (sortKey.value === key) {
@@ -208,8 +322,10 @@ function exportDetailedCsv() {
     "familyName", "givenName", "city",
     "country", "countryCode",
     "checkedInDate", "status",
-    "type", "value", "decodedValue",
+    "registrationTypes",
+    "badgeType", "badgeQrCode", "badgeDecodedQr",
     "externalId",
+    "badgesCount",
   ];
 
   const rows = [];
@@ -221,6 +337,7 @@ function exportDetailedCsv() {
     const countryCode = getCountryCode(d);
     const countryName = getCountryName(d);
     const checkIn = d.checkedInDate || "";
+    const regTypes = getRegTypes(d);
 
     const badges = d.badges || [];
     if (badges.length === 0) {
@@ -228,8 +345,11 @@ function exportDetailedCsv() {
         d.id, d.externalContactId || "", d.email || "", rpps,
         d.familyName || "", d.givenName || "",
         city, countryName, countryCode,
-        checkIn, d.status || "", "", "", "",
+        checkIn, d.status || "",
+        regTypes,
+        "", "", "",
         d.externalId || "",
+        badges.length,
       ]);
     } else {
       for (const badge of badges) {
@@ -238,8 +358,10 @@ function exportDetailedCsv() {
           d.familyName || "", d.givenName || "",
           city, countryName, countryCode,
           checkIn, d.status || "",
+          regTypes,
           badge.type || "", badge.qrCode?.value || "", badge.qrCode?.decodedValue || "",
           d.externalId || "",
+          badges.length,
         ]);
       }
     }
@@ -357,6 +479,18 @@ function getRpps(d) {
 .cell-center { text-align: center; font-weight: 600; }
 .cell-empty { text-align: center; color: var(--text-muted); padding: 40px 10px !important; font-style: italic; }
 
+/* Badge PDF links */
+.badge-pdf-link {
+  display: inline-flex; align-items: center; gap: 3px;
+  color: var(--primary); text-decoration: none;
+  font-size: 10.5px; font-weight: 500;
+  padding: 1px 5px; border-radius: 4px;
+  transition: background .15s, color .15s;
+  white-space: nowrap;
+}
+.badge-pdf-link:hover { background: rgba(30, 78, 102, 0.08); text-decoration: underline; }
+.badge-pdf-link + .badge-pdf-link { margin-left: 4px; }
+
 /* Status pills */
 .status-pill {
   display: inline-block; padding: 1px 7px; border-radius: 8px;
@@ -390,4 +524,30 @@ function getRpps(d) {
 .pager-btn:disabled { opacity: .3; cursor: default; }
 .pager-info { font-weight: 600; min-width: 50px; text-align: center; }
 .pager-range { font-variant-numeric: tabular-nums; color: var(--text-muted); }
+
+/* ── Filter bar ── */
+.filter-bar {
+  display: flex; align-items: flex-end; gap: 12px;
+  margin-bottom: 12px; flex-wrap: wrap;
+  padding: 10px 14px;
+  background: #f8f9fb; border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.filter-group { display: flex; flex-direction: column; gap: 3px; }
+.filter-label {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .3px; color: var(--text-muted);
+}
+.filter-select {
+  padding: 5px 8px; border: 1px solid var(--border); border-radius: 6px;
+  font-size: 12px; background: var(--card); cursor: pointer;
+  min-width: 140px; max-width: 260px;
+}
+.filter-select:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 2px rgba(30, 78, 102, 0.08); }
+.filter-clear-btn {
+  padding: 5px 10px; border: 1px solid #e5e7eb; border-radius: 6px;
+  background: #fff; font-size: 11px; color: var(--text-secondary);
+  cursor: pointer; transition: all .15s;
+}
+.filter-clear-btn:hover { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
 </style>
