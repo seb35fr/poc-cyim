@@ -3,24 +3,41 @@ import { computeAllStats } from "../utils/computeStats.js";
 
 /**
  * Composable de cross-filtering : filtre les delegates bruts et recalcule les stats.
+ * Supporte le multi-select : plusieurs labels par clé (OR intra-clé, AND inter-clés).
  * @param {Function} getDelegates - getter qui retourne le tableau de delegates
  */
 export function useFilteredStats(getDelegates, getMobileAppId = () => null) {
+  // Map<key, Map<label, filterFn>>
   const filters = ref(new Map());
 
   function toggleFilter(key, label, filterFn) {
     const next = new Map(filters.value);
-    if (filters.value.has(key) && filters.value.get(key).label === label) {
-      next.delete(key);
+    if (next.has(key)) {
+      const entry = new Map(next.get(key));
+      if (entry.has(label)) {
+        entry.delete(label);
+        if (entry.size === 0) next.delete(key);
+        else next.set(key, entry);
+      } else {
+        entry.set(label, filterFn);
+        next.set(key, entry);
+      }
     } else {
-      next.set(key, { label, filterFn });
+      next.set(key, new Map([[label, filterFn]]));
     }
     filters.value = next;
   }
 
-  function removeFilter(key) {
+  function removeFilter(key, label) {
     const next = new Map(filters.value);
-    next.delete(key);
+    if (label !== undefined && next.has(key)) {
+      const entry = new Map(next.get(key));
+      entry.delete(label);
+      if (entry.size === 0) next.delete(key);
+      else next.set(key, entry);
+    } else {
+      next.delete(key);
+    }
     filters.value = next;
   }
 
@@ -31,8 +48,10 @@ export function useFilteredStats(getDelegates, getMobileAppId = () => null) {
   const filteredDelegates = computed(() => {
     let result = getDelegates();
     if (!result) return [];
-    for (const { filterFn } of filters.value.values()) {
-      result = result.filter(filterFn);
+    for (const fns of filters.value.values()) {
+      // OR intra-clé : le delegate doit matcher au moins un filterFn du groupe
+      const fnList = [...fns.values()];
+      result = result.filter((d) => fnList.some((fn) => fn(d)));
     }
     return result;
   });
@@ -43,17 +62,21 @@ export function useFilteredStats(getDelegates, getMobileAppId = () => null) {
 
   const activeFilters = computed(() => {
     const arr = [];
-    for (const [key, { label }] of filters.value) {
-      arr.push({ key, label });
+    for (const [key, entry] of filters.value) {
+      for (const label of entry.keys()) {
+        arr.push({ key, label });
+      }
     }
     return arr;
   });
 
-  // Map key → label pour passer activeLabel aux charts
+  // Map key → label(s) pour passer activeLabel aux charts
+  // Un seul label → string, plusieurs → array
   const activeFilterMap = computed(() => {
     const map = {};
-    for (const [key, { label }] of filters.value) {
-      map[key] = label;
+    for (const [key, entry] of filters.value) {
+      const labels = [...entry.keys()];
+      map[key] = labels.length === 1 ? labels[0] : labels;
     }
     return map;
   });

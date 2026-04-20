@@ -5,7 +5,7 @@
       :active-filters="activeFilters"
       :filtered-count="filteredCount"
       :total-count="stats.global.totalDelegatesCount"
-      @remove="removeFilter"
+      @remove="(key, label) => removeFilter(key, label)"
       @clear="clearFilters"
     />
 
@@ -257,7 +257,7 @@ const perf15Options = {
 };
 
 // --- Badges par device ---
-const byDevice = computed(() => fs.value?.badges?.byDevice || []);
+const byDevice = computed(() => props.stats?.badges?.byDevice || []);
 const deviceLabels = computed(() => byDevice.value.map((d) => d.device));
 const deviceData = computed(() => byDevice.value.map((d) => d.count));
 const deviceChartHeight = computed(() => Math.max(180, byDevice.value.length * 36));

@@ -13,7 +13,7 @@ const props = defineProps({
   data: Array,
   color: { type: String, default: "#1E4E66" },
   height: { type: Number, default: 260 },
-  activeLabel: { type: String, default: null },
+  activeLabel: { type: [String, Array], default: null },
 });
 
 const emit = defineEmits(["select"]);
@@ -26,9 +26,15 @@ function dimColor(hex, alpha) {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
+function isActive(label) {
+  if (!props.activeLabel) return true;
+  if (Array.isArray(props.activeLabel)) return props.activeLabel.includes(label);
+  return label === props.activeLabel;
+}
+
 const chartData = computed(() => {
   const colors = (props.labels || []).map((label) => {
-    if (props.activeLabel && label !== props.activeLabel) return dimColor(props.color, 0.2);
+    if (props.activeLabel && !isActive(label)) return dimColor(props.color, 0.2);
     return props.color;
   });
   return {
