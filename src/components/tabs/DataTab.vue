@@ -326,6 +326,7 @@ function exportDetailedCsv() {
     "badgeType", "badgeQrCode", "badgeDecodedQr",
     "externalId",
     "badgesCount",
+    "notes",
   ];
 
   const rows = [];
@@ -338,6 +339,7 @@ function exportDetailedCsv() {
     const countryName = getCountryName(d);
     const checkIn = d.checkedInDate || "";
     const regTypes = getRegTypes(d);
+    const notes = Array.isArray(d.notes) ? d.notes.filter(Boolean).join(" | ") : "";
 
     const badges = d.badges || [];
     if (badges.length === 0) {
@@ -350,6 +352,7 @@ function exportDetailedCsv() {
         "", "", "",
         d.externalId || "",
         badges.length,
+        notes,
       ]);
     } else {
       for (const badge of badges) {
@@ -362,6 +365,7 @@ function exportDetailedCsv() {
           badge.type || "", badge.qrCode?.value || "", badge.qrCode?.decodedValue || "",
           d.externalId || "",
           badges.length,
+          notes,
         ]);
       }
     }

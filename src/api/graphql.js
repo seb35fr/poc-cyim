@@ -39,6 +39,7 @@ const DELEGATE_FIELDS = `
   externalContactId
   externalId
   firstOnboardingConnection
+  notes
   primaryAddress {
     countryCode
     city
