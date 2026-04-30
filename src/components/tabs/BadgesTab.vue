@@ -145,6 +145,7 @@ import LineChart from "../charts/LineChart.vue";
 import FilterBanner from "../FilterBanner.vue";
 import CsvButton from "../CsvButton.vue";
 import { useFilteredStats } from "../../composables/useFilteredStats.js";
+import { makeDateLabeler } from "../../utils/formatDateLabel.js";
 
 const props = defineProps({ stats: Object, delegates: Array });
 
@@ -180,7 +181,11 @@ const registeredCount = computed(() => {
 const checkinPct = computed(() => pct(fs.value?.global?.checkedInCount, registeredCount.value));
 
 // --- Badges par jour ---
-const badgesDayLabels = computed(() => (fs.value?.badges?.byDay || []).map((d) => d.date.slice(5)));
+const badgesDayLabels = computed(() => {
+  const dates = (fs.value?.badges?.byDay || []).map((d) => d.date);
+  const labelFor = makeDateLabeler(dates);
+  return dates.map(labelFor);
+});
 const badgesDayChartData = computed(() => ({
   labels: badgesDayLabels.value,
   datasets: [{
@@ -205,9 +210,12 @@ const filtered15min = computed(() => {
   return data.filter((s) => s.date === selectedDay.value);
 });
 
-const perf15Labels = computed(() =>
-  filtered15min.value.map((s) => selectedDay.value === "all" ? `${s.date.slice(5)} ${s.time}` : s.time)
-);
+const perf15Labels = computed(() => {
+  const data = filtered15min.value;
+  if (selectedDay.value !== "all") return data.map((s) => s.time);
+  const labelFor = makeDateLabeler(data.map((s) => s.date));
+  return data.map((s) => `${labelFor(s.date)} ${s.time}`);
+});
 
 const perf15ChartData = computed(() => ({
   labels: perf15Labels.value,
@@ -280,8 +288,9 @@ const dayColors = ["#1E4E66", "#30DD92", "#6F45FF", "#FFA600", "#FF6B6B", "#00BC
 const hourlyDatasets = computed(() => {
   const obj = fs.value?.checkinFlow?.byDayAndHour || {};
   const hours = allCheckinHours.value;
+  const labelFor = makeDateLabeler(checkinDays.value);
   return checkinDays.value.map((day, i) => ({
-    label: day.slice(5),
+    label: labelFor(day),
     data: hours.map((h) => obj[day]?.[h] || 0),
     borderColor: dayColors[i % dayColors.length],
     backgroundColor: dayColors[i % dayColors.length] + "33",
@@ -297,7 +306,11 @@ const checkinByDay = computed(() => {
   const obj = fs.value?.checkinFlow?.byDay || {};
   return Object.entries(obj).sort(([a], [b]) => a.localeCompare(b));
 });
-const checkinDayLabels = computed(() => checkinByDay.value.map(([d]) => d.slice(5)));
+const checkinDayLabels = computed(() => {
+  const dates = checkinByDay.value.map(([d]) => d);
+  const labelFor = makeDateLabeler(dates);
+  return dates.map(labelFor);
+});
 const checkinDayChartData = computed(() => ({
   labels: checkinDayLabels.value,
   datasets: [{

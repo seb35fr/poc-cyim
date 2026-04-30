@@ -121,6 +121,7 @@ import DoughnutChart from "../charts/DoughnutChart.vue";
 import FilterBanner from "../FilterBanner.vue";
 import CsvButton from "../CsvButton.vue";
 import { useFilteredStats } from "../../composables/useFilteredStats.js";
+import { makeDateLabeler } from "../../utils/formatDateLabel.js";
 
 const props = defineProps({ stats: Object, delegates: Array });
 
@@ -203,7 +204,9 @@ const hourlyDatasets = computed(() => {
 
 const checkinByDayLabels = computed(() => {
   const d = fs.value?.checkinFlow?.byDay || {};
-  return Object.keys(d).sort().map((k) => k.slice(5));
+  const dates = Object.keys(d).sort();
+  const labelFor = makeDateLabeler(dates);
+  return dates.map(labelFor);
 });
 const checkinByDayData = computed(() => {
   const d = fs.value?.checkinFlow?.byDay || {};

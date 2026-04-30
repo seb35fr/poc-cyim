@@ -125,6 +125,7 @@ import LineChart from "../charts/LineChart.vue";
 import FilterBanner from "../FilterBanner.vue";
 import CsvButton from "../CsvButton.vue";
 import { useFilteredStats } from "../../composables/useFilteredStats.js";
+import { makeDateLabeler } from "../../utils/formatDateLabel.js";
 
 const props = defineProps({ stats: Object, delegates: Array, mobileAppId: String });
 
@@ -158,7 +159,11 @@ const topCategories = computed(() => (fs.value?.registrations?.categories || [])
 
 // --- Mobile app timeline ---
 const mobileAppDaily = computed(() => fs.value?.mobileApp?.daily || []);
-const mobileAppLabels = computed(() => mobileAppDaily.value.map((d) => d.date.slice(5)));
+const mobileAppLabels = computed(() => {
+  const dates = mobileAppDaily.value.map((d) => d.date);
+  const labelFor = makeDateLabeler(dates);
+  return dates.map(labelFor);
+});
 const mobileAppDatasets = computed(() => {
   const daily = mobileAppDaily.value.map((d) => d.count);
   let cumul = 0;
@@ -189,7 +194,11 @@ const mobileAppDatasets = computed(() => {
 
 // Toutes les inscriptions depuis le premier delegate
 const allDailyRegs = computed(() => fs.value?.temporal?.dailyRegistrations || []);
-const allDailyLabels = computed(() => allDailyRegs.value.map((d) => d.date.slice(5)));
+const allDailyLabels = computed(() => {
+  const dates = allDailyRegs.value.map((d) => d.date);
+  const labelFor = makeDateLabeler(dates);
+  return dates.map(labelFor);
+});
 
 const timelineDatasets = computed(() => {
   const daily = allDailyRegs.value.map((d) => d.count);
@@ -221,7 +230,11 @@ const timelineDatasets = computed(() => {
 
 // --- Onboarding timeline ---
 const onboardingDaily = computed(() => fs.value?.onboarding?.daily || []);
-const onboardingLabels = computed(() => onboardingDaily.value.map((d) => d.date.slice(5)));
+const onboardingLabels = computed(() => {
+  const dates = onboardingDaily.value.map((d) => d.date);
+  const labelFor = makeDateLabeler(dates);
+  return dates.map(labelFor);
+});
 const onboardingDatasets = computed(() => {
   const daily = onboardingDaily.value.map((d) => d.count);
   let cumul = 0;

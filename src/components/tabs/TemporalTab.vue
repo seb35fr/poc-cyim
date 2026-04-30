@@ -113,6 +113,7 @@ import StackedBarChart from "../charts/StackedBarChart.vue";
 import FilterBanner from "../FilterBanner.vue";
 import CsvButton from "../CsvButton.vue";
 import { useFilteredStats } from "../../composables/useFilteredStats.js";
+import { makeDateLabeler } from "../../utils/formatDateLabel.js";
 
 const props = defineProps({ stats: Object, delegates: Array });
 const fmt = (n) => (n ?? 0).toLocaleString("fr-FR");
@@ -151,7 +152,11 @@ const periodData = computed(() => {
   return d.slice(-Number(selectedPeriod.value));
 });
 
-const periodLabels = computed(() => periodData.value.map((d) => d.date.slice(5)));
+const periodLabels = computed(() => {
+  const dates = periodData.value.map((d) => d.date);
+  const labelFor = makeDateLabeler(dates);
+  return dates.map(labelFor);
+});
 
 const cumulDatasets = computed(() => {
   const d = periodData.value;
@@ -183,7 +188,11 @@ const cumulDatasets = computed(() => {
 });
 
 const last30 = computed(() => dailyRegs.value.slice(-30));
-const last30Labels = computed(() => last30.value.map((d) => d.date.slice(5)));
+const last30Labels = computed(() => {
+  const dates = last30.value.map((d) => d.date);
+  const labelFor = makeDateLabeler(dates);
+  return dates.map(labelFor);
+});
 const dailyBarDataset = computed(() => [
   {
     label: "Inscriptions",
