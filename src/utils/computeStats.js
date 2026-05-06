@@ -295,13 +295,17 @@ export function computeAllStats(delegates, mobileAppId = null) {
   const threeMonthsAgo = new Date();
   threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
   const mobileAppDailyMap = {};
+  const seenContactIds = new Set();
   let mobileAppCount = 0;
   if (mobileAppId) {
     for (const d of delegates) {
+      if (d.contactId && seenContactIds.has(d.contactId)) continue;
       const app = (d.contact?.apps || []).find((a) => a.id === mobileAppId && a.lastUsed);
       if (!app) continue;
+      if (d.contactId) seenContactIds.add(d.contactId);
       const lastUsed = new Date(app.lastUsed);
-      if (lastUsed >= threeMonthsAgo) mobileAppCount++;
+      if (lastUsed < threeMonthsAgo) continue;
+      mobileAppCount++;
       const dayStr = lastUsed.toISOString().slice(0, 10);
       mobileAppDailyMap[dayStr] = (mobileAppDailyMap[dayStr] || 0) + 1;
     }
