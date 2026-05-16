@@ -49,12 +49,13 @@
     <div class="chart-card">
       <div class="chart-header">
         <h3>Badges délivrés par jour</h3>
-        <CsvButton filename="badges-par-jour" :headers="['Date', 'Badges']" :rows="(fs.badges.byDay || []).map(d => [d.date, d.count])" />
+        <CsvButton filename="badges-par-jour" :headers="['Date', 'Badges']" :rows="(stats.badges.byDay || []).map(d => [d.date, d.count])" />
       </div>
       <template v-if="badgesDayLabels.length > 0">
         <div :style="{ position: 'relative', height: '260px' }">
-          <Bar :data="badgesDayChartData" :options="barOptions" />
+          <Bar :data="badgesDayChartData" :options="badgesDayOptions" />
         </div>
+        <p class="chart-hint">Cliquez sur un ou plusieurs jours pour filtrer la page.</p>
       </template>
       <p v-else class="empty-msg">Aucun badge délivré</p>
     </div>
@@ -164,6 +165,20 @@ function onDeviceSelect(label) {
   );
 }
 
+function onBadgesDaySelect(index) {
+  const day = badgesDaySource.value[index];
+  if (!day) return;
+  const isoDate = day.date;
+  const displayLabel = badgesDayLabels.value[index];
+  toggleFilter("badgeDay", displayLabel, (d) =>
+    (d.badges || []).some(
+      (b) =>
+        b.deliveredAt &&
+        new Date(b.deliveredAt).toISOString().slice(0, 10) === isoDate
+    )
+  );
+}
+
 // Restants sans badge = delegates VALIDATED sans checkedInDate
 const confirmedWithoutBadge = computed(() => {
   const delegates = props.delegates || [];
@@ -181,20 +196,59 @@ const registeredCount = computed(() => {
 const checkinPct = computed(() => pct(fs.value?.global?.checkedInCount, registeredCount.value));
 
 // --- Badges par jour ---
+// Source non filtree pour ne pas masquer les jours non selectionnes pendant la multi-selection.
+const badgesDaySource = computed(() => props.stats?.badges?.byDay || []);
 const badgesDayLabels = computed(() => {
-  const dates = (fs.value?.badges?.byDay || []).map((d) => d.date);
+  const dates = badgesDaySource.value.map((d) => d.date);
   const labelFor = makeDateLabeler(dates);
   return dates.map(labelFor);
 });
-const badgesDayChartData = computed(() => ({
-  labels: badgesDayLabels.value,
-  datasets: [{
-    label: "Badges délivrés",
-    data: (fs.value?.badges?.byDay || []).map((d) => d.count),
-    backgroundColor: "#1E4E66",
-    borderRadius: 4,
-    barThickness: Math.max(8, Math.min(32, 600 / (badgesDayLabels.value.length || 1))),
-  }],
+const badgesDayChartData = computed(() => {
+  const labels = badgesDayLabels.value;
+  const active = afm.value?.badgeDay;
+  const isActive = (label) => {
+    if (!active) return true;
+    if (Array.isArray(active)) return active.includes(label);
+    return label === active;
+  };
+  return {
+    labels,
+    datasets: [{
+      label: "Badges délivrés",
+      data: badgesDaySource.value.map((d) => d.count),
+      backgroundColor: labels.map((l) =>
+        active && !isActive(l) ? "rgba(30,78,102,0.25)" : "#1E4E66"
+      ),
+      borderRadius: 4,
+      barThickness: Math.max(8, Math.min(32, 600 / (labels.length || 1))),
+    }],
+  };
+});
+
+const badgesDayOptions = computed(() => ({
+  responsive: true,
+  maintainAspectRatio: false,
+  onClick: (event, elements) => {
+    if (elements.length > 0) onBadgesDaySelect(elements[0].index);
+  },
+  onHover: (event, elements) => {
+    const canvas = event.native?.target;
+    if (canvas) canvas.style.cursor = elements.length > 0 ? "pointer" : "default";
+  },
+  plugins: {
+    legend: { display: false },
+    datalabels: {
+      display: true,
+      anchor: "end",
+      align: "end",
+      color: "#414141",
+      font: { weight: 600, size: 11 },
+    },
+  },
+  scales: {
+    x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+    y: { grid: { color: "#f3f4f6" }, ticks: { font: { size: 11 } }, beginAtZero: true },
+  },
 }));
 
 // --- Performance 15 min ---
@@ -362,4 +416,5 @@ const barOptions = {
   min-width: 2px;
 }
 .empty-msg { text-align: center; color: #9ca3af; padding: 20px; font-size: 13px; }
+.chart-hint { text-align: right; color: #9ca3af; font-size: 11px; margin: 6px 4px 0; font-style: italic; }
 </style>

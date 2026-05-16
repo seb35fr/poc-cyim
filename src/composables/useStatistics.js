@@ -4,7 +4,8 @@ import { computeAllStats } from "../utils/computeStats.js";
 
 const AUTO_REFRESH_INTERVAL = 10 * 60 * 1000; // 10 minutes
 
-export function useStatistics(eventId) {
+export function useStatistics(eventId, options = {}) {
+  const { autoRefresh = true } = options;
   const loading = ref(true);
   const refreshing = ref(false);
   const error = ref(null);
@@ -47,14 +48,15 @@ export function useStatistics(eventId) {
 
   load();
 
-  // Auto-refresh toutes les 10 minutes
+  // Auto-refresh toutes les 10 minutes (desactivable pour l'event de comparaison).
   const nextRefreshAt = ref(Date.now() + AUTO_REFRESH_INTERVAL);
-  const autoRefreshTimer = setInterval(() => {
-    nextRefreshAt.value = Date.now() + AUTO_REFRESH_INTERVAL;
-    load();
-  }, AUTO_REFRESH_INTERVAL);
-
-  onUnmounted(() => clearInterval(autoRefreshTimer));
+  if (autoRefresh) {
+    const autoRefreshTimer = setInterval(() => {
+      nextRefreshAt.value = Date.now() + AUTO_REFRESH_INTERVAL;
+      load();
+    }, AUTO_REFRESH_INTERVAL);
+    onUnmounted(() => clearInterval(autoRefreshTimer));
+  }
 
   return {
     loading: readonly(loading),

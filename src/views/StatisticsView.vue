@@ -68,7 +68,7 @@
 
         <div id="pdf-content" class="tab-content" :class="{ 'pdf-exporting': exporting || exportingPptx }">
           <template v-if="exporting || exportingPptx">
-            <div v-for="tab in tabs" :key="'pdf-' + tab.id" :data-tab-id="tab.id">
+            <div v-for="tab in exportTabs" :key="'pdf-' + tab.id" :data-tab-id="tab.id">
               <div class="pdf-page-break"></div>
               <h2 class="pdf-tab-title">{{ tab.label }}</h2>
               <OverviewTab v-if="tab.id === 'overview'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
@@ -86,6 +86,18 @@
             <TemporalTab v-if="activeTab === 'temporal'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
             <BadgesTab v-if="activeTab === 'badges'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
             <DataTab v-if="activeTab === 'data'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
+            <ComparisonTab
+              v-if="activeTab === 'comparison'"
+              :stats="stats"
+              :delegates="delegates"
+              :event-name="eventName"
+              :compare-stats="compareStats"
+              :compare-delegates="compareDelegates"
+              :compare-event-name="compareEventName"
+              :compare-loading="compareLoading"
+              :compare-error="compareError"
+              :compare-progress="compareProgress"
+            />
           </template>
         </div>
       </template>
@@ -105,10 +117,23 @@ import RegistrationsTab from "../components/tabs/RegistrationsTab.vue";
 import TemporalTab from "../components/tabs/TemporalTab.vue";
 import BadgesTab from "../components/tabs/BadgesTab.vue";
 import DataTab from "../components/tabs/DataTab.vue";
+import ComparisonTab from "../components/tabs/ComparisonTab.vue";
 
 const route = useRoute();
 const eventId = route.params.eventId;
+const compareEventId = route.query.compareWith || null;
 const { loading, refreshing, error, progress, stats, eventName, delegates, mobileAppId, reload, nextRefreshAt } = useStatistics(eventId);
+
+// Event de comparaison : chargement one-shot, sans auto-refresh.
+const compareApi = compareEventId
+  ? useStatistics(compareEventId, { autoRefresh: false })
+  : null;
+const compareLoading = computed(() => compareApi?.loading.value || false);
+const compareError = computed(() => compareApi?.error.value || null);
+const compareStats = computed(() => compareApi?.stats.value || null);
+const compareEventName = computed(() => compareApi?.eventName.value || "");
+const compareDelegates = computed(() => compareApi?.delegates.value || []);
+const compareProgress = computed(() => compareApi?.progress.value || { loaded: 0, total: 0, page: 0 });
 
 const now = ref(Date.now());
 const countdownTimer = setInterval(() => { now.value = Date.now(); }, 10_000);
@@ -149,14 +174,16 @@ async function handleExportPptx() {
   await nextTick();
   await new Promise((r) => setTimeout(r, 500));
   const el = document.getElementById("pdf-content");
-  await exportToPptx(el, tabs, stats.value, registeredCount.value, eventName.value);
+  await exportToPptx(el, exportTabs, stats.value, registeredCount.value, eventName.value);
 }
 
 const progressPercent = computed(() =>
   progress.value.total > 0 ? Math.round((progress.value.loaded / progress.value.total) * 100) : 0
 );
 const activeTab = ref("overview");
-const tabs = [
+
+// Tabs exportes (PDF/PPTX). L'onglet Comparatif est volontairement exclu des exports.
+const exportTabs = [
   { id: "overview", label: "Vue d'ensemble", icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>' },
   { id: "demographics", label: "Demographie", icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>' },
   { id: "registrations", label: "Inscriptions", icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>' },
@@ -164,6 +191,19 @@ const tabs = [
   { id: "badges", label: "Badges & Check-in", icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>' },
   { id: "data", label: "Donnees", icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>' },
 ];
+
+// Tabs affiches dans la sidebar : ajoute le Comparatif si compareWith est dans l'URL.
+const tabs = computed(() => {
+  if (!compareEventId) return exportTabs;
+  return [
+    ...exportTabs,
+    {
+      id: "comparison",
+      label: "Comparatif",
+      icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M8 21H3v-5"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>',
+    },
+  ];
+});
 </script>
 
 <style>
