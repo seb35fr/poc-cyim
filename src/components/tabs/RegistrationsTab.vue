@@ -28,6 +28,34 @@
       </div>
     </div>
 
+    <!-- Repartition par statut (deplacee depuis Vue d'ensemble) -->
+    <div class="chart-card">
+      <div class="chart-header">
+        <h3>Répartition par statut</h3>
+        <CsvButton
+          filename="statuts-inscription"
+          :headers="['Statut', 'Nombre']"
+          :rows="fs.registrations.statuses.map(s => [s.value, s.totalCount])"
+        />
+      </div>
+      <div class="status-row">
+        <div style="width: 180px; flex-shrink: 0;">
+          <DoughnutChart
+            :labels="fs.registrations.statuses.map(s => s.value)"
+            :data="fs.registrations.statuses.map(s => s.totalCount)"
+            :colors="['#30DD92', '#FFA600', '#E53935', '#6F45FF', '#e5e7eb']"
+            :active-label="afm.status"
+            @select="onStatusSelect"
+          />
+        </div>
+        <div class="legend-col">
+          <span v-for="s in fs.registrations.statuses" :key="s.value" class="legend-pill">
+            {{ s.value }} <strong>{{ fmt(s.totalCount) }}</strong>
+          </span>
+        </div>
+      </div>
+    </div>
+
     <div class="charts-row">
       <div class="chart-card">
         <div class="chart-header">
@@ -117,6 +145,7 @@
 
 <script setup>
 import { computed } from "vue";
+import DoughnutChart from "../charts/DoughnutChart.vue";
 import HBarChart from "../charts/HBarChart.vue";
 import StackedBarChart from "../charts/StackedBarChart.vue";
 import FilterBanner from "../FilterBanner.vue";
@@ -131,6 +160,8 @@ const {
   hasFilters, filteredCount, toggleFilter, removeFilter, clearFilters,
 } = useFilteredStats(() => props.delegates);
 
+const fmt = (n) => (n ?? 0).toLocaleString("fr-FR");
+
 const STATUS_COLORS = {
   confirmed: "#30DD92",
   pending: "#FFA600",
@@ -139,6 +170,9 @@ const STATUS_COLORS = {
 };
 
 // --- Filtres ---
+function onStatusSelect(label) {
+  toggleFilter("status", label, (d) => d.status === label);
+}
 function onTypeSelect(label) {
   toggleFilter("regType", label, (d) => (d.registrations || []).some((r) => r.type === label));
 }
@@ -180,4 +214,7 @@ const statusByTypeDatasets = computed(() => {
 
 <style scoped>
 .empty-msg { text-align: center; color: var(--text-muted); padding: 20px; font-size: 13px; }
+.status-row { display: flex; align-items: center; gap: 16px; }
+.legend-col { display: flex; flex-direction: column; gap: 4px; }
+.legend-col .legend-pill { font-size: 11px; }
 </style>

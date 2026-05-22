@@ -8,12 +8,28 @@
       </div>
 
       <nav class="sidebar-nav">
-        <button v-for="tab in tabs" :key="tab.id"
-          :class="['nav-item', { active: activeTab === tab.id }]"
-          @click="activeTab = tab.id">
-          <span class="nav-icon" v-html="tab.icon"></span>
-          <span class="nav-label">{{ tab.label }}</span>
-        </button>
+        <template v-for="node in tabs" :key="node.id">
+          <!-- Leaf : tab navigable -->
+          <button v-if="!node.children"
+            :class="['nav-item', { active: activeTab === node.id }]"
+            @click="activeTab = node.id">
+            <span class="nav-icon" v-html="node.icon"></span>
+            <span class="nav-label">{{ node.label }}</span>
+          </button>
+          <!-- Group : header non navigable + enfants indentes -->
+          <template v-else>
+            <div :class="['nav-group-header', { 'is-active': isGroupActive(node) }]">
+              <span class="nav-icon" v-html="node.icon"></span>
+              <span class="nav-label">{{ node.label }}</span>
+            </div>
+            <button v-for="child in node.children" :key="child.id"
+              :class="['nav-item', 'nav-child', { active: activeTab === child.id }]"
+              @click="activeTab = child.id">
+              <span class="nav-icon" v-html="child.icon"></span>
+              <span class="nav-label">{{ child.label }}</span>
+            </button>
+          </template>
+        </template>
       </nav>
 
       <div class="sidebar-footer">
@@ -76,6 +92,9 @@
               <RegistrationsTab v-if="tab.id === 'registrations'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
               <TemporalTab v-if="tab.id === 'temporal'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
               <BadgesTab v-if="tab.id === 'badges'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
+              <ScansTab v-if="tab.id === 'scans'" />
+              <LiveTab v-if="tab.id === 'live'" :delegates="delegates" />
+              <ReplayTab v-if="tab.id === 'replay'" :delegates="delegates" />
               <DataTab v-if="tab.id === 'data'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
               <ComparisonTab
                 v-if="tab.id === 'comparison'"
@@ -97,6 +116,9 @@
             <RegistrationsTab v-if="activeTab === 'registrations'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
             <TemporalTab v-if="activeTab === 'temporal'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
             <BadgesTab v-if="activeTab === 'badges'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
+            <ScansTab v-if="activeTab === 'scans'" />
+            <LiveTab v-if="activeTab === 'live'" :delegates="delegates" />
+            <ReplayTab v-if="activeTab === 'replay'" :delegates="delegates" />
             <DataTab v-if="activeTab === 'data'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
             <ComparisonTab
               v-if="activeTab === 'comparison'"
@@ -130,6 +152,9 @@ import TemporalTab from "../components/tabs/TemporalTab.vue";
 import BadgesTab from "../components/tabs/BadgesTab.vue";
 import DataTab from "../components/tabs/DataTab.vue";
 import ComparisonTab from "../components/tabs/ComparisonTab.vue";
+import ScansTab from "../components/tabs/ScansTab.vue";
+import LiveTab from "../components/tabs/LiveTab.vue";
+import ReplayTab from "../components/tabs/ReplayTab.vue";
 
 const route = useRoute();
 const eventId = route.params.eventId;
@@ -206,32 +231,59 @@ const progressPercent = computed(() =>
 );
 const activeTab = ref("overview");
 
-// Base tabs (toujours dans le sidebar et l'export).
-const baseTabs = [
-  { id: "overview", label: "Vue d'ensemble", icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>' },
-  { id: "demographics", label: "Demographie", icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>' },
-  { id: "registrations", label: "Inscriptions", icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>' },
-  { id: "temporal", label: "Dynamique", icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>' },
-  { id: "badges", label: "Badges & Check-in", icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>' },
-  { id: "data", label: "Donnees", icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>' },
-];
-const comparisonTab = {
-  id: "comparison",
-  label: "Comparatif",
-  icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M8 21H3v-5"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>',
+// Icones SVG des onglets — un fichier centralise serait plus propre, on garde
+// inline pour ne pas multiplier les imports.
+const ICONS = {
+  overview: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>',
+  demographics: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>',
+  registration: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>',
+  registrations: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+  temporal: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>',
+  badges: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>',
+  data: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>',
+  comparison: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M8 21H3v-5"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>',
+  scans: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/></svg>',
+  live: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>',
+  replay: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>',
 };
 
-// Tabs exportés : inclut le Comparatif quand compareWith est dans l'URL.
-const exportTabs = computed(() => {
-  if (compareEventId && compareStats.value) return [...baseTabs, comparisonTab];
-  return baseTabs;
+// Structure de navigation hierarchique. Les nodes avec `children` sont des
+// groupes (header non cliquable + enfants indentes). Sans `children` = leaf
+// navigable. `exportTabs` aplatit pour les exports PDF/PPTX.
+const tabs = computed(() => {
+  const registrationChildren = [
+    { id: "registrations", label: "Inscriptions", icon: ICONS.registrations },
+    { id: "temporal", label: "Dynamique", icon: ICONS.temporal },
+    { id: "badges", label: "Badges & Check-in", icon: ICONS.badges },
+    { id: "data", label: "Données", icon: ICONS.data },
+  ];
+  if (compareEventId && compareStats.value) {
+    registrationChildren.push({ id: "comparison", label: "Comparatif", icon: ICONS.comparison });
+  }
+  return [
+    { id: "overview", label: "Vue d'ensemble", icon: ICONS.overview },
+    { id: "demographics", label: "Démographie", icon: ICONS.demographics },
+    { id: "registration", label: "Registration", icon: ICONS.registration, children: registrationChildren },
+    { id: "scans", label: "Scans salles & Zones", icon: ICONS.scans },
+    { id: "live", label: "Live", icon: ICONS.live },
+    { id: "replay", label: "Replay", icon: ICONS.replay },
+  ];
 });
 
-// Tabs affichés dans la sidebar : idem.
-const tabs = computed(() => {
-  if (!compareEventId) return baseTabs;
-  return [...baseTabs, comparisonTab];
+// exportTabs : aplatissement des leaves (Registration n'est pas exporte en tant
+// que page — c'est juste un regroupement). Ordre = ordre d'apparition.
+const exportTabs = computed(() => {
+  const flat = [];
+  for (const node of tabs.value) {
+    if (node.children) flat.push(...node.children);
+    else flat.push(node);
+  }
+  return flat;
 });
+
+function isGroupActive(node) {
+  return node.children?.some((c) => c.id === activeTab.value) || false;
+}
 </script>
 
 <style>
@@ -291,6 +343,21 @@ const tabs = computed(() => {
 }
 .nav-item.active .nav-icon { opacity: 1; }
 .nav-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Groupe (Registration) : header non cliquable, enfants indentes. */
+.nav-group-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 12px 4px;
+  font-size: 10px; font-weight: 700;
+  color: rgba(255,255,255,.45);
+  text-transform: uppercase; letter-spacing: .6px;
+  user-select: none;
+}
+.nav-group-header.is-active { color: rgba(255,255,255,.75); }
+.nav-group-header .nav-icon { width: 14px; height: 14px; opacity: .55; }
+
+.nav-item.nav-child { padding-left: 26px; }
+.nav-item.nav-child .nav-icon { width: 14px; height: 14px; }
 
 /* ── Sidebar footer ── */
 .sidebar-footer {
@@ -505,6 +572,11 @@ const tabs = computed(() => {
   }
   .sidebar-nav::-webkit-scrollbar { display: none; }
   .nav-item { white-space: nowrap; padding: 6px 10px; font-size: 11px; }
+  .nav-item.nav-child { padding-left: 10px; }
+  .nav-group-header {
+    padding: 6px 8px; font-size: 9px;
+    white-space: nowrap;
+  }
   .nav-icon { display: none; }
   .sidebar-footer {
     flex-direction: row; gap: 6px; padding: 8px 0 0;

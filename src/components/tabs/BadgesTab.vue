@@ -452,12 +452,15 @@ const badgesDayOptions = computed(() => ({
     const canvas = event.native?.target;
     if (canvas) canvas.style.cursor = elements.length > 0 ? "pointer" : "default";
   },
+  layout: { padding: { top: 18 } },
   plugins: {
     legend: { display: false },
     datalabels: {
       display: true,
       anchor: "end",
       align: "end",
+      offset: 2,
+      clip: false,
       color: "#414141",
       font: { weight: 600, size: 11 },
     },
@@ -1009,12 +1012,15 @@ const checkinDayChartData = computed(() => ({
 const barOptions = {
   responsive: true,
   maintainAspectRatio: false,
+  layout: { padding: { top: 18 } },
   plugins: {
     legend: { display: false },
     datalabels: {
       display: true,
       anchor: "end",
       align: "end",
+      offset: 2,
+      clip: false,
       color: "#414141",
       font: { weight: 600, size: 11 },
     },

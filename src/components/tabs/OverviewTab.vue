@@ -12,41 +12,45 @@
     <div class="kpi-grid kpi-overview">
       <div class="kpi-card blue">
         <div class="kpi-label">Total inscrits</div>
-        <div class="kpi-value">{{ fmt(fs.global.totalDelegatesCount) }}</div>
-      </div>
-      <div class="kpi-card-status">
-        <div class="kpi-label">Répartition par statut</div>
-        <div class="status-row">
-          <div style="width: 100px; flex-shrink: 0;">
-            <DoughnutChart
-              :labels="fs.registrations.statuses.map(s => s.value)"
-              :data="fs.registrations.statuses.map(s => s.totalCount)"
-              :colors="['#30DD92', '#FFA600', '#E53935', '#6F45FF', '#e5e7eb']"
-              :active-label="afm.status"
-              @select="onStatusSelect"
-            />
-          </div>
-          <div class="legend-col">
-            <span v-for="s in fs.registrations.statuses" :key="s.value" class="legend-pill">
-              {{ s.value }} <strong>{{ fmt(s.totalCount) }}</strong>
-            </span>
-          </div>
-        </div>
+        <div class="kpi-value">{{ fmt(registeredCount) }}</div>
+        <div class="kpi-sub">au statut registered</div>
       </div>
       <div class="kpi-card green">
-        <div class="kpi-label">Taux de check-in</div>
-        <div class="kpi-value">{{ pct(fs.global.checkedInCount, registeredCount) }}</div>
-        <div class="kpi-sub"><strong>{{ fmt(fs.global.checkedInCount) }}</strong> / {{ fmt(registeredCount) }} registered</div>
+        <div class="kpi-label">Check-in</div>
+        <div class="kpi-value">{{ fmt(fs.global.checkedInCount) }}</div>
+        <div class="kpi-sub">{{ pct(fs.global.checkedInCount, registeredCount) }} des registered</div>
       </div>
       <div class="kpi-card orange">
-        <div class="kpi-label">Connexion onboarding</div>
-        <div class="kpi-value">{{ pct(fs.global.onboardingCount, registeredCount) }}</div>
-        <div class="kpi-sub"><strong>{{ fmt(fs.global.onboardingCount) }}</strong> / {{ fmt(registeredCount) }} registered</div>
+        <div class="kpi-label">Onboarding</div>
+        <div class="kpi-value">{{ fmt(fs.global.onboardingCount) }}</div>
+        <div class="kpi-sub">{{ pct(fs.global.onboardingCount, registeredCount) }} des registered</div>
       </div>
       <div v-if="props.mobileAppId" class="kpi-card purple">
-        <div class="kpi-label">App mobile (&lt; 3 mois)</div>
-        <div class="kpi-value">{{ pct(fs.global.mobileAppCount, registeredCount) }}</div>
-        <div class="kpi-sub"><strong>{{ fmt(fs.global.mobileAppCount) }}</strong> / {{ fmt(registeredCount) }} registered</div>
+        <div class="kpi-label">App mobile</div>
+        <div class="kpi-value">{{ fmt(fs.global.mobileAppCount) }}</div>
+        <div class="kpi-sub">{{ pct(fs.global.mobileAppCount, registeredCount) }} des registered (&lt; 3 mois)</div>
+      </div>
+      <div class="kpi-card blue">
+        <div class="kpi-label">Live</div>
+        <div class="kpi-value">
+          <span v-if="liveLoading" class="kpi-loading">...</span>
+          <template v-else>{{ fmt(liveUniqueUsers) }}</template>
+        </div>
+        <div class="kpi-sub">
+          <template v-if="!liveLoading">{{ pct(liveUniqueUsers, registeredCount) }} des registered</template>
+          <template v-else>chargement…</template>
+        </div>
+      </div>
+      <div class="kpi-card purple">
+        <div class="kpi-label">Replay</div>
+        <div class="kpi-value">
+          <span v-if="replayLoading" class="kpi-loading">...</span>
+          <template v-else>{{ fmt(replayUniqueUsers) }}</template>
+        </div>
+        <div class="kpi-sub">
+          <template v-if="!replayLoading">{{ pct(replayUniqueUsers, registeredCount) }} des registered</template>
+          <template v-else>chargement…</template>
+        </div>
       </div>
     </div>
 
@@ -120,16 +124,32 @@
 
 <script setup>
 import { computed } from "vue";
-import DoughnutChart from "../charts/DoughnutChart.vue";
 import HBarChart from "../charts/HBarChart.vue";
 import LineChart from "../charts/LineChart.vue";
 import FilterBanner from "../FilterBanner.vue";
 import CsvButton from "../CsvButton.vue";
+import { useRoute } from "vue-router";
 import { useFilteredStats } from "../../composables/useFilteredStats.js";
+import { useLive } from "../../composables/useLive.js";
+import { useReplay } from "../../composables/useReplay.js";
 import { makeDateLabeler } from "../../utils/formatDateLabel.js";
 import { getTypeColors } from "../../utils/typeColors.js";
 
 const props = defineProps({ stats: Object, delegates: Array, mobileAppId: String });
+
+// --- KPIs Live / Replay : load en arriere-plan via ES.
+// Auto-refresh actif (defaut 10 min) — meme cadence que les composables
+// registrations / badges (useStatistics) pour rester coherent.
+// Limite : si l'onglet Live ou Replay est ouvert en parallele, il y a 2
+// instances de useLive (idem useReplay), chacune avec son propre loop.
+// A consolider plus tard en remontant l'etat au niveau de StatisticsView.
+const route = useRoute();
+const eventId = route.params.eventId;
+const { loading: liveLoading, stats: liveStats } = useLive(eventId);
+const { loading: replayLoading, stats: replayStats } = useReplay(eventId);
+
+const liveUniqueUsers = computed(() => liveStats.value?.global?.uniqueUsers || 0);
+const replayUniqueUsers = computed(() => replayStats.value?.global?.uniqueUsers || 0);
 
 const {
   filteredStats: fs, activeFilters, activeFilterMap: afm,
@@ -144,9 +164,6 @@ const registeredCount = computed(() =>
 );
 
 // --- Filtres ---
-function onStatusSelect(label) {
-  toggleFilter("status", label, (d) => d.status === label);
-}
 function onTypeSelect(label) {
   toggleFilter("regType", label, (d) => (d.registrations || []).some((r) => r.type === label));
 }

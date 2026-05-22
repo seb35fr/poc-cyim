@@ -163,6 +163,41 @@ export async function fetchAllDelegates(eventId, onProgress) {
   return { items: allDelegates, totalCount };
 }
 
+export async function fetchEventSessions(eventId, onProgress) {
+  // Fetch toutes les sessions d'un congres via event(id).children(eventType: SESSION).
+  // Pagination par pageToken (max 500/page selon le defaut backend).
+  const query = `
+    query GetSessions($eventId: ID!, $pageToken: ID) {
+      event(id: $eventId) {
+        children(eventType: [SESSION], first: 500, pageToken: $pageToken) {
+          items {
+            id
+            title
+            type
+            start(utc: true)
+            end(utc: true)
+            duration
+          }
+          nextPageToken
+        }
+      }
+    }
+  `;
+  let all = [];
+  let pageToken = null;
+  let page = 0;
+  do {
+    const data = await gqlFetch(query, { eventId, pageToken });
+    const result = data?.event?.children;
+    const items = result?.items || [];
+    all = all.concat(items);
+    pageToken = result?.nextPageToken || null;
+    page++;
+    if (onProgress) onProgress({ loaded: all.length, page });
+  } while (pageToken);
+  return all;
+}
+
 export async function fetchEventConfig(eventId) {
   const query = `
     query GetConfig($eventId: ID!) {
