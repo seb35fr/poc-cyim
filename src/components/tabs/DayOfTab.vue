@@ -122,6 +122,7 @@ import FilterBanner from "../FilterBanner.vue";
 import CsvButton from "../CsvButton.vue";
 import { useFilteredStats } from "../../composables/useFilteredStats.js";
 import { makeDateLabeler } from "../../utils/formatDateLabel.js";
+import { parisDay } from "../../utils/parisTime.js";
 
 const props = defineProps({ stats: Object, delegates: Array });
 
@@ -140,7 +141,7 @@ function onCheckinDaySelect(label) {
   const fullDate = Object.keys(byDay).find((d) => d.endsWith(label));
   if (!fullDate) return;
   toggleFilter("checkinDay", label, (d) =>
-    d.checkedInDate && d.checkedInDate.startsWith(fullDate)
+    d.checkedInDate && parisDay(d.checkedInDate) === fullDate
   );
 }
 function onGdprSelect(label) {

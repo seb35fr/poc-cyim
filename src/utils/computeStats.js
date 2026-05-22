@@ -1,4 +1,5 @@
 import { COUNTRY_CONTINENTS } from "./countries.js";
+import { parisDateParts } from "./parisTime.js";
 
 function groupBy(arr, keyFn) {
   const map = {};
@@ -200,14 +201,22 @@ export function computeAllStats(delegates, mobileAppId = null) {
   // --- CHECK-IN FLOW ---
   const checkinHourlyMap = {};
   const checkinDayMap = {};
+  const checkin15minMap = {};
   for (const d of delegates) {
     if (!d.checkedInDate) continue;
-    const date = new Date(d.checkedInDate);
-    const dayStr = date.toISOString().slice(0, 10);
-    const hour = date.getUTCHours();
+    // checkedInDate est en UTC (Z) — on bucket en heure de Paris (CET/CEST)
+    const parts = parisDateParts(d.checkedInDate);
+    if (!parts) continue;
+    const dayStr = parts.ymd;
+    const hour = parts.hour;
     const key = `${dayStr}|${hour}`;
     checkinHourlyMap[key] = (checkinHourlyMap[key] || 0) + 1;
     checkinDayMap[dayStr] = (checkinDayMap[dayStr] || 0) + 1;
+
+    // 15-min slot: "YYYY-MM-DD|HH:MM" rounded to 15min
+    const m = Math.floor(parts.minute / 15) * 15;
+    const slotKey = `${dayStr}|${String(hour).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    checkin15minMap[slotKey] = (checkin15minMap[slotKey] || 0) + 1;
   }
 
   const checkinHourly = Object.entries(checkinHourlyMap)
@@ -221,9 +230,22 @@ export function computeAllStats(delegates, mobileAppId = null) {
     .map(([date, count]) => ({ date, count }))
     .sort((a, b) => a.date.localeCompare(b.date));
 
+  const checkinPer15min = Object.entries(checkin15minMap)
+    .map(([k, count]) => {
+      const [date, time] = k.split("|");
+      return { date, time, count };
+    })
+    .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
+
+  const checkinPeakSlot = checkinPer15min.reduce(
+    (best, s) => (s.count > best.count ? s : best),
+    { date: "-", time: "-", count: 0 }
+  );
+
   // --- BADGES ---
   const badgeDayMap = {};
   const badge15minMap = {};
+  const badgePerMinuteMap = {};
   const badgeDeviceMap = {};
   let totalBadgesDelivered = 0;
 
@@ -232,15 +254,21 @@ export function computeAllStats(delegates, mobileAppId = null) {
     for (const b of d.badges) {
       if (!b.deliveredAt) continue;
       totalBadgesDelivered++;
-      const date = new Date(b.deliveredAt);
-      const dayStr = date.toISOString().slice(0, 10);
+      // deliveredAt est en UTC (Z) — on bucket en heure de Paris (CET/CEST)
+      const parts = parisDateParts(b.deliveredAt);
+      if (!parts) continue;
+      const dayStr = parts.ymd;
       badgeDayMap[dayStr] = (badgeDayMap[dayStr] || 0) + 1;
 
       // 15-min slot: "YYYY-MM-DD|HH:MM" rounded to 15min
-      const h = date.getUTCHours();
-      const m = Math.floor(date.getUTCMinutes() / 15) * 15;
+      const h = parts.hour;
+      const m = Math.floor(parts.minute / 15) * 15;
       const slotKey = `${dayStr}|${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
       badge15minMap[slotKey] = (badge15minMap[slotKey] || 0) + 1;
+
+      // 1-min slot pour la performance par device
+      const minuteKey = `${dayStr}|${String(h).padStart(2, "0")}:${String(parts.minute).padStart(2, "0")}`;
+      badgePerMinuteMap[minuteKey] = (badgePerMinuteMap[minuteKey] || 0) + 1;
 
       // Par device
       const device = b.deliveredBy || "Inconnu";
@@ -266,6 +294,19 @@ export function computeAllStats(delegates, mobileAppId = null) {
 
   // Peak 15min slot
   const peakSlot = badgesPer15min.reduce(
+    (best, s) => (s.count > best.count ? s : best),
+    { date: "-", time: "-", count: 0 }
+  );
+
+  // Performance par minute (granularite 1 min) — utilise pour le ratio max/min/device
+  const badgesPerMinute = Object.entries(badgePerMinuteMap)
+    .map(([k, count]) => {
+      const [date, time] = k.split("|");
+      return { date, time, count };
+    })
+    .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
+
+  const peakMinute = badgesPerMinute.reduce(
     (best, s) => (s.count > best.count ? s : best),
     { date: "-", time: "-", count: 0 }
   );
@@ -328,6 +369,16 @@ export function computeAllStats(delegates, mobileAppId = null) {
     checkinByDayObj[item.date] = item.count;
   }
 
+  // Idem pour les badges, agrege par (jour, heure) via les creneaux 15 min existants.
+  const badgesHourlyObj = {};
+  const badgesByDayAndHour = {};
+  for (const item of badgesPer15min) {
+    const label = `${item.time.slice(0, 2)}:00`;
+    badgesHourlyObj[label] = (badgesHourlyObj[label] || 0) + item.count;
+    if (!badgesByDayAndHour[item.date]) badgesByDayAndHour[item.date] = {};
+    badgesByDayAndHour[item.date][label] = (badgesByDayAndHour[item.date][label] || 0) + item.count;
+  }
+
   return {
     global: {
       totalDelegatesCount: total,
@@ -380,11 +431,18 @@ export function computeAllStats(delegates, mobileAppId = null) {
       hourly: checkinHourlyObj,
       byDayAndHour: checkinByDayAndHour,
       byDay: checkinByDayObj,
+      byDayArray: checkinByDay,
+      per15min: checkinPer15min,
+      peakSlot: checkinPeakSlot,
     },
     badges: {
       byDay: badgesByDay,
+      hourly: badgesHourlyObj,
+      byDayAndHour: badgesByDayAndHour,
       per15min: badgesPer15min,
+      perMinute: badgesPerMinute,
       peakSlot,
+      peakMinute,
       byDevice: badgesByDevice,
     },
   };

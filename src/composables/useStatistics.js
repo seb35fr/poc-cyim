@@ -37,6 +37,27 @@ export function useStatistics(eventId, options = {}) {
       mobileAppId.value = config?.mobileAppId || null;
       delegates.value = delegateResult.items;
       stats.value = computeAllStats(delegateResult.items, mobileAppId.value);
+
+      // Debug : delegates checkes mais sans badge marque comme delivre.
+      // Permet d'identifier les badges saisis manuellement / oublies cote desk.
+      const missingDelivered = delegateResult.items.filter((d) => {
+        if (!d.checkedInDate) return false;
+        return !(d.badges || []).some((b) => b.deliveredAt);
+      });
+      if (missingDelivered.length > 0) {
+        console.log(
+          `[${eventName.value}] ${missingDelivered.length} délégué(s) checked-in sans badge marqué délivré :`,
+        );
+        console.table(
+          missingDelivered.map((d) => ({
+            id: d.id,
+            familyName: d.familyName || "",
+            givenName: d.givenName || "",
+            checkedInDate: d.checkedInDate,
+            badges: (d.badges || []).length,
+          })),
+        );
+      }
     } catch (e) {
       error.value = e.message;
       console.error("Failed to load statistics:", e);

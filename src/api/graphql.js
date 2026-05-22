@@ -43,6 +43,7 @@ const DELEGATE_FIELDS = `
   primaryAddress {
     countryCode
     city
+    zipCode
     country {
       code
     }

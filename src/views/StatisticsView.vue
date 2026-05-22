@@ -77,6 +77,18 @@
               <TemporalTab v-if="tab.id === 'temporal'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
               <BadgesTab v-if="tab.id === 'badges'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
               <DataTab v-if="tab.id === 'data'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
+              <ComparisonTab
+                v-if="tab.id === 'comparison'"
+                :stats="stats"
+                :delegates="delegates"
+                :event-name="eventName"
+                :compare-stats="compareStats"
+                :compare-delegates="compareDelegates"
+                :compare-event-name="compareEventName"
+                :compare-loading="false"
+                :compare-error="null"
+                :compare-progress="{ loaded: 0, total: 0, page: 0 }"
+              />
             </div>
           </template>
           <template v-else>
@@ -161,20 +173,32 @@ function confirmReload() {
   }
 }
 
-async function handleExportPdf() {
+async function waitForCharts() {
+  // Laisse Vue monter tous les tabs, puis attend que Chart.js ait fini de
+  // rendre (resize listener + animations). 1500ms couvre le pire cas
+  // (changement de layout pdf-mode + animation par défaut ~1000ms).
   await nextTick();
-  await new Promise((r) => setTimeout(r, 500));
+  await new Promise((r) => setTimeout(r, 1500));
+}
+
+async function handleExportPdf() {
+  await waitForCharts();
   const el = document.getElementById("pdf-content");
-  const date = new Date().toISOString().split("T")[0];
-  const name = (eventName.value || eventId).replace(/[^a-zA-Z0-9-_]/g, "_");
-  await exportToPdf(el, `stats-${name}-${date}.pdf`);
+  await exportToPdf(
+    el, exportTabs.value, stats.value, registeredCount.value, eventName.value,
+    compareStats.value, compareEventName.value,
+    delegates.value, compareDelegates.value,
+  );
 }
 
 async function handleExportPptx() {
-  await nextTick();
-  await new Promise((r) => setTimeout(r, 500));
+  await waitForCharts();
   const el = document.getElementById("pdf-content");
-  await exportToPptx(el, exportTabs, stats.value, registeredCount.value, eventName.value);
+  await exportToPptx(
+    el, exportTabs.value, stats.value, registeredCount.value, eventName.value,
+    compareStats.value, compareEventName.value,
+    delegates.value, compareDelegates.value,
+  );
 }
 
 const progressPercent = computed(() =>
@@ -182,8 +206,8 @@ const progressPercent = computed(() =>
 );
 const activeTab = ref("overview");
 
-// Tabs exportes (PDF/PPTX). L'onglet Comparatif est volontairement exclu des exports.
-const exportTabs = [
+// Base tabs (toujours dans le sidebar et l'export).
+const baseTabs = [
   { id: "overview", label: "Vue d'ensemble", icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>' },
   { id: "demographics", label: "Demographie", icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>' },
   { id: "registrations", label: "Inscriptions", icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>' },
@@ -191,18 +215,22 @@ const exportTabs = [
   { id: "badges", label: "Badges & Check-in", icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>' },
   { id: "data", label: "Donnees", icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>' },
 ];
+const comparisonTab = {
+  id: "comparison",
+  label: "Comparatif",
+  icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M8 21H3v-5"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>',
+};
 
-// Tabs affiches dans la sidebar : ajoute le Comparatif si compareWith est dans l'URL.
+// Tabs exportés : inclut le Comparatif quand compareWith est dans l'URL.
+const exportTabs = computed(() => {
+  if (compareEventId && compareStats.value) return [...baseTabs, comparisonTab];
+  return baseTabs;
+});
+
+// Tabs affichés dans la sidebar : idem.
 const tabs = computed(() => {
-  if (!compareEventId) return exportTabs;
-  return [
-    ...exportTabs,
-    {
-      id: "comparison",
-      label: "Comparatif",
-      icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M8 21H3v-5"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>',
-    },
-  ];
+  if (!compareEventId) return baseTabs;
+  return [...baseTabs, comparisonTab];
 });
 </script>
 

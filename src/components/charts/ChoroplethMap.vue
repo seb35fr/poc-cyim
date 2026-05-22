@@ -20,6 +20,7 @@ import { ref, onMounted, watch } from "vue";
 import { Chart } from "chart.js";
 import { NUMERIC_TO_ALPHA2 } from "../../utils/countries.js";
 import HBarChart from "./HBarChart.vue";
+import { heatColor } from "../../utils/heatColor.js";
 
 const props = defineProps({
   countries: { type: Array, default: () => [] },
@@ -73,16 +74,7 @@ onMounted(async () => {
           {
             label: "Inscrits",
             data: features,
-            backgroundColor: (ctx) => {
-              if (!ctx.raw) return "#e5e7eb";
-              const v = ctx.raw.value || 0;
-              if (v === 0) return "#f3f4f6";
-              const ratio = Math.pow(v / maxVal, 0.4);
-              const r = Math.round(240 - ratio * 225);
-              const g = Math.round(240 - ratio * 195);
-              const b = Math.round(245 - ratio * 140);
-              return `rgb(${r},${g},${b})`;
-            },
+            backgroundColor: (ctx) => heatColor(ctx.raw?.value || 0, maxVal),
             borderColor: "#d1d5db",
             borderWidth: 0.5,
           },
@@ -98,9 +90,16 @@ onMounted(async () => {
           datalabels: { display: false },
           tooltip: {
             callbacks: {
+              // Le titre par defaut peut etre "undefined" si le GeoJSON
+              // n'a pas de proprietes.name (regions polaires, eaux). On
+              // surcharge avec un fallback.
+              title: (items) => {
+                const item = items[0];
+                return item?.raw?.feature?.properties?.name || item?.label || "";
+              },
               label: (ctx) => {
                 const v = ctx.raw?.value || 0;
-                return v > 0 ? `${ctx.label}: ${v.toLocaleString("fr-FR")}` : `${ctx.label}: 0`;
+                return `${v.toLocaleString("fr-FR")} inscrit${v > 1 ? "s" : ""}`;
               },
             },
           },
@@ -110,6 +109,9 @@ onMounted(async () => {
             axis: "x",
             projection: "equalEarth",
           },
+          // Echelle de couleur native cachee (l'axe vertical 0/400/800 qu'on
+          // voyait a droite). `axis: "r"` est requis sinon erreur a l'init.
+          color: { display: false, axis: "r" },
         },
       },
     });

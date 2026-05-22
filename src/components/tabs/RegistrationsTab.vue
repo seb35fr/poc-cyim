@@ -37,7 +37,7 @@
         <HBarChart
           :labels="fs.registrations.types.map(t => t.value)"
           :data="fs.registrations.types.map(t => t.totalCount)"
-          color="#1E4E66"
+          :colors="getTypeColors(fs.registrations.types.map(t => t.value))"
           :height="Math.max(200, fs.registrations.types.length * 32)"
           :active-label="afm.regType"
           @select="onTypeSelect"
@@ -122,6 +122,7 @@ import StackedBarChart from "../charts/StackedBarChart.vue";
 import FilterBanner from "../FilterBanner.vue";
 import CsvButton from "../CsvButton.vue";
 import { useFilteredStats } from "../../composables/useFilteredStats.js";
+import { getTypeColors } from "../../utils/typeColors.js";
 
 const props = defineProps({ stats: Object, delegates: Array });
 

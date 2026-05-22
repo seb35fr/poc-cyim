@@ -82,6 +82,7 @@ export function useFilteredStats(getDelegates, getMobileAppId = () => null) {
   });
 
   return {
+    filteredDelegates,
     filteredStats,
     activeFilters,
     activeFilterMap,

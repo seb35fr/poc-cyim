@@ -12,6 +12,9 @@ const props = defineProps({
   labels: Array,
   data: Array,
   color: { type: String, default: "#1E4E66" },
+  // Palette par barre (optionnel). Si fourni, prevaut sur `color` —
+  // chaque barre prend sa propre couleur (cf. couleurs par type d'inscription).
+  colors: { type: Array, default: null },
   height: { type: Number, default: 260 },
   activeLabel: { type: [String, Array], default: null },
 });
@@ -33,17 +36,20 @@ function isActive(label) {
 }
 
 const chartData = computed(() => {
-  const colors = (props.labels || []).map((label) => {
-    if (props.activeLabel && !isActive(label)) return dimColor(props.color, 0.2);
-    return props.color;
+  const labels = props.labels || [];
+  const palette = props.colors;
+  const colors = labels.map((label, i) => {
+    const base = palette && palette[i] ? palette[i] : props.color;
+    if (props.activeLabel && !isActive(label)) return dimColor(base, 0.2);
+    return base;
   });
   return {
-    labels: props.labels,
+    labels,
     datasets: [{
       data: props.data,
       backgroundColor: colors,
       borderRadius: 4,
-      barThickness: Math.min(24, Math.max(12, 300 / (props.labels?.length || 1))),
+      barThickness: Math.min(24, Math.max(12, 300 / (labels.length || 1))),
     }],
   };
 });

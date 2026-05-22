@@ -35,8 +35,8 @@
       </div>
       <div class="kpi-card green">
         <div class="kpi-label">Taux de check-in</div>
-        <div class="kpi-value">{{ pct(fs.global.checkedInCount, fs.global.totalDelegatesCount) }}</div>
-        <div class="kpi-sub"><strong>{{ fmt(fs.global.checkedInCount) }}</strong> / {{ fmt(fs.global.totalDelegatesCount) }}</div>
+        <div class="kpi-value">{{ pct(fs.global.checkedInCount, registeredCount) }}</div>
+        <div class="kpi-sub"><strong>{{ fmt(fs.global.checkedInCount) }}</strong> / {{ fmt(registeredCount) }} registered</div>
       </div>
       <div class="kpi-card orange">
         <div class="kpi-label">Connexion onboarding</div>
@@ -96,6 +96,7 @@
         <HBarChart
           :labels="fs.registrations.types.slice(0, 8).map(t => t.value)"
           :data="fs.registrations.types.slice(0, 8).map(t => t.totalCount)"
+          :colors="getTypeColors(fs.registrations.types.slice(0, 8).map(t => t.value))"
           :active-label="afm.regType"
           @select="onTypeSelect"
         />
@@ -126,6 +127,7 @@ import FilterBanner from "../FilterBanner.vue";
 import CsvButton from "../CsvButton.vue";
 import { useFilteredStats } from "../../composables/useFilteredStats.js";
 import { makeDateLabeler } from "../../utils/formatDateLabel.js";
+import { getTypeColors } from "../../utils/typeColors.js";
 
 const props = defineProps({ stats: Object, delegates: Array, mobileAppId: String });
 
