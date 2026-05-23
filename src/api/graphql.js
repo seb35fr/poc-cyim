@@ -75,6 +75,13 @@ const DELEGATE_FIELDS = `
         value
         type
       }
+      emailAddresses {
+        value
+        source {
+          id
+          type
+        }
+      }
       memberships(first: 50, includeFormer: false) {
         items {
           type

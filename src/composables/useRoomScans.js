@@ -20,6 +20,9 @@ export function useRoomScans(eventId, options = {}) {
   const checkin = ref([]);
   const zone = ref([]);
 
+  // Les 3 index ES (audience / checkin / zone) ecrivent tous le meme
+  // identifiant cote Flink : delegate.id Mongo. Donc l'unicite se fait
+  // directement sur cet ID, sans translation. Cf. computeScanStats.js.
   const stats = computed(() =>
     computeAllScanStats({
       audience: audience.value,
@@ -44,6 +47,30 @@ export function useRoomScans(eventId, options = {}) {
       audience.value = a;
       checkin.value = c;
       zone.value = z;
+      // Dump complet des hits ES (_source) pour les 3 index, pour verification
+      // jointure / structure des champs (notamment user_id keycloak vs delegate_id Mongo).
+      if (a.length > 0) {
+        console.log("[Scans][audience] Structure du 1er hit (_source) :", a[0]._source);
+        console.log("[Scans][audience] Champs disponibles :", Object.keys(a[0]._source || {}));
+      }
+      console.log(`[Scans][audience] Dump complet ES (${a.length} hits) :`, a.map((h) => h._source));
+      if (c.length > 0) {
+        console.log("[Scans][checkin] Structure du 1er hit (_source) :", c[0]._source);
+        console.log("[Scans][checkin] Champs disponibles :", Object.keys(c[0]._source || {}));
+      }
+      console.log(`[Scans][checkin] Dump complet ES (${c.length} hits) :`, c.map((h) => h._source));
+      if (z.length > 0) {
+        console.log("[Scans][zone] Structure du 1er hit (_source) :", z[0]._source);
+        console.log("[Scans][zone] Champs disponibles :", Object.keys(z[0]._source || {}));
+      }
+      console.log(`[Scans][zone] Dump complet ES (${z.length} hits) :`, z.map((h) => h._source));
+      // Diagnostic placeholder '-' : combien de scans checkin/zone ont un
+      // delegate_id == '-' (QR non matche cote Flink, exclu de l'unicite) ?
+      const dashCheckin = c.filter((h) => (h._source?.delegate_id || h._source?.delegate_identity_id) === "-").length;
+      const dashZone = z.filter((h) => (h._source?.delegate_id || h._source?.delegate_identity_id) === "-").length;
+      console.log(
+        `[Scans] Placeholder '-' (QR non matches, exclus de l'unicite) : ${dashCheckin} checkin, ${dashZone} zone`,
+      );
     } catch (e) {
       error.value = e.message;
       console.error("Failed to load room scans:", e);

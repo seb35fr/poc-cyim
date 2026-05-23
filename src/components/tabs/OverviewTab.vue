@@ -9,6 +9,24 @@
       @clear="clearFilters"
     />
 
+    <!-- Filtre global page par type de badge (multi-select). Filtre les
+         delegates EN AMONT de useFilteredStats : tous les KPIs, charts et
+         la decomposition Total participants en heritent. Appliqué aussi sur
+         le compare side pour que les % d'evolution restent significatifs. -->
+    <div v-if="availableBadgeTypes.length > 0" class="badge-type-filter">
+      <span class="badge-type-filter-label">Filtrer la page par type de badge :</span>
+      <div class="period-selector">
+        <button
+          :class="['period-btn', { active: selectedBadgeTypes.size === 0 }]"
+          @click="clearBadgeTypes"
+        >Tous</button>
+        <button v-for="t in availableBadgeTypes" :key="t"
+          :class="['period-btn', { active: selectedBadgeTypes.has(t) }]"
+          @click="toggleBadgeType(t)"
+        >{{ t }}</button>
+      </div>
+    </div>
+
     <div class="kpi-grid kpi-overview">
       <div class="kpi-card blue">
         <div class="kpi-label">Total inscrits</div>
@@ -52,6 +70,113 @@
           <template v-else>chargement…</template>
         </div>
       </div>
+    </div>
+
+    <!-- Decomposition visuelle "Total participants" : un meme delegue compte
+         1 fois meme s'il a vu live + replay sans venir. -->
+    <div class="chart-card participation-card" v-if="!liveLoading && !replayLoading">
+      <div class="chart-header">
+        <h3>Comment se decompose le "Total participants"</h3>
+      </div>
+
+      <div class="participation-formula">
+        <div class="formula-chip checkin">
+          <span class="formula-label">Check-in physique</span>
+          <span class="formula-value">{{ fmt(physicallyCheckedInCount) }}</span>
+          <span
+            v-if="deltaCheckin"
+            class="formula-delta"
+            :class="deltaCheckin.cls"
+            :title="tooltipCheckin"
+          >{{ deltaCheckin.arrow }} {{ deltaCheckin.text }}</span>
+        </div>
+        <span class="formula-op">+</span>
+        <div class="formula-chip live-only">
+          <span class="formula-label">Live distanciel uniquement</span>
+          <span class="formula-value">{{ fmt(liveOnlyRemoteCount) }}</span>
+          <span
+            v-if="deltaLiveOnly"
+            class="formula-delta"
+            :class="deltaLiveOnly.cls"
+            :title="tooltipLiveOnly"
+          >{{ deltaLiveOnly.arrow }} {{ deltaLiveOnly.text }}</span>
+        </div>
+        <span class="formula-op">+</span>
+        <div class="formula-chip both">
+          <span class="formula-label">Live & Replay distanciel</span>
+          <span class="formula-value">{{ fmt(bothRemoteCount) }}</span>
+          <span
+            v-if="deltaBoth"
+            class="formula-delta"
+            :class="deltaBoth.cls"
+            :title="tooltipBoth"
+          >{{ deltaBoth.arrow }} {{ deltaBoth.text }}</span>
+        </div>
+        <span class="formula-op">+</span>
+        <div class="formula-chip replay-only">
+          <span class="formula-label">Replay distanciel uniquement</span>
+          <span class="formula-value">{{ fmt(replayOnlyRemoteCount) }}</span>
+          <span
+            v-if="deltaReplayOnly"
+            class="formula-delta"
+            :class="deltaReplayOnly.cls"
+            :title="tooltipReplayOnly"
+          >{{ deltaReplayOnly.arrow }} {{ deltaReplayOnly.text }}</span>
+        </div>
+        <span class="formula-op">=</span>
+        <div class="formula-chip total">
+          <span class="formula-label">Total participants</span>
+          <span class="formula-value">{{ fmt(totalParticipants) }}</span>
+          <span
+            v-if="deltaTotal"
+            class="formula-delta"
+            :class="deltaTotal.cls"
+            :title="tooltipTotal"
+          >{{ deltaTotal.arrow }} {{ deltaTotal.text }}</span>
+        </div>
+      </div>
+
+      <div class="participation-bar" v-if="totalParticipants > 0" :title="`${fmt(totalParticipants)} delegues participants`">
+        <div
+          class="bar-segment seg-checkin"
+          :style="{ width: pctNum(physicallyCheckedInCount, totalParticipants) + '%' }"
+          :title="`Check-in physique : ${fmt(physicallyCheckedInCount)} (${pct(physicallyCheckedInCount, totalParticipants)})`"
+        >
+          <span v-if="physicallyCheckedInCount / totalParticipants > 0.04">{{ fmt(physicallyCheckedInCount) }}</span>
+        </div>
+        <div
+          class="bar-segment seg-live-only"
+          :style="{ width: pctNum(liveOnlyRemoteCount, totalParticipants) + '%' }"
+          :title="`Live distanciel uniquement : ${fmt(liveOnlyRemoteCount)} (${pct(liveOnlyRemoteCount, totalParticipants)})`"
+        >
+          <span v-if="liveOnlyRemoteCount / totalParticipants > 0.04">{{ fmt(liveOnlyRemoteCount) }}</span>
+        </div>
+        <div
+          class="bar-segment seg-both"
+          :style="{ width: pctNum(bothRemoteCount, totalParticipants) + '%' }"
+          :title="`Live & Replay distanciel : ${fmt(bothRemoteCount)} (${pct(bothRemoteCount, totalParticipants)})`"
+        >
+          <span v-if="bothRemoteCount / totalParticipants > 0.04">{{ fmt(bothRemoteCount) }}</span>
+        </div>
+        <div
+          class="bar-segment seg-replay-only"
+          :style="{ width: pctNum(replayOnlyRemoteCount, totalParticipants) + '%' }"
+          :title="`Replay distanciel uniquement : ${fmt(replayOnlyRemoteCount)} (${pct(replayOnlyRemoteCount, totalParticipants)})`"
+        >
+          <span v-if="replayOnlyRemoteCount / totalParticipants > 0.04">{{ fmt(replayOnlyRemoteCount) }}</span>
+        </div>
+      </div>
+
+      <div class="participation-legend">
+        <span class="legend-item"><span class="swatch seg-checkin"></span> Check-in physique <strong>· {{ pct(physicallyCheckedInCount, totalParticipants) }}</strong></span>
+        <span class="legend-item"><span class="swatch seg-live-only"></span> Live distanciel uniquement <strong>· {{ pct(liveOnlyRemoteCount, totalParticipants) }}</strong></span>
+        <span class="legend-item"><span class="swatch seg-both"></span> Live & Replay distanciel <strong>· {{ pct(bothRemoteCount, totalParticipants) }}</strong></span>
+        <span class="legend-item"><span class="swatch seg-replay-only"></span> Replay distanciel uniquement <strong>· {{ pct(replayOnlyRemoteCount, totalParticipants) }}</strong></span>
+      </div>
+
+      <p class="participation-note">
+        Logique : un delegue physiquement checke compte pour 1 (toutes ses vues live/replay sont absorbees). Pour ceux NON checkes, on regarde s'ils ont vu en live, en replay ou les deux, et chacun ne compte qu'une fois meme s'il a fait les deux.
+      </p>
     </div>
 
     <div class="charts-row" >
@@ -123,7 +248,7 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import HBarChart from "../charts/HBarChart.vue";
 import LineChart from "../charts/LineChart.vue";
 import FilterBanner from "../FilterBanner.vue";
@@ -134,8 +259,21 @@ import { useLive } from "../../composables/useLive.js";
 import { useReplay } from "../../composables/useReplay.js";
 import { makeDateLabeler } from "../../utils/formatDateLabel.js";
 import { getTypeColors } from "../../utils/typeColors.js";
+import {
+  buildDelegateLookup,
+  getRemoteOnlyDelegateIds,
+  getCheckedInDelegateIds,
+} from "../../utils/viewerJoin.js";
+import { delegateBadgeType } from "../../utils/checkinByType.js";
 
-const props = defineProps({ stats: Object, delegates: Array, mobileAppId: String });
+const props = defineProps({
+  stats: Object,
+  delegates: Array,
+  mobileAppId: String,
+  eventName: String,
+  compareDelegates: { type: Array, default: () => [] },
+  compareEventName: { type: String, default: "" },
+});
 
 // --- KPIs Live / Replay : load en arriere-plan via ES.
 // Auto-refresh actif (defaut 10 min) — meme cadence que les composables
@@ -145,22 +283,193 @@ const props = defineProps({ stats: Object, delegates: Array, mobileAppId: String
 // A consolider plus tard en remontant l'etat au niveau de StatisticsView.
 const route = useRoute();
 const eventId = route.params.eventId;
+const compareEventId = route.query.compareWith || null;
 const { loading: liveLoading, stats: liveStats } = useLive(eventId);
 const { loading: replayLoading, stats: replayStats } = useReplay(eventId);
+// Live / Replay du compareEventId : meme cache singleton, autoRefresh
+// desactive (instance non-active, on ne veut pas double polling).
+const liveB = compareEventId ? useLive(compareEventId, { autoRefresh: false }) : null;
+const replayB = compareEventId ? useReplay(compareEventId, { autoRefresh: false }) : null;
+const hasCompare = !!compareEventId;
 
 const liveUniqueUsers = computed(() => liveStats.value?.global?.uniqueUsers || 0);
 const replayUniqueUsers = computed(() => replayStats.value?.global?.uniqueUsers || 0);
 
+// --- Filtre global page par type de badge (multi-select). Set vide = no
+// filter. Sinon on garde les delegues ayant delegateBadgeType in selection.
+// Applique sur les 2 cotes (A et B) pour preserver le sens des % d'evolution.
+const selectedBadgeTypes = ref(new Set());
+function toggleBadgeType(type) {
+  const next = new Set(selectedBadgeTypes.value);
+  if (next.has(type)) next.delete(type);
+  else next.add(type);
+  selectedBadgeTypes.value = next;
+}
+function clearBadgeTypes() {
+  selectedBadgeTypes.value = new Set();
+}
+
+const availableBadgeTypes = computed(() => {
+  const set = new Set();
+  for (const d of props.delegates || []) set.add(delegateBadgeType(d));
+  for (const d of props.compareDelegates || []) set.add(delegateBadgeType(d));
+  set.delete("Inconnu");
+  return [...set].sort();
+});
+
+function filterByBadge(list) {
+  const sel = selectedBadgeTypes.value;
+  if (sel.size === 0) return list || [];
+  return (list || []).filter((d) => sel.has(delegateBadgeType(d)));
+}
+
+const pageFilteredDelegates = computed(() => filterByBadge(props.delegates));
+const pageFilteredCompareDelegates = computed(() => filterByBadge(props.compareDelegates));
+
+// --- KPI "Total participants" = check-in physique UNION live distanciel
+// UNION replay distanciel, dedupe sur delegate.id Mongo pour eviter le
+// double-comptage entre live et replay (un meme delegue peut avoir vu les
+// deux sans etre venu sur place). Cf. utils/viewerJoin.js pour la
+// jointure ES (user_id keycloak) <-> delegate (emailAddresses[].source.id ACCOUNT).
+const delegateLookup = computed(() => buildDelegateLookup(pageFilteredDelegates.value));
+const physicallyCheckedInSet = computed(() => getCheckedInDelegateIds(pageFilteredDelegates.value));
+const liveRemoteSet = computed(() =>
+  getRemoteOnlyDelegateIds(liveStats.value?.items, delegateLookup.value),
+);
+const replayRemoteSet = computed(() =>
+  getRemoteOnlyDelegateIds(replayStats.value?.items, delegateLookup.value),
+);
+const physicallyCheckedInCount = computed(() => physicallyCheckedInSet.value.size);
+const liveRemoteCount = computed(() => liveRemoteSet.value.size);
+const replayRemoteCount = computed(() => replayRemoteSet.value.size);
+const totalParticipants = computed(() => {
+  const union = new Set(physicallyCheckedInSet.value);
+  for (const id of liveRemoteSet.value) union.add(id);
+  for (const id of replayRemoteSet.value) union.add(id);
+  return union.size;
+});
+
+// Decomposition pour le bar chart : intersection live/replay (les deux) et
+// chacun "uniquement" (l'autre exclu). Tout est calcule sur des Set<delegate.id>
+// pour deduper proprement.
+const bothRemoteSet = computed(() => {
+  const set = new Set();
+  for (const id of liveRemoteSet.value) {
+    if (replayRemoteSet.value.has(id)) set.add(id);
+  }
+  return set;
+});
+const liveOnlyRemoteSet = computed(() => {
+  const set = new Set();
+  for (const id of liveRemoteSet.value) {
+    if (!replayRemoteSet.value.has(id)) set.add(id);
+  }
+  return set;
+});
+const replayOnlyRemoteSet = computed(() => {
+  const set = new Set();
+  for (const id of replayRemoteSet.value) {
+    if (!liveRemoteSet.value.has(id)) set.add(id);
+  }
+  return set;
+});
+const bothRemoteCount = computed(() => bothRemoteSet.value.size);
+const liveOnlyRemoteCount = computed(() => liveOnlyRemoteSet.value.size);
+const replayOnlyRemoteCount = computed(() => replayOnlyRemoteSet.value.size);
+
+// --- Side B : meme decomposition pour le compareEventId (si present).
+// Permet d'afficher un delta % sur chaque chip de la decomposition.
+const lookupB = computed(() => buildDelegateLookup(pageFilteredCompareDelegates.value));
+const checkedInBSet = computed(() => getCheckedInDelegateIds(pageFilteredCompareDelegates.value));
+const liveRemoteBSet = computed(() =>
+  hasCompare
+    ? getRemoteOnlyDelegateIds(liveB?.stats.value?.items, lookupB.value)
+    : new Set(),
+);
+const replayRemoteBSet = computed(() =>
+  hasCompare
+    ? getRemoteOnlyDelegateIds(replayB?.stats.value?.items, lookupB.value)
+    : new Set(),
+);
+const bothRemoteBSet = computed(() => {
+  const set = new Set();
+  for (const id of liveRemoteBSet.value) {
+    if (replayRemoteBSet.value.has(id)) set.add(id);
+  }
+  return set;
+});
+const liveOnlyRemoteBCount = computed(() => {
+  let n = 0;
+  for (const id of liveRemoteBSet.value) {
+    if (!replayRemoteBSet.value.has(id)) n++;
+  }
+  return n;
+});
+const replayOnlyRemoteBCount = computed(() => {
+  let n = 0;
+  for (const id of replayRemoteBSet.value) {
+    if (!liveRemoteBSet.value.has(id)) n++;
+  }
+  return n;
+});
+const checkedInBCount = computed(() => checkedInBSet.value.size);
+const bothRemoteBCount = computed(() => bothRemoteBSet.value.size);
+const totalParticipantsB = computed(() => {
+  const union = new Set(checkedInBSet.value);
+  for (const id of liveRemoteBSet.value) union.add(id);
+  for (const id of replayRemoteBSet.value) union.add(id);
+  return union.size;
+});
+
+// Calcule un delta % (a vs b). Si b == 0 et a > 0 : "Nouveau" (vert).
+// Si a == 0 et b > 0 : "-100%" (rouge). Sinon : signe + pct + classe.
+function buildDeltaPct(a, b) {
+  if (!hasCompare) return null;
+  if (b === 0 && a === 0) return { arrow: "=", text: "0%", cls: "delta--neutral" };
+  if (b === 0) return { arrow: "▲", text: "Nouveau", cls: "delta--good" };
+  if (a === 0) return { arrow: "▼", text: "-100%", cls: "delta--bad" };
+  const diff = ((a - b) / b) * 100;
+  if (Math.abs(diff) < 0.5) return { arrow: "=", text: "0%", cls: "delta--neutral" };
+  const arrow = diff > 0 ? "▲" : "▼";
+  const sign = diff > 0 ? "+" : "−";
+  const cls = diff > 0 ? "delta--good" : "delta--bad";
+  return { arrow, text: `${sign}${Math.abs(diff).toFixed(1)}%`, cls };
+}
+
+const deltaCheckin = computed(() => buildDeltaPct(physicallyCheckedInCount.value, checkedInBCount.value));
+const deltaLiveOnly = computed(() => buildDeltaPct(liveOnlyRemoteCount.value, liveOnlyRemoteBCount.value));
+const deltaBoth = computed(() => buildDeltaPct(bothRemoteCount.value, bothRemoteBCount.value));
+const deltaReplayOnly = computed(() => buildDeltaPct(replayOnlyRemoteCount.value, replayOnlyRemoteBCount.value));
+const deltaTotal = computed(() => buildDeltaPct(totalParticipants.value, totalParticipantsB.value));
+
+// Tooltip detaille sur chaque badge delta : ecart absolu (+N / -N) + valeur
+// de l'event compare. Affiche au survol via attribut title. On expose des
+// computeds (pas une fonction qui prend des refs en argument) — c'est plus
+// sur pour la reactivite dans les templates.
+function makeTooltip(a, b) {
+  if (!hasCompare) return "";
+  const diff = (a ?? 0) - (b ?? 0);
+  const diffStr = diff > 0 ? `+${fmt(diff)}` : fmt(diff);
+  const name = props.compareEventName || "event comparé";
+  return `${diffStr} delegue(s) vs ${name} : ${fmt(b ?? 0)}`;
+}
+const tooltipCheckin = computed(() => makeTooltip(physicallyCheckedInCount.value, checkedInBCount.value));
+const tooltipLiveOnly = computed(() => makeTooltip(liveOnlyRemoteCount.value, liveOnlyRemoteBCount.value));
+const tooltipBoth = computed(() => makeTooltip(bothRemoteCount.value, bothRemoteBCount.value));
+const tooltipReplayOnly = computed(() => makeTooltip(replayOnlyRemoteCount.value, replayOnlyRemoteBCount.value));
+const tooltipTotal = computed(() => makeTooltip(totalParticipants.value, totalParticipantsB.value));
+
 const {
   filteredStats: fs, activeFilters, activeFilterMap: afm,
   hasFilters, filteredCount, toggleFilter, removeFilter, clearFilters,
-} = useFilteredStats(() => props.delegates, () => props.mobileAppId);
+} = useFilteredStats(() => pageFilteredDelegates.value, () => props.mobileAppId);
 
 const fmt = (n) => (n ?? 0).toLocaleString("fr-FR");
 const pct = (a, b) => (b > 0 ? ((a / b) * 100).toFixed(1) + "%" : "0%");
+const pctNum = (a, b) => (b > 0 ? (a / b) * 100 : 0);
 
 const registeredCount = computed(() =>
-  (props.delegates || []).filter((d) => d.status?.toLowerCase() === "registered").length
+  pageFilteredDelegates.value.filter((d) => d.status?.toLowerCase() === "registered").length
 );
 
 // --- Filtres ---
@@ -286,6 +595,133 @@ const onboardingDatasets = computed(() => {
 <style scoped>
 .kpi-overview {
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+.kpi-card-highlight {
+  grid-column: span 2;
+  min-width: 0;
+  box-shadow: 0 4px 16px rgba(48, 221, 146, 0.25), var(--shadow);
+  border: 2px solid var(--accent, #30DD92);
+}
+.kpi-card-highlight .kpi-value { font-size: 32px; }
+.kpi-card-highlight .kpi-sub { line-height: 1.5; }
+
+/* Decomposition "Total participants" */
+.participation-card { margin-top: 16px; }
+.participation-formula {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 18px 0 22px;
+}
+.formula-chip {
+  flex: 1 1 0;
+  min-width: 130px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f7f7f9;
+  border-left: 4px solid #ccc;
+}
+.formula-chip.checkin     { border-left-color: var(--accent, #30DD92); }
+.formula-chip.live-only   { border-left-color: #1E4E66; }
+.formula-chip.both        { border-left-color: #6F45FF; }
+.formula-chip.replay-only { border-left-color: #b06bff; }
+.formula-chip.total {
+  background: linear-gradient(135deg, rgba(48,221,146,0.12), rgba(111,69,255,0.12));
+  border-left-color: var(--accent, #30DD92);
+  border: 2px solid var(--accent, #30DD92);
+  border-left-width: 4px;
+}
+.formula-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .4px; font-weight: 600; }
+.formula-value { font-size: 22px; font-weight: 700; color: var(--text, #414141); margin-top: 2px; }
+.formula-delta {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+  align-self: flex-start;
+}
+.formula-delta.delta--good { color: #047857; background: #d1fae5; }
+.formula-delta.delta--bad { color: #b91c1c; background: #fee2e2; }
+.formula-delta.delta--neutral { color: var(--text-muted, #888); background: #f3f4f6; }
+
+/* Filtre global par type de badge (multi-select) */
+.badge-type-filter {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin: 4px 0 12px; padding: 10px 14px;
+  background: #f9fafb; border: 1px solid #f3f4f6; border-radius: 10px;
+}
+.badge-type-filter-label {
+  font-size: 12px; color: #414141; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .3px;
+}
+.period-selector { display: flex; gap: 4px; flex-wrap: wrap; }
+.period-btn {
+  padding: 4px 10px; border: 1px solid #d1d5db; background: #fff;
+  border-radius: 4px; font-size: 11px; cursor: pointer; color: #646464;
+}
+.period-btn.active { background: #1E4E66; color: #fff; border-color: #1E4E66; }
+.formula-op {
+  align-self: center;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-muted, #999);
+}
+
+.participation-bar {
+  display: flex;
+  width: 100%;
+  height: 44px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f0f0f0;
+  margin-bottom: 14px;
+}
+.bar-segment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  transition: width 0.4s ease;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.bar-segment.seg-checkin     { background: #30DD92; color: #0c3a23; }
+.bar-segment.seg-live-only   { background: #1E4E66; }
+.bar-segment.seg-both        { background: #6F45FF; }
+.bar-segment.seg-replay-only { background: #b06bff; }
+
+.participation-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 22px;
+  font-size: 12px;
+  color: var(--text, #414141);
+  margin-bottom: 8px;
+}
+.legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.legend-item .swatch {
+  width: 12px; height: 12px; border-radius: 3px; display: inline-block;
+}
+.swatch.seg-checkin     { background: #30DD92; }
+.swatch.seg-live-only   { background: #1E4E66; }
+.swatch.seg-both        { background: #6F45FF; }
+.swatch.seg-replay-only { background: #b06bff; }
+
+.participation-note {
+  font-size: 11px;
+  color: var(--text-muted, #888);
+  font-style: italic;
+  margin: 4px 0 0;
+  line-height: 1.5;
 }
 .kpi-card-status {
   grid-column: span 2; min-width: 0;

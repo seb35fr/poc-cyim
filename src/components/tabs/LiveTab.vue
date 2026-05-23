@@ -101,7 +101,6 @@
       <div class="chart-card">
         <div class="chart-header">
           <h3>Délégués uniques par tranche de 30 min</h3>
-          <span class="chart-hint" style="margin: 0;">Bucketé sur la fin de session (heure de Paris)</span>
           <CsvButton
             filename="live-delegues-uniques-30min"
             :headers="['Créneau', 'Délégués uniques']"
@@ -118,7 +117,6 @@
       <div class="chart-card" v-if="stats.sessionTypes && stats.sessionTypes.length > 0">
         <div class="chart-header">
           <h3>Vues par type de session</h3>
-          <span class="chart-hint" style="margin: 0;">Cliquez sur un segment pour filtrer le détail ci-dessous</span>
           <CsvButton
             filename="live-par-session-type"
             :headers="['Type', 'Vues', 'Délégués uniques']"
@@ -287,50 +285,54 @@ function hasValidCheckin(d) {
 }
 
 // --- Jointure ES live <-> delegates de la registration ---
-// On indexe chaque delegate sous TOUS ses identifiants candidats (id, contactId,
-// externalContactId, externalId, externalIds[].value) -> on garde son statut
-// check-in (booleen). Cle = l'id sous lequel le delegate peut etre trouve
-// dans les hits live (user_id OU delegate_id).
+// Le user_id renvoye par l'index ES live est un IDENTIFIANT KEYCLOAK
+// (alias "account id" cote contacts service). On le retrouve dans
+// contact.emailAddresses[].source.id quand source.type === "ACCOUNT"
+// (c'est le lien email <-> compte Keycloak). Source de verite la plus
+// fiable d'apres l'inspection Mongo cote service contacts.
+function getKeycloakId(d) {
+  const emails = d?.contact?.emailAddresses;
+  if (!Array.isArray(emails)) return null;
+  const accountEmail = emails.find((e) => e?.source?.type === "ACCOUNT");
+  return accountEmail?.source?.id || null;
+}
+
 const delegateLookup = computed(() => {
-  const map = new Map();
+  const map = new Map(); // keycloakId -> { checkedIn, delegate }
   for (const d of props.delegates || []) {
+    const kcId = getKeycloakId(d);
+    if (!kcId) continue;
     const checkedIn = hasValidCheckin(d);
-    const keys = [
-      d.id,
-      d.contactId,
-      d.externalContactId,
-      d.externalId,
-    ];
-    const ext = d.contact?.externalIds;
-    if (Array.isArray(ext)) {
-      for (const e of ext) if (e?.value) keys.push(e.value);
+    if (map.has(kcId)) {
+      // Collision : 2 delegates partagent le meme keycloak id (anomalie data).
+      const prev = map.get(kcId);
+      if (prev.checkedIn !== checkedIn) {
+        console.warn(
+          `[Live] Collision keycloakId ${kcId} entre 2 delegues avec checkedIn different`,
+          { prev: prev.delegate?.email, current: d.email },
+        );
+      }
+      continue;
     }
-    for (const k of keys) {
-      if (k && !map.has(k)) map.set(k, checkedIn);
-    }
+    map.set(kcId, { checkedIn, delegate: d });
   }
   return map;
 });
 
-// Classifie chaque hit live en : "checked-in" / "no-checkin" / "unknown" (pas
-// de delegate matchant). On compte les uniques par categorie a partir d'une
-// cle stable (delegateId si fourni par l'index, sinon userId).
+// Classifie chaque hit live (user_id = keycloak id) en :
+// "checked-in" / "no-checkin" / "unknown" (pas de delegate matchant).
 const liveJoinStats = computed(() => {
   const lookup = delegateLookup.value;
   const checkedIn = new Set();
   const noCheckin = new Set();
   const unknown = new Set();
   for (const it of stats.value.items) {
-    const key = it.delegateId || it.userId;
-    if (!key) continue;
-    const matchedCheckin = lookup.has(it.delegateId)
-      ? lookup.get(it.delegateId)
-      : lookup.has(it.userId)
-        ? lookup.get(it.userId)
-        : null;
-    if (matchedCheckin === null) unknown.add(key);
-    else if (matchedCheckin) checkedIn.add(key);
-    else noCheckin.add(key);
+    const kcId = it.userId;
+    if (!kcId) continue;
+    const entry = lookup.get(kcId);
+    if (!entry) unknown.add(kcId);
+    else if (entry.checkedIn) checkedIn.add(kcId);
+    else noCheckin.add(kcId);
   }
   return {
     checkedIn: checkedIn.size,
@@ -342,28 +344,22 @@ const liveJoinStats = computed(() => {
 const uniqueLiveUsersWithoutCheckin = computed(() => liveJoinStats.value.noCheckin);
 
 // Liste detaillee des delegues live sans check-in physique (pour debug console).
-// Construit a partir de la meme jointure : on garde les hits dont le delegate
-// matche en registration ET dont le delegate n'a pas de checkedInDate valide.
-// Dedupe sur la cle stable (delegateId || userId).
+// Dedupe sur le keycloak id.
 const liveWithoutCheckinList = computed(() => {
   const lookup = delegateLookup.value;
   const seen = new Set();
   const list = [];
   for (const it of stats.value.items) {
-    const key = it.delegateId || it.userId;
-    if (!key || seen.has(key)) continue;
-    const matchedCheckin = lookup.has(it.delegateId)
-      ? lookup.get(it.delegateId)
-      : lookup.has(it.userId)
-        ? lookup.get(it.userId)
-        : null;
-    if (matchedCheckin === false) {
-      seen.add(key);
+    const kcId = it.userId;
+    if (!kcId || seen.has(kcId)) continue;
+    const entry = lookup.get(kcId);
+    if (entry && entry.checkedIn === false) {
+      seen.add(kcId);
       list.push({
-        delegateId: it.delegateId || "",
-        userId: it.userId || "",
+        keycloakId: kcId,
+        delegateId: entry.delegate?.id || "",
         fullName: it.fullName,
-        email: it.email,
+        email: entry.delegate?.email || it.email,
       });
     }
   }
@@ -378,6 +374,29 @@ watch(
     if (list.length === 0) return;
     console.log(`[Live] ${list.length} delegues ont regarde du live SANS check-in physique :`);
     console.table(list);
+  },
+  { immediate: true },
+);
+
+// Dump de la lookup keycloakId -> email/checkedIn, pour cross-reference
+// manuelle avec le dump ES (les user_id ES doivent matcher ces keycloakId).
+watch(
+  delegateLookup,
+  (map) => {
+    if (!map || map.size === 0) return;
+    const rows = [];
+    for (const [keycloakId, entry] of map.entries()) {
+      rows.push({
+        keycloakId,
+        email: entry.delegate?.email || "",
+        fullName: [entry.delegate?.givenName, entry.delegate?.familyName].filter(Boolean).join(" "),
+        delegateId: entry.delegate?.id || "",
+        checkedIn: entry.checkedIn,
+        checkedInDate: entry.delegate?.checkedInDate || "",
+      });
+    }
+    console.log(`[Live] delegateLookup (${rows.length} entrees, keycloakId -> delegate) :`);
+    console.table(rows);
   },
   { immediate: true },
 );

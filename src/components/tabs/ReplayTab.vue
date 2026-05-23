@@ -206,18 +206,33 @@ function hasValidCheckin(d) {
   return Number.isFinite(t);
 }
 
+// Le user_id renvoye par l'index ES replay est un IDENTIFIANT KEYCLOAK
+// (alias "account id"). On le retrouve dans
+// contact.emailAddresses[].source.id quand source.type === "ACCOUNT".
+function getKeycloakId(d) {
+  const emails = d?.contact?.emailAddresses;
+  if (!Array.isArray(emails)) return null;
+  const accountEmail = emails.find((e) => e?.source?.type === "ACCOUNT");
+  return accountEmail?.source?.id || null;
+}
+
 const delegateLookup = computed(() => {
-  const map = new Map();
+  const map = new Map(); // keycloakId -> { checkedIn, delegate }
   for (const d of props.delegates || []) {
+    const kcId = getKeycloakId(d);
+    if (!kcId) continue;
     const checkedIn = hasValidCheckin(d);
-    const keys = [d.id, d.contactId, d.externalContactId, d.externalId];
-    const ext = d.contact?.externalIds;
-    if (Array.isArray(ext)) {
-      for (const e of ext) if (e?.value) keys.push(e.value);
+    if (map.has(kcId)) {
+      const prev = map.get(kcId);
+      if (prev.checkedIn !== checkedIn) {
+        console.warn(
+          `[Replay] Collision keycloakId ${kcId} entre 2 delegues avec checkedIn different`,
+          { prev: prev.delegate?.email, current: d.email },
+        );
+      }
+      continue;
     }
-    for (const k of keys) {
-      if (k && !map.has(k)) map.set(k, checkedIn);
-    }
+    map.set(kcId, { checkedIn, delegate: d });
   }
   return map;
 });
@@ -228,16 +243,12 @@ const replayJoinStats = computed(() => {
   const noCheckin = new Set();
   const unknown = new Set();
   for (const it of stats.value.items) {
-    const key = it.delegateId || it.userId;
-    if (!key) continue;
-    const matchedCheckin = lookup.has(it.delegateId)
-      ? lookup.get(it.delegateId)
-      : lookup.has(it.userId)
-        ? lookup.get(it.userId)
-        : null;
-    if (matchedCheckin === null) unknown.add(key);
-    else if (matchedCheckin) checkedIn.add(key);
-    else noCheckin.add(key);
+    const kcId = it.userId;
+    if (!kcId) continue;
+    const entry = lookup.get(kcId);
+    if (!entry) unknown.add(kcId);
+    else if (entry.checkedIn) checkedIn.add(kcId);
+    else noCheckin.add(kcId);
   }
   return {
     checkedIn: checkedIn.size,
@@ -254,20 +265,16 @@ const replayWithoutCheckinList = computed(() => {
   const seen = new Set();
   const list = [];
   for (const it of stats.value.items) {
-    const key = it.delegateId || it.userId;
-    if (!key || seen.has(key)) continue;
-    const matchedCheckin = lookup.has(it.delegateId)
-      ? lookup.get(it.delegateId)
-      : lookup.has(it.userId)
-        ? lookup.get(it.userId)
-        : null;
-    if (matchedCheckin === false) {
-      seen.add(key);
+    const kcId = it.userId;
+    if (!kcId || seen.has(kcId)) continue;
+    const entry = lookup.get(kcId);
+    if (entry && entry.checkedIn === false) {
+      seen.add(kcId);
       list.push({
-        delegateId: it.delegateId || "",
-        userId: it.userId || "",
+        keycloakId: kcId,
+        delegateId: entry.delegate?.id || "",
         fullName: it.fullName,
-        email: it.email,
+        email: entry.delegate?.email || it.email,
       });
     }
   }
@@ -280,6 +287,29 @@ watch(
     if (list.length === 0) return;
     console.log(`[Replay] ${list.length} delegues ont consulte du replay SANS check-in physique :`);
     console.table(list);
+  },
+  { immediate: true },
+);
+
+// Dump de la lookup keycloakId -> email/checkedIn, pour cross-reference
+// manuelle avec le dump ES.
+watch(
+  delegateLookup,
+  (map) => {
+    if (!map || map.size === 0) return;
+    const rows = [];
+    for (const [keycloakId, entry] of map.entries()) {
+      rows.push({
+        keycloakId,
+        email: entry.delegate?.email || "",
+        fullName: [entry.delegate?.givenName, entry.delegate?.familyName].filter(Boolean).join(" "),
+        delegateId: entry.delegate?.id || "",
+        checkedIn: entry.checkedIn,
+        checkedInDate: entry.delegate?.checkedInDate || "",
+      });
+    }
+    console.log(`[Replay] delegateLookup (${rows.length} entrees, keycloakId -> delegate) :`);
+    console.table(rows);
   },
   { immediate: true },
 );

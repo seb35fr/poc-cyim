@@ -16,18 +16,25 @@
             <span class="nav-icon" v-html="node.icon"></span>
             <span class="nav-label">{{ node.label }}</span>
           </button>
-          <!-- Group : header non navigable + enfants indentes -->
+          <!-- Group : header pliable + enfants indentes -->
           <template v-else>
-            <div :class="['nav-group-header', { 'is-active': isGroupActive(node) }]">
+            <button
+              type="button"
+              :class="['nav-group-header', { 'is-active': isGroupActive(node), 'is-collapsed': !isExpanded(node.id) }]"
+              @click="toggleGroup(node.id)"
+            >
               <span class="nav-icon" v-html="node.icon"></span>
               <span class="nav-label">{{ node.label }}</span>
-            </div>
-            <button v-for="child in node.children" :key="child.id"
-              :class="['nav-item', 'nav-child', { active: activeTab === child.id }]"
-              @click="activeTab = child.id">
-              <span class="nav-icon" v-html="child.icon"></span>
-              <span class="nav-label">{{ child.label }}</span>
+              <span class="nav-chevron" aria-hidden="true">▾</span>
             </button>
+            <template v-if="isExpanded(node.id)">
+              <button v-for="child in node.children" :key="child.id"
+                :class="['nav-item', 'nav-child', { active: activeTab === child.id }]"
+                @click="activeTab = child.id">
+                <span class="nav-icon" v-html="child.icon"></span>
+                <span class="nav-label">{{ child.label }}</span>
+              </button>
+            </template>
           </template>
         </template>
       </nav>
@@ -87,14 +94,28 @@
             <div v-for="tab in exportTabs" :key="'pdf-' + tab.id" :data-tab-id="tab.id">
               <div class="pdf-page-break"></div>
               <h2 class="pdf-tab-title">{{ tab.label }}</h2>
-              <OverviewTab v-if="tab.id === 'overview'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
+              <OverviewTab v-if="tab.id === 'overview'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" :compare-delegates="compareDelegates" :compare-event-name="compareEventName" />
               <DemographicsTab v-if="tab.id === 'demographics'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
               <RegistrationsTab v-if="tab.id === 'registrations'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
               <TemporalTab v-if="tab.id === 'temporal'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
               <BadgesTab v-if="tab.id === 'badges'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
               <ScansTab v-if="tab.id === 'scans'" />
               <LiveTab v-if="tab.id === 'live'" :delegates="delegates" />
+              <LiveComparisonTab
+                v-if="tab.id === 'liveCompare'"
+                :delegates="delegates"
+                :compare-delegates="compareDelegates"
+                :event-name="eventName"
+                :compare-event-name="compareEventName"
+              />
               <ReplayTab v-if="tab.id === 'replay'" :delegates="delegates" />
+              <ReplayComparisonTab
+                v-if="tab.id === 'replayCompare'"
+                :delegates="delegates"
+                :compare-delegates="compareDelegates"
+                :event-name="eventName"
+                :compare-event-name="compareEventName"
+              />
               <DataTab v-if="tab.id === 'data'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
               <ComparisonTab
                 v-if="tab.id === 'comparison'"
@@ -111,14 +132,28 @@
             </div>
           </template>
           <template v-else>
-            <OverviewTab v-if="activeTab === 'overview'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
+            <OverviewTab v-if="activeTab === 'overview'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" :compare-delegates="compareDelegates" :compare-event-name="compareEventName" />
             <DemographicsTab v-if="activeTab === 'demographics'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
             <RegistrationsTab v-if="activeTab === 'registrations'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
             <TemporalTab v-if="activeTab === 'temporal'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
             <BadgesTab v-if="activeTab === 'badges'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
             <ScansTab v-if="activeTab === 'scans'" />
             <LiveTab v-if="activeTab === 'live'" :delegates="delegates" />
+            <LiveComparisonTab
+              v-if="activeTab === 'liveCompare'"
+              :delegates="delegates"
+              :compare-delegates="compareDelegates"
+              :event-name="eventName"
+              :compare-event-name="compareEventName"
+            />
             <ReplayTab v-if="activeTab === 'replay'" :delegates="delegates" />
+            <ReplayComparisonTab
+              v-if="activeTab === 'replayCompare'"
+              :delegates="delegates"
+              :compare-delegates="compareDelegates"
+              :event-name="eventName"
+              :compare-event-name="compareEventName"
+            />
             <DataTab v-if="activeTab === 'data'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
             <ComparisonTab
               v-if="activeTab === 'comparison'"
@@ -154,7 +189,9 @@ import DataTab from "../components/tabs/DataTab.vue";
 import ComparisonTab from "../components/tabs/ComparisonTab.vue";
 import ScansTab from "../components/tabs/ScansTab.vue";
 import LiveTab from "../components/tabs/LiveTab.vue";
+import LiveComparisonTab from "../components/tabs/LiveComparisonTab.vue";
 import ReplayTab from "../components/tabs/ReplayTab.vue";
+import ReplayComparisonTab from "../components/tabs/ReplayComparisonTab.vue";
 
 const route = useRoute();
 const eventId = route.params.eventId;
@@ -260,13 +297,34 @@ const tabs = computed(() => {
   if (compareEventId && compareStats.value) {
     registrationChildren.push({ id: "comparison", label: "Comparatif", icon: ICONS.comparison });
   }
+  // Live / Replay : leaf simple par defaut, groupe avec sous-onglet Comparatif
+  // quand un compareWith est actif et que ses stats sont chargees.
+  const hasCompare = compareEventId && compareStats.value;
+  const liveNode = hasCompare
+    ? {
+        id: "live", label: "Live", icon: ICONS.live,
+        children: [
+          { id: "live", label: "Single", icon: ICONS.live },
+          { id: "liveCompare", label: "Comparatif", icon: ICONS.comparison },
+        ],
+      }
+    : { id: "live", label: "Live", icon: ICONS.live };
+  const replayNode = hasCompare
+    ? {
+        id: "replay", label: "Replay", icon: ICONS.replay,
+        children: [
+          { id: "replay", label: "Single", icon: ICONS.replay },
+          { id: "replayCompare", label: "Comparatif", icon: ICONS.comparison },
+        ],
+      }
+    : { id: "replay", label: "Replay", icon: ICONS.replay };
   return [
     { id: "overview", label: "Vue d'ensemble", icon: ICONS.overview },
     { id: "demographics", label: "Démographie", icon: ICONS.demographics },
     { id: "registration", label: "Registration", icon: ICONS.registration, children: registrationChildren },
-    { id: "scans", label: "Scans salles & Zones", icon: ICONS.scans },
-    { id: "live", label: "Live", icon: ICONS.live },
-    { id: "replay", label: "Replay", icon: ICONS.replay },
+    liveNode,
+    replayNode,
+    { id: "scans", label: "SCANS QR", icon: ICONS.scans },
   ];
 });
 
@@ -284,6 +342,23 @@ const exportTabs = computed(() => {
 function isGroupActive(node) {
   return node.children?.some((c) => c.id === activeTab.value) || false;
 }
+
+// Groupes pliables : Set d'ids deplies. Par defaut, on deplie tous les groupes
+// qui existent au moment ou l'utilisateur charge la page. Les nouveaux groupes
+// (apparus apres l'ajout de compareWith par exemple) sont auto-deplies.
+const expandedGroups = ref(new Set());
+function isExpanded(groupId) {
+  return expandedGroups.value.has(groupId);
+}
+function toggleGroup(groupId) {
+  const next = new Set(expandedGroups.value);
+  if (next.has(groupId)) next.delete(groupId);
+  else next.add(groupId);
+  expandedGroups.value = next;
+}
+// Au chargement, tous les groupes sont plies. L'utilisateur deplie ceux qu'il
+// veut consulter en cliquant sur le header. Pas d'auto-expand a l'apparition
+// d'un nouveau groupe (ex: lors de l'activation de compareWith).
 </script>
 
 <style>
@@ -344,7 +419,7 @@ function isGroupActive(node) {
 .nav-item.active .nav-icon { opacity: 1; }
 .nav-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* Groupe (Registration) : header non cliquable, enfants indentes. */
+/* Groupe : header cliquable (toggle plier/deplier), enfants indentes. */
 .nav-group-header {
   display: flex; align-items: center; gap: 10px;
   padding: 12px 12px 4px;
@@ -352,9 +427,23 @@ function isGroupActive(node) {
   color: rgba(255,255,255,.45);
   text-transform: uppercase; letter-spacing: .6px;
   user-select: none;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
 }
+.nav-group-header:hover { color: rgba(255,255,255,.85); }
 .nav-group-header.is-active { color: rgba(255,255,255,.75); }
 .nav-group-header .nav-icon { width: 14px; height: 14px; opacity: .55; }
+.nav-chevron {
+  margin-left: auto;
+  font-size: 10px;
+  transition: transform 0.18s ease;
+  opacity: .6;
+}
+.nav-group-header.is-collapsed .nav-chevron { transform: rotate(-90deg); }
 
 .nav-item.nav-child { padding-left: 26px; }
 .nav-item.nav-child .nav-icon { width: 14px; height: 14px; }

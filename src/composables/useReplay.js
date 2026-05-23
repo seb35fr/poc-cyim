@@ -52,6 +52,8 @@ export function useReplay(eventId, options = {}) {
         console.log("[Replay] Structure du 1er hit ES (_source) :", result[0]._source);
         console.log("[Replay] Champs disponibles :", Object.keys(result[0]._source || {}));
       }
+      // Dump complet des hits ES (_source) pour verification jointure
+      console.log(`[Replay] Dump complet ES (${result.length} hits) :`, result.map((h) => h._source));
       console.log(`[Replay] ${sessionsResult.length} sessions chargees depuis GraphQL`);
     } catch (e) {
       error.value = e.message;

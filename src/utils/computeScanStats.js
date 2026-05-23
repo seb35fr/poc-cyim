@@ -5,6 +5,10 @@ import { parisDateParts } from "./parisTime.js";
 // vs registration_type, session_id vs zone_id), on les ramene a un schema commun.
 function normalizeAudience(hit) {
   const s = hit._source || {};
+  // Les 3 index audience / checkin / zone ecrivent tous le meme
+  // identifiant cote Flink : badge.registrationByBadgeQRCode['delegate']['id']
+  // = delegate.id Mongo. Le nom du champ ES differe juste (user_id vs
+  // delegate_id), mais le contenu est identique. Pas besoin de traduction.
   return {
     kind: "audience",
     id: hit._id,
@@ -91,9 +95,18 @@ function dayHourFromTimestamp(ts) {
   return { day: parts.ymd, hour: String(parts.hour).padStart(2, "0") };
 }
 
+// Cote Flink (stats_room_scans.sql), checkin et zone sont en LEFT JOIN avec
+// un CASE WHEN ... ELSE '-'. Quand un QR scanne ne matche aucun delegate
+// (badge invalide, mauvais event), delegate_id est ecrit litteralement '-'.
+// Tous ces scans aboutissent au meme "delegateId = '-'" et seraient fusionnes
+// en 1 faux delegue unique -> on doit les exclure.
+function isRealDelegateId(id) {
+  return !!id && id !== "-";
+}
+
 function uniqueDelegates(scans) {
   const set = new Set();
-  for (const s of scans) if (s.delegateId) set.add(s.delegateId);
+  for (const s of scans) if (isRealDelegateId(s.delegateId)) set.add(s.delegateId);
   return set.size;
 }
 
@@ -133,10 +146,11 @@ function flowByDayHour(scans) {
 }
 
 function uniqueDelegatesByDay(scans) {
-  // { day: Set<delegateId> } puis cardinalite
+  // { day: Set<delegateId Mongo> } puis cardinalite. Filtre les '-' (cf.
+  // isRealDelegateId : placeholder Flink pour les QR non matches).
   const sets = new Map();
   for (const s of scans) {
-    if (!s.delegateId) continue;
+    if (!isRealDelegateId(s.delegateId)) continue;
     const dh = dayHourFromTimestamp(s.timestamp);
     if (!dh) continue;
     if (!sets.has(dh.day)) sets.set(dh.day, new Set());

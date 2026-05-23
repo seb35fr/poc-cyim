@@ -56,6 +56,9 @@ export function useLive(eventId, options = {}) {
         console.log("[Live] Structure du 1er hit ES (_source) :", result[0]._source);
         console.log("[Live] Champs disponibles :", Object.keys(result[0]._source || {}));
       }
+      // Dump complet des hits ES (_source uniquement, pas le wrapper _id/_index)
+      // pour pouvoir verifier la jointure manuellement sur des delegues precis.
+      console.log(`[Live] Dump complet ES (${result.length} hits) :`, result.map((h) => h._source));
       console.log(`[Live] ${sessionsResult.length} sessions chargees depuis GraphQL`);
     } catch (e) {
       error.value = e.message;
