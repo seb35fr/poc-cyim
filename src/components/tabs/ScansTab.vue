@@ -175,18 +175,19 @@
 
 <script setup>
 import { computed, ref } from "vue";
-import { useRoute } from "vue-router";
 import { Bar } from "vue-chartjs";
 import HBarChart from "../charts/HBarChart.vue";
 import LineChart from "../charts/LineChart.vue";
 import CsvButton from "../CsvButton.vue";
-import { useRoomScans } from "../../composables/useRoomScans.js";
 import { parisDateParts } from "../../utils/parisTime.js";
 import { fmt } from "@/utils/formatters.js";
 
-const route = useRoute();
-const eventId = route.params.eventId;
-const { loading, refreshing, error, progress, stats, reload } = useRoomScans(eventId);
+const props = defineProps({
+  // Instance useRoomScans proprietee par StatisticsView (mutualisee avec ExportsTab + export MD).
+  scansApi: { type: Object, required: true },
+});
+
+const { loading, refreshing, error, progress, stats, reload } = props.scansApi;
 
 const g = computed(() => stats.value.global);
 const audience = computed(() => stats.value.audience);

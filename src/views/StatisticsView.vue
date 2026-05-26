@@ -41,14 +41,18 @@
 
       <div class="sidebar-footer">
         <div class="sidebar-actions">
-          <button class="btn-side" @click="handleExportPdf" :disabled="exporting || exportingPptx">
+          <button class="btn-side" @click="handleExportPdf" :disabled="exporting || exportingPptx || exportingMd">
             <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 1v9M8 10L5 7M8 10l3-3M2 12v2h12v-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             <span v-if="exporting" class="spinner-small"></span>
             {{ exporting ? "..." : "PDF" }}
           </button>
-          <button class="btn-side btn-side-purple" @click="handleExportPptx" :disabled="exporting || exportingPptx">
+          <button class="btn-side btn-side-purple" @click="handleExportPptx" :disabled="exporting || exportingPptx || exportingMd">
             <span v-if="exportingPptx" class="spinner-small"></span>
             {{ exportingPptx ? "..." : "PPTX" }}
+          </button>
+          <button class="btn-side btn-side-accent" @click="handleExportMarkdown" :disabled="exporting || exportingPptx || exportingMd" title="Export Markdown — destiné à un LLM (Claude, ChatGPT)">
+            <span v-if="exportingMd" class="spinner-small"></span>
+            {{ exportingMd ? "..." : "MD" }}
           </button>
         </div>
         <div class="sidebar-refresh">
@@ -112,7 +116,7 @@
               <RegistrationsTab v-if="tab.id === 'registrations'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
               <TemporalTab v-if="tab.id === 'temporal'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
               <BadgesTab v-if="tab.id === 'badges'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" :badge-filter="badgeFilter" />
-              <ScansTab v-if="tab.id === 'scans'" />
+              <ScansTab v-if="tab.id === 'scans'" :scans-api="scansApi" />
               <ViewersTab v-if="tab.id === 'live'" kind="live" :delegates="delegates" :viewer-api="liveApi" />
               <ViewersComparisonTab
                 v-if="tab.id === 'liveCompare'"
@@ -170,7 +174,7 @@
             <RegistrationsTab v-if="activeTab === 'registrations'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
             <TemporalTab v-if="activeTab === 'temporal'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
             <BadgesTab v-if="activeTab === 'badges'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" :badge-filter="badgeFilter" />
-            <ScansTab v-if="activeTab === 'scans'" />
+            <ScansTab v-if="activeTab === 'scans'" :scans-api="scansApi" />
             <ViewersTab v-if="activeTab === 'live'" kind="live" :delegates="delegates" :viewer-api="liveApi" />
             <ViewersComparisonTab
               v-if="activeTab === 'liveCompare'"
@@ -200,6 +204,7 @@
               :event-name="eventName"
               :live-api="liveApi"
               :replay-api="replayApi"
+              :scans-api="scansApi"
             />
             <ComparisonTab
               v-if="activeTab === 'comparison'"
@@ -227,9 +232,11 @@ import { useRoute } from "vue-router";
 import { useStatistics } from "@/composables/useStatistics.js";
 import { useLive } from "@/composables/useLive.js";
 import { useReplay } from "@/composables/useReplay.js";
+import { useRoomScans } from "@/composables/useRoomScans.js";
 import { useBadgeTypeFilter } from "@/composables/useBadgeTypeFilter.js";
 import { useExportPdf } from "@/composables/useExportPdf.js";
 import { useExportPptx } from "@/composables/useExportPptx.js";
+import { useExportMarkdown } from "@/composables/useExportMarkdown.js";
 import { COUNTDOWN_TICK_MS } from "@/constants.js";
 import OverviewTab from "../components/tabs/OverviewTab.vue";
 import DemographicsTab from "../components/tabs/DemographicsTab.vue";
@@ -255,6 +262,10 @@ const { loading, refreshing, error, progress, stats, eventName, delegates, mobil
 // (etait source d'accumulation de timers en HMR).
 const liveApi = useLive(eventId);
 const replayApi = useReplay(eventId);
+// Scans QR (audience + checkin + zone) : mutualises au niveau StatisticsView
+// pour que (a) ScansTab + ExportsTab partagent une seule instance, (b) la donnee
+// soit disponible immediatement pour l'export Markdown sans avoir a visiter Scans.
+const scansApi = useRoomScans(eventId);
 
 // Event de comparaison : chargement one-shot, sans auto-refresh.
 const compareApi = compareEventId
@@ -298,6 +309,7 @@ const nextRefreshLabel = computed(() => {
 });
 const { exporting, exportToPdf } = useExportPdf();
 const { exportingPptx, exportToPptx } = useExportPptx();
+const { exportingMd, exportToMarkdown } = useExportMarkdown();
 
 const registeredCount = computed(() =>
   (delegates.value || []).filter((d) => d.status?.toLowerCase() === "registered").length
@@ -335,6 +347,23 @@ async function handleExportPptx() {
     compareStats.value, compareEventName.value,
     delegates.value, compareDelegates.value,
   );
+}
+
+async function handleExportMarkdown() {
+  // Pas besoin d'attendre les charts — on lit la data brute, pas le DOM.
+  await exportToMarkdown({
+    eventId,
+    eventName: eventName.value,
+    delegates: delegates.value,
+    stats: stats.value,
+    compareStats: compareStats.value,
+    compareEventName: compareEventName.value,
+    compareDelegates: compareDelegates.value,
+    liveStats: liveApi.stats.value,
+    replayStats: replayApi.stats.value,
+    scanStats: scansApi.stats.value,
+    badgeFilterTypes: [...badgeFilter.selected.value],
+  });
 }
 
 const progressPercent = computed(() =>
@@ -544,6 +573,8 @@ function toggleGroup(groupId) {
 .btn-side:disabled { opacity: .4; cursor: wait; }
 .btn-side-purple { background: var(--purple); }
 .btn-side-purple:hover { background: #5a35e0; }
+.btn-side-accent { background: var(--accent); color: #0b3b29; }
+.btn-side-accent:hover { background: var(--accent-hover); }
 .btn-side-ghost {
   background: none; border: 1px solid rgba(255,255,255,.2);
   font-weight: 500; font-size: 11px;
