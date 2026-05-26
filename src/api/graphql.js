@@ -1,20 +1,85 @@
 const GRAPHQL_URL = import.meta.env.DEV ? "/api/graphql" : import.meta.env.VITE_GRAPHQL_URL;
 const AUTH_TOKEN = import.meta.env.VITE_AUTH_TOKEN;
 
+// Extrait "OpName" depuis "query OpName(...)" / "mutation OpName(...)".
+// Utilise dans les logs pour identifier la requete fautive sans dump le body.
+function extractOpName(query) {
+  const m = query.match(/^\s*(?:query|mutation|subscription)\s+(\w+)/);
+  return m?.[1] || "anonymous";
+}
+
+// Heuristique : detecte si une erreur GraphQL (cote serveur) ressemble a
+// un timeout. Couvre les messages explicites + les codes d'extensions
+// communs (Apollo Gateway, Apollo Federation).
+function looksLikeTimeout(err) {
+  const msg = err?.message || "";
+  if (/timeout|timed out|deadline|exceeded.*time|ECONNABORTED|ETIMEDOUT/i.test(msg)) return true;
+  const code = err?.extensions?.code;
+  return code === "GRAPHQL_TIMEOUT" || code === "REQUEST_TIMEOUT" || code === "GATEWAY_TIMEOUT";
+}
+
 async function gqlFetch(query, variables = {}) {
-  const res = await fetch(GRAPHQL_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${AUTH_TOKEN}`,
-    },
-    body: JSON.stringify({ query, variables }),
-  });
-  const json = await res.json();
+  const opName = extractOpName(query);
+  const startedAt = performance.now();
+
+  let res;
+  try {
+    res = await fetch(GRAPHQL_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${AUTH_TOKEN}`,
+      },
+      body: JSON.stringify({ query, variables }),
+    });
+  } catch (err) {
+    // TypeError "Failed to fetch" = soit connexion refusee, soit timeout
+    // navigateur/proxy/loadbalancer. La duree aide a distinguer les deux.
+    const elapsed = Math.round(performance.now() - startedAt);
+    const hint = elapsed > 10_000 ? " (probable timeout)" : "";
+    console.error(
+      `[GraphQL] ${opName} — network error after ${elapsed}ms${hint}:`,
+      err?.message || err,
+      { variables }
+    );
+    throw err;
+  }
+
+  const elapsed = Math.round(performance.now() - startedAt);
+
+  if (!res.ok) {
+    const isTimeout = res.status === 504 || res.status === 408 || res.status === 524;
+    console.error(
+      `[GraphQL] ${opName} — HTTP ${res.status} ${res.statusText} after ${elapsed}ms${
+        isTimeout ? " (gateway timeout)" : ""
+      }`,
+      { variables }
+    );
+    throw new Error(`HTTP ${res.status} on ${opName}`);
+  }
+
+  let json;
+  try {
+    json = await res.json();
+  } catch (err) {
+    console.error(`[GraphQL] ${opName} — invalid JSON after ${elapsed}ms:`, err);
+    throw err;
+  }
+
   if (json.errors) {
-    console.error("GraphQL errors:", json.errors);
+    const timeoutHit = json.errors.some(looksLikeTimeout);
+    const label = `[GraphQL] ${opName} — ${json.errors.length} error(s) after ${elapsed}ms${
+      timeoutHit ? " (timeout detected server-side)" : ""
+    }`;
+    if (timeoutHit) console.error(label, json.errors, { variables });
+    else console.error(label, json.errors);
     throw new Error(json.errors.map((e) => e.message).join(", "));
   }
+
+  if (elapsed > 5000) {
+    console.warn(`[GraphQL] ${opName} — slow query: ${elapsed}ms`, { variables });
+  }
+
   return json.data;
 }
 
@@ -29,6 +94,7 @@ const DELEGATE_FIELDS = `
   occupation
   jobTitle
   qualification
+  practiceModes
   title
   createdAt
   updatedAt

@@ -647,14 +647,15 @@ const frRegionsOverseas = computed(() => frRegions.value.filter((r) => !METRO_RE
 const frGlobalMax = computed(() => Math.max(1, ...frRegions.value.map((r) => r.count)));
 
 // --- Badges par device, stacke par type de badge ---
-// On itere sur les delegates DEJA FILTRES (page-level badge type + cross-filters
-// type/jour). Si un filtre badge type est actif, on restreint en plus les badges
-// comptabilises a ce(s) type(s) — sinon les badges d'autres types appartenant
-// aux meme delegues (multi-badge) viendraient polluer le total.
+// Source = pageFilteredDelegates (page-level badge type), PAS filteredDelegates :
+// sinon cliquer sur un device retire les autres du chart (filteredDelegates ne
+// contient que les delegues ayant un badge du device selectionne), rendant la
+// multi-selection impossible. Meme pattern que badgesDaySource ci-dessus.
+// La dim visuelle (isDim) suffit a signaler la selection en cours.
 const deviceByType = computed(() => {
   const sel = selectedBadgeTypes.value;
   const map = {};
-  for (const d of filteredDelegates.value) {
+  for (const d of pageFilteredDelegates.value) {
     for (const b of d.badges || []) {
       if (!b.deliveredAt) continue;
       const type = b.type || "Inconnu";

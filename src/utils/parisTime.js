@@ -39,3 +39,19 @@ export function parisDateParts(iso) {
 export function parisDay(iso) {
   return parisDateParts(iso)?.ymd ?? null;
 }
+
+// "YYYY-MM-DD HH:mm:ss" en heure de Paris (CET/CEST gere). Utilise pour les
+// exports CSV : les dates ISO sont en UTC (suffixe "Z") cote API, on veut les
+// presenter en heure locale Paris dans les fichiers livres aux clients.
+export function parisDateTime(iso) {
+  if (!iso) return "";
+  const d = iso instanceof Date ? iso : new Date(iso);
+  if (isNaN(d.getTime())) return String(iso);
+  const parts = {};
+  for (const p of PARIS_FORMATTER.formatToParts(d)) {
+    if (p.type !== "literal") parts[p.type] = p.value;
+  }
+  let hour = parts.hour;
+  if (hour === "24") hour = "00";
+  return `${parts.year}-${parts.month}-${parts.day} ${hour}:${parts.minute}:${parts.second}`;
+}

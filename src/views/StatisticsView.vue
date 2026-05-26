@@ -155,6 +155,7 @@
               :compare-event-name="compareEventName"
             />
             <DataTab v-if="activeTab === 'data'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
+            <ExportsTab v-if="activeTab === 'exports'" :delegates="delegates" :event-name="eventName" />
             <ComparisonTab
               v-if="activeTab === 'comparison'"
               :stats="stats"
@@ -192,6 +193,7 @@ import LiveTab from "../components/tabs/LiveTab.vue";
 import LiveComparisonTab from "../components/tabs/LiveComparisonTab.vue";
 import ReplayTab from "../components/tabs/ReplayTab.vue";
 import ReplayComparisonTab from "../components/tabs/ReplayComparisonTab.vue";
+import ExportsTab from "../components/tabs/ExportsTab.vue";
 
 const route = useRoute();
 const eventId = route.params.eventId;
@@ -282,6 +284,7 @@ const ICONS = {
   scans: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/></svg>',
   live: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>',
   replay: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>',
+  exports: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
 };
 
 // Structure de navigation hierarchique. Les nodes avec `children` sont des
@@ -325,18 +328,21 @@ const tabs = computed(() => {
     liveNode,
     replayNode,
     { id: "scans", label: "SCANS QR", icon: ICONS.scans },
+    { id: "exports", label: "Exports", icon: ICONS.exports },
   ];
 });
 
 // exportTabs : aplatissement des leaves (Registration n'est pas exporte en tant
 // que page — c'est juste un regroupement). Ordre = ordre d'apparition.
+// L'onglet "Exports" est exclu : c'est l'interface des exports CSV, pas une
+// page de statistiques a inclure dans le PDF/PPTX.
 const exportTabs = computed(() => {
   const flat = [];
   for (const node of tabs.value) {
     if (node.children) flat.push(...node.children);
     else flat.push(node);
   }
-  return flat;
+  return flat.filter((t) => t.id !== "exports");
 });
 
 function isGroupActive(node) {
