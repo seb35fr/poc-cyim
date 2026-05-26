@@ -1,18 +1,16 @@
-import { ref, computed, readonly } from "vue";
-import { fetchLiveViews } from "../api/elasticsearch.js";
-import { fetchEventSessions } from "../api/graphql.js";
-import { computeLiveStats } from "../utils/computeLiveStats.js";
+import { ref, computed, readonly, onUnmounted } from "vue";
+import { fetchLiveViews } from "@/api/elasticsearch.js";
+import { fetchEventSessions } from "@/api/graphql.js";
+import { computeLiveStats } from "@/utils/computeLiveStats.js";
+import { debug } from "@/utils/debug.js";
+import { AUTO_REFRESH_MS } from "@/constants.js";
 
-const AUTO_REFRESH_INTERVAL = 10 * 60 * 1000;
-
-// Cache singleton par eventId : evite de re-fetcher Live a chaque montage d'un
-// composant qui consomme useLive (Overview + LiveTab + ...). Le polling tourne
-// au niveau module et est partage entre tous les consommateurs.
-const cache = new Map(); // eventId -> instance partagee
-
+// Live views ES + enrichissement sessions GraphQL.
+// Instancie une fois par eventId au niveau StatisticsView, puis transmis aux
+// tabs en prop. Le timer d'auto-refresh est clear via onUnmounted — pas de
+// cache singleton (etait source d'accumulation de timers en HMR / appels en
+// boucle si le composable etait monte plusieurs fois).
 export function useLive(eventId, options = {}) {
-  if (cache.has(eventId)) return cache.get(eventId);
-
   const { autoRefresh = true } = options;
 
   const loading = ref(true);
@@ -40,7 +38,6 @@ export function useLive(eventId, options = {}) {
     progress.value = { loaded: 0, page: 0 };
 
     try {
-      // Fetch parallele : hits live (ES) + sessions du congres (GraphQL)
       const [result, sessionsResult] = await Promise.all([
         fetchLiveViews(eventId, (p) => {
           progress.value = { loaded: p.loaded, page: p.page };
@@ -53,13 +50,11 @@ export function useLive(eventId, options = {}) {
       hits.value = result;
       sessions.value = sessionsResult;
       if (result.length > 0) {
-        console.log("[Live] Structure du 1er hit ES (_source) :", result[0]._source);
-        console.log("[Live] Champs disponibles :", Object.keys(result[0]._source || {}));
+        debug.log("[Live] Structure du 1er hit ES (_source) :", result[0]._source);
+        debug.log("[Live] Champs disponibles :", Object.keys(result[0]._source || {}));
       }
-      // Dump complet des hits ES (_source uniquement, pas le wrapper _id/_index)
-      // pour pouvoir verifier la jointure manuellement sur des delegues precis.
-      console.log(`[Live] Dump complet ES (${result.length} hits) :`, result.map((h) => h._source));
-      console.log(`[Live] ${sessionsResult.length} sessions chargees depuis GraphQL`);
+      debug.log(`[Live] Dump complet ES (${result.length} hits) :`, result.map((h) => h._source));
+      debug.log(`[Live] ${sessionsResult.length} sessions chargees depuis GraphQL`);
     } catch (e) {
       error.value = e.message;
       console.error("Failed to load live views:", e);
@@ -71,18 +66,16 @@ export function useLive(eventId, options = {}) {
 
   load();
 
-  const nextRefreshAt = ref(Date.now() + AUTO_REFRESH_INTERVAL);
-  // Le timer tourne au niveau module : il survit aux montages/demontages des
-  // composants. Pas de cleanup onUnmounted car l'instance est partagee — le
-  // GC se fera au reload de la page.
+  const nextRefreshAt = ref(Date.now() + AUTO_REFRESH_MS);
   if (autoRefresh) {
-    setInterval(() => {
-      nextRefreshAt.value = Date.now() + AUTO_REFRESH_INTERVAL;
+    const timer = setInterval(() => {
+      nextRefreshAt.value = Date.now() + AUTO_REFRESH_MS;
       load();
-    }, AUTO_REFRESH_INTERVAL);
+    }, AUTO_REFRESH_MS);
+    onUnmounted(() => clearInterval(timer));
   }
 
-  const instance = {
+  return {
     loading: readonly(loading),
     refreshing: readonly(refreshing),
     error: readonly(error),
@@ -91,10 +84,8 @@ export function useLive(eventId, options = {}) {
     stats,
     nextRefreshAt: readonly(nextRefreshAt),
     reload() {
-      nextRefreshAt.value = Date.now() + AUTO_REFRESH_INTERVAL;
+      nextRefreshAt.value = Date.now() + AUTO_REFRESH_MS;
       load();
     },
   };
-  cache.set(eventId, instance);
-  return instance;
 }

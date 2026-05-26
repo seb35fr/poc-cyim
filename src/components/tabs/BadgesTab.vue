@@ -319,6 +319,7 @@ import { parisDay } from "../../utils/parisTime.js";
 import { buildBurndownAbsolute } from "../../utils/burndown.js";
 import { getTypeColor } from "../../utils/typeColors.js";
 import { zipToRegion, REGION_NAMES } from "../../utils/frenchRegions.js";
+import { fmt, pct } from "@/utils/formatters.js";
 import {
   delegateBadgeType,
   buildCheckinByType,
@@ -373,9 +374,6 @@ const {
   filteredDelegates, filteredStats: fs, activeFilters, activeFilterMap: afm,
   hasFilters, filteredCount, toggleFilter, removeFilter, clearFilters,
 } = useFilteredStats(() => pageFilteredDelegates.value);
-
-const fmt = (n) => (n ?? 0).toLocaleString("fr-FR");
-const pct = (a, b) => (b > 0 ? ((a / b) * 100).toFixed(1) + "%" : "0%");
 
 // --- Filtres ---
 function onDeviceSelect(label) {

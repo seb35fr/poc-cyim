@@ -121,10 +121,9 @@
 <script setup>
 import { ref, computed } from "vue";
 import { useRoute } from "vue-router";
-import { useLive } from "../../composables/useLive.js";
-import { useReplay } from "../../composables/useReplay.js";
 import { useRoomScans } from "../../composables/useRoomScans.js";
 import { downloadCsv } from "../../utils/exportCsv.js";
+import { fmt } from "@/utils/formatters.js";
 import {
   buildSessionAttendance,
   ATTENDANCE_HEADERS,
@@ -134,16 +133,19 @@ import {
 const props = defineProps({
   delegates: { type: Array, default: () => [] },
   eventName: { type: String, default: "" },
+  // Instances live/replay proprietees par StatisticsView (timer + cache mutualises).
+  liveApi: { type: Object, required: true },
+  replayApi: { type: Object, required: true },
 });
 
 const route = useRoute();
 const eventId = route.params.eventId;
 
-// Singletons cote module pour live et replay, instance dediee pour scans
-// (cf. useRoomScans qui n'est pas un singleton). En contrepartie la 1re
-// ouverture de l'onglet refetch les scans meme si ScansTab a deja ete visite.
-const live = useLive(eventId);
-const replay = useReplay(eventId);
+// Live/Replay = instances heritees (cf. props). Scans = instance locale a ce
+// tab — pas encore mutualisee avec ScansTab (TODO Day 1.3+). En contrepartie
+// la 1re ouverture refetch les scans meme si ScansTab a deja ete visite.
+const live = props.liveApi;
+const replay = props.replayApi;
 const scans = useRoomScans(eventId);
 
 const openCategory = ref("session-attendance"); // ouvert par defaut
@@ -299,8 +301,6 @@ function formatStart(iso) {
     minute: "2-digit",
   });
 }
-
-const fmt = (n) => (n || 0).toLocaleString("fr-FR");
 </script>
 
 <style scoped>

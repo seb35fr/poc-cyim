@@ -177,21 +177,21 @@
 
 <script setup>
 import { computed, watch } from "vue";
-import { useRoute } from "vue-router";
 import { Bar } from "vue-chartjs";
 import HBarChart from "../charts/HBarChart.vue";
 import DoughnutChart from "../charts/DoughnutChart.vue";
 import CsvButton from "../CsvButton.vue";
-import { useReplay } from "../../composables/useReplay.js";
 import { parisDateParts } from "../../utils/parisTime.js";
+import { fmt } from "@/utils/formatters.js";
+import { debug } from "@/utils/debug.js";
 
 const props = defineProps({
   delegates: { type: Array, default: () => [] },
+  // Instance useReplay proprietee par StatisticsView.
+  replayApi: { type: Object, required: true },
 });
 
-const route = useRoute();
-const eventId = route.params.eventId;
-const { loading, refreshing, error, progress, stats, reload } = useReplay(eventId);
+const { loading, refreshing, error, progress, stats, reload } = props.replayApi;
 
 const g = computed(() => stats.value.global);
 const topN = 15;
@@ -285,8 +285,8 @@ watch(
   replayWithoutCheckinList,
   (list) => {
     if (list.length === 0) return;
-    console.log(`[Replay] ${list.length} delegues ont consulte du replay SANS check-in physique :`);
-    console.table(list);
+    debug.log(`[Replay] ${list.length} delegues ont consulte du replay SANS check-in physique :`);
+    debug.table(list);
   },
   { immediate: true },
 );
@@ -308,8 +308,8 @@ watch(
         checkedInDate: entry.delegate?.checkedInDate || "",
       });
     }
-    console.log(`[Replay] delegateLookup (${rows.length} entrees, keycloakId -> delegate) :`);
-    console.table(rows);
+    debug.log(`[Replay] delegateLookup (${rows.length} entrees, keycloakId -> delegate) :`);
+    debug.table(rows);
   },
   { immediate: true },
 );
@@ -396,8 +396,6 @@ const engagementOptions = {
     y: { grid: { color: "#f3f4f6" }, ticks: { font: { size: 11 } }, beginAtZero: true },
   },
 };
-
-const fmt = (n) => (n ?? 0).toLocaleString("fr-FR");
 
 function truncate(s, n) {
   if (!s) return "";

@@ -232,23 +232,23 @@
 
 <script setup>
 import { computed, ref, watch } from "vue";
-import { useRoute } from "vue-router";
 import { Bar } from "vue-chartjs";
 import HBarChart from "../charts/HBarChart.vue";
 import DoughnutChart from "../charts/DoughnutChart.vue";
 import CsvButton from "../CsvButton.vue";
-import { useLive } from "../../composables/useLive.js";
 import { parisDateParts } from "../../utils/parisTime.js";
+import { fmt } from "@/utils/formatters.js";
+import { debug } from "@/utils/debug.js";
 
 const props = defineProps({
   // delegates de l'event (passes par StatisticsView) : utilise pour cross-matcher
   // user_id ES avec checkedInDate et identifier les spectateurs live a distance.
   delegates: { type: Array, default: () => [] },
+  // Instance useLive proprietee par StatisticsView (timer + cache mutualises).
+  liveApi: { type: Object, required: true },
 });
 
-const route = useRoute();
-const eventId = route.params.eventId;
-const { loading, refreshing, error, progress, stats, reload } = useLive(eventId);
+const { loading, refreshing, error, progress, stats, reload } = props.liveApi;
 
 const g = computed(() => stats.value.global);
 const topN = 15;
@@ -372,8 +372,8 @@ watch(
   liveWithoutCheckinList,
   (list) => {
     if (list.length === 0) return;
-    console.log(`[Live] ${list.length} delegues ont regarde du live SANS check-in physique :`);
-    console.table(list);
+    debug.log(`[Live] ${list.length} delegues ont regarde du live SANS check-in physique :`);
+    debug.table(list);
   },
   { immediate: true },
 );
@@ -395,8 +395,8 @@ watch(
         checkedInDate: entry.delegate?.checkedInDate || "",
       });
     }
-    console.log(`[Live] delegateLookup (${rows.length} entrees, keycloakId -> delegate) :`);
-    console.table(rows);
+    debug.log(`[Live] delegateLookup (${rows.length} entrees, keycloakId -> delegate) :`);
+    debug.table(rows);
   },
   { immediate: true },
 );
@@ -531,8 +531,6 @@ const engagementOptions = {
 };
 
 // --- Helpers ---
-const fmt = (n) => (n ?? 0).toLocaleString("fr-FR");
-
 const ORIGIN_COLORS = ["#1E4E66", "#30DD92", "#6F45FF", "#FFA600", "#E53935", "#00BCD4", "#9C27B0", "#A3B86C"];
 
 const totalOriginViews = computed(() =>

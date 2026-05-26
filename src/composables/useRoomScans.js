@@ -3,10 +3,10 @@ import {
   fetchRoomAudience,
   fetchCongressCheckin,
   fetchZoneAccess,
-} from "../api/elasticsearch.js";
-import { computeAllScanStats } from "../utils/computeScanStats.js";
-
-const AUTO_REFRESH_INTERVAL = 10 * 60 * 1000;
+} from "@/api/elasticsearch.js";
+import { computeAllScanStats } from "@/utils/computeScanStats.js";
+import { debug } from "@/utils/debug.js";
+import { AUTO_REFRESH_MS } from "@/constants.js";
 
 export function useRoomScans(eventId, options = {}) {
   const { autoRefresh = true } = options;
@@ -50,25 +50,25 @@ export function useRoomScans(eventId, options = {}) {
       // Dump complet des hits ES (_source) pour les 3 index, pour verification
       // jointure / structure des champs (notamment user_id keycloak vs delegate_id Mongo).
       if (a.length > 0) {
-        console.log("[Scans][audience] Structure du 1er hit (_source) :", a[0]._source);
-        console.log("[Scans][audience] Champs disponibles :", Object.keys(a[0]._source || {}));
+        debug.log("[Scans][audience] Structure du 1er hit (_source) :", a[0]._source);
+        debug.log("[Scans][audience] Champs disponibles :", Object.keys(a[0]._source || {}));
       }
-      console.log(`[Scans][audience] Dump complet ES (${a.length} hits) :`, a.map((h) => h._source));
+      debug.log(`[Scans][audience] Dump complet ES (${a.length} hits) :`, a.map((h) => h._source));
       if (c.length > 0) {
-        console.log("[Scans][checkin] Structure du 1er hit (_source) :", c[0]._source);
-        console.log("[Scans][checkin] Champs disponibles :", Object.keys(c[0]._source || {}));
+        debug.log("[Scans][checkin] Structure du 1er hit (_source) :", c[0]._source);
+        debug.log("[Scans][checkin] Champs disponibles :", Object.keys(c[0]._source || {}));
       }
-      console.log(`[Scans][checkin] Dump complet ES (${c.length} hits) :`, c.map((h) => h._source));
+      debug.log(`[Scans][checkin] Dump complet ES (${c.length} hits) :`, c.map((h) => h._source));
       if (z.length > 0) {
-        console.log("[Scans][zone] Structure du 1er hit (_source) :", z[0]._source);
-        console.log("[Scans][zone] Champs disponibles :", Object.keys(z[0]._source || {}));
+        debug.log("[Scans][zone] Structure du 1er hit (_source) :", z[0]._source);
+        debug.log("[Scans][zone] Champs disponibles :", Object.keys(z[0]._source || {}));
       }
-      console.log(`[Scans][zone] Dump complet ES (${z.length} hits) :`, z.map((h) => h._source));
+      debug.log(`[Scans][zone] Dump complet ES (${z.length} hits) :`, z.map((h) => h._source));
       // Diagnostic placeholder '-' : combien de scans checkin/zone ont un
       // delegate_id == '-' (QR non matche cote Flink, exclu de l'unicite) ?
       const dashCheckin = c.filter((h) => (h._source?.delegate_id || h._source?.delegate_identity_id) === "-").length;
       const dashZone = z.filter((h) => (h._source?.delegate_id || h._source?.delegate_identity_id) === "-").length;
-      console.log(
+      debug.log(
         `[Scans] Placeholder '-' (QR non matches, exclus de l'unicite) : ${dashCheckin} checkin, ${dashZone} zone`,
       );
     } catch (e) {
@@ -82,12 +82,12 @@ export function useRoomScans(eventId, options = {}) {
 
   load();
 
-  const nextRefreshAt = ref(Date.now() + AUTO_REFRESH_INTERVAL);
+  const nextRefreshAt = ref(Date.now() + AUTO_REFRESH_MS);
   if (autoRefresh) {
     const timer = setInterval(() => {
-      nextRefreshAt.value = Date.now() + AUTO_REFRESH_INTERVAL;
+      nextRefreshAt.value = Date.now() + AUTO_REFRESH_MS;
       load();
-    }, AUTO_REFRESH_INTERVAL);
+    }, AUTO_REFRESH_MS);
     onUnmounted(() => clearInterval(timer));
   }
 
@@ -102,7 +102,7 @@ export function useRoomScans(eventId, options = {}) {
     stats,
     nextRefreshAt: readonly(nextRefreshAt),
     reload() {
-      nextRefreshAt.value = Date.now() + AUTO_REFRESH_INTERVAL;
+      nextRefreshAt.value = Date.now() + AUTO_REFRESH_MS;
       load();
     },
   };

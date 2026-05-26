@@ -292,6 +292,7 @@ import { makeDateLabeler } from "../../utils/formatDateLabel.js";
 import { getTypeColor } from "../../utils/typeColors.js";
 import { computeAllStats } from "../../utils/computeStats.js";
 import { zipToRegion, REGION_NAMES } from "../../utils/frenchRegions.js";
+import { fmt, pct, shortName as shortNameBase } from "@/utils/formatters.js";
 import {
   delegateBadgeType,
   buildCheckinByType,
@@ -398,12 +399,8 @@ const frGlobalMax = computed(() => Math.max(
   ...frRegionsCompare.value.map((r) => r.count),
 ));
 
-const fmt = (n) => (n ?? 0).toLocaleString("fr-FR");
-const pct = (a, b) => (b > 0 ? ((a / b) * 100).toFixed(1) + "%" : "0%");
-const shortName = (n) => {
-  if (!n) return "—";
-  return n.length > 26 ? n.slice(0, 24) + "…" : n;
-};
+// ComparisonTab utilise des cards plus etroites que les autres tabs : 26 chars.
+const shortName = (n) => shortNameBase(n, 26);
 
 const compareProgressPercent = computed(() => {
   const p = props.compareProgress;

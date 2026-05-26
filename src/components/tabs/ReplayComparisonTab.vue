@@ -121,31 +121,33 @@
 
 <script setup>
 import { computed } from "vue";
-import { useRoute } from "vue-router";
 import { Bar } from "vue-chartjs";
-import { useReplay } from "../../composables/useReplay.js";
 import {
   buildDelegateLookup,
   getRemoteOnlyDelegateIds,
 } from "../../utils/viewerJoin.js";
+import { fmt, shortName } from "@/utils/formatters.js";
 
 const props = defineProps({
   delegates: { type: Array, default: () => [] },
   compareDelegates: { type: Array, default: () => [] },
   eventName: { type: String, default: "" },
   compareEventName: { type: String, default: "" },
+  // Instances useReplay A (event courant) + B (compare). B est null si pas de compareWith.
+  replayApi: { type: Object, required: true },
+  compareReplayApi: { type: Object, default: null },
 });
 
-const route = useRoute();
-const eventId = route.params.eventId;
-const compareEventId = route.query.compareWith || null;
-
-const replayA = useReplay(eventId);
-const replayB = compareEventId ? useReplay(compareEventId, { autoRefresh: false }) : null;
+const replayA = props.replayApi;
+const replayB = props.compareReplayApi;
 
 const loading = computed(() => replayA.loading.value || (replayB?.loading.value ?? false));
 const error = computed(() => replayA.error.value || replayB?.error.value || null);
 
+// FIXME (Day 2) : noms incorrects (liveStatsA/B au lieu de replayStatsA/B) —
+// hérités du copy-paste de LiveComparisonTab. Les data sont bonnes (lient bien
+// replayA/replayB.stats.value), seuls les noms induisent en erreur. Day 2 va
+// fusionner les 2 composants dans un seul generique, ces noms disparaitront.
 const liveStatsA = computed(() => replayA.stats.value || { global: {}, items: [], origins: [], uniqueByDay: [] });
 const liveStatsB = computed(() => replayB?.stats.value || { global: {}, items: [], origins: [], uniqueByDay: [] });
 
@@ -157,11 +159,6 @@ const COLORS = {
 // Palette stable pour les origines (mêmes couleurs sur les 2 barres).
 const ORIGIN_PALETTE = ["#1E4E66", "#30DD92", "#6F45FF", "#FF8A3D", "#1FB6D6", "#E07A5F"];
 
-const fmt = (n) => (n ?? 0).toLocaleString("fr-FR");
-function shortName(name) {
-  if (!name) return "—";
-  return name.length > 38 ? name.slice(0, 36) + "…" : name;
-}
 function formatDuration(sec) {
   if (!sec || sec < 0) return "0s";
   const total = Math.round(sec);

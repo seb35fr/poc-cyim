@@ -12,6 +12,8 @@
  * @param options.compareStats - stats de l'event comparé (optionnel)
  * @param options.compareEventName - nom de l'event comparé (optionnel)
  */
+import { fmt, pct } from "./formatters.js";
+
 function median(values) {
   if (!values || values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);
@@ -45,8 +47,6 @@ export function generateAnalysis(stats, registeredCount, eventName, options = {}
   } = options;
   const sections = [];
   const g = stats.global;
-  const fmt = (n) => (n ?? 0).toLocaleString("fr-FR");
-  const pct = (a, b) => (b > 0 ? ((a / b) * 100).toFixed(1) + "%" : "0%");
 
   // --- Chiffres cles ---
   const keyFacts = [];

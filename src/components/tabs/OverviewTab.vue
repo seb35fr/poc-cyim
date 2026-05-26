@@ -253,10 +253,7 @@ import HBarChart from "../charts/HBarChart.vue";
 import LineChart from "../charts/LineChart.vue";
 import FilterBanner from "../FilterBanner.vue";
 import CsvButton from "../CsvButton.vue";
-import { useRoute } from "vue-router";
 import { useFilteredStats } from "../../composables/useFilteredStats.js";
-import { useLive } from "../../composables/useLive.js";
-import { useReplay } from "../../composables/useReplay.js";
 import { makeDateLabeler } from "../../utils/formatDateLabel.js";
 import { getTypeColors } from "../../utils/typeColors.js";
 import {
@@ -265,6 +262,7 @@ import {
   getCheckedInDelegateIds,
 } from "../../utils/viewerJoin.js";
 import { delegateBadgeType } from "../../utils/checkinByType.js";
+import { fmt, pct } from "@/utils/formatters.js";
 
 const props = defineProps({
   stats: Object,
@@ -273,24 +271,19 @@ const props = defineProps({
   eventName: String,
   compareDelegates: { type: Array, default: () => [] },
   compareEventName: { type: String, default: "" },
+  // Instances live/replay proprietees par StatisticsView (timer + cache mutualises).
+  liveApi: { type: Object, required: true },
+  replayApi: { type: Object, required: true },
+  compareLiveApi: { type: Object, default: null },
+  compareReplayApi: { type: Object, default: null },
 });
 
-// --- KPIs Live / Replay : load en arriere-plan via ES.
-// Auto-refresh actif (defaut 10 min) — meme cadence que les composables
-// registrations / badges (useStatistics) pour rester coherent.
-// Limite : si l'onglet Live ou Replay est ouvert en parallele, il y a 2
-// instances de useLive (idem useReplay), chacune avec son propre loop.
-// A consolider plus tard en remontant l'etat au niveau de StatisticsView.
-const route = useRoute();
-const eventId = route.params.eventId;
-const compareEventId = route.query.compareWith || null;
-const { loading: liveLoading, stats: liveStats } = useLive(eventId);
-const { loading: replayLoading, stats: replayStats } = useReplay(eventId);
-// Live / Replay du compareEventId : meme cache singleton, autoRefresh
-// desactive (instance non-active, on ne veut pas double polling).
-const liveB = compareEventId ? useLive(compareEventId, { autoRefresh: false }) : null;
-const replayB = compareEventId ? useReplay(compareEventId, { autoRefresh: false }) : null;
-const hasCompare = !!compareEventId;
+// --- KPIs Live / Replay : instances heritees de StatisticsView (cf. props).
+const { loading: liveLoading, stats: liveStats } = props.liveApi;
+const { loading: replayLoading, stats: replayStats } = props.replayApi;
+const liveB = props.compareLiveApi;
+const replayB = props.compareReplayApi;
+const hasCompare = !!liveB;
 
 const liveUniqueUsers = computed(() => liveStats.value?.global?.uniqueUsers || 0);
 const replayUniqueUsers = computed(() => replayStats.value?.global?.uniqueUsers || 0);
@@ -464,8 +457,8 @@ const {
   hasFilters, filteredCount, toggleFilter, removeFilter, clearFilters,
 } = useFilteredStats(() => pageFilteredDelegates.value, () => props.mobileAppId);
 
-const fmt = (n) => (n ?? 0).toLocaleString("fr-FR");
-const pct = (a, b) => (b > 0 ? ((a / b) * 100).toFixed(1) + "%" : "0%");
+// pctNum garde la version numerique (pour calculs / deltas), distincte de pct
+// qui renvoie une string formatee "12.3%".
 const pctNum = (a, b) => (b > 0 ? (a / b) * 100 : 0);
 
 const registeredCount = computed(() =>

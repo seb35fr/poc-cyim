@@ -152,6 +152,7 @@ import FilterBanner from "../FilterBanner.vue";
 import CsvButton from "../CsvButton.vue";
 import { useFilteredStats } from "../../composables/useFilteredStats.js";
 import { getTypeColors } from "../../utils/typeColors.js";
+import { fmt } from "@/utils/formatters.js";
 
 const props = defineProps({ stats: Object, delegates: Array });
 
@@ -159,8 +160,6 @@ const {
   filteredStats: fs, activeFilters, activeFilterMap: afm,
   hasFilters, filteredCount, toggleFilter, removeFilter, clearFilters,
 } = useFilteredStats(() => props.delegates);
-
-const fmt = (n) => (n ?? 0).toLocaleString("fr-FR");
 
 const STATUS_COLORS = {
   confirmed: "#30DD92",

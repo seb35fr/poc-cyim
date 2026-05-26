@@ -182,6 +182,7 @@ import LineChart from "../charts/LineChart.vue";
 import CsvButton from "../CsvButton.vue";
 import { useRoomScans } from "../../composables/useRoomScans.js";
 import { parisDateParts } from "../../utils/parisTime.js";
+import { fmt } from "@/utils/formatters.js";
 
 const route = useRoute();
 const eventId = route.params.eventId;
@@ -349,7 +350,6 @@ function directionLabel(d) {
   return "—";
 }
 
-const fmt = (n) => (n ?? 0).toLocaleString("fr-FR");
 function truncate(s, n) {
   if (!s) return "";
   return s.length > n ? s.slice(0, n - 1) + "…" : s;

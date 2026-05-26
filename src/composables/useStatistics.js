@@ -1,8 +1,8 @@
 import { ref, readonly, onUnmounted } from "vue";
-import { fetchAllDelegates, fetchEventConfig } from "../api/graphql.js";
-import { computeAllStats } from "../utils/computeStats.js";
-
-const AUTO_REFRESH_INTERVAL = 10 * 60 * 1000; // 10 minutes
+import { fetchAllDelegates, fetchEventConfig } from "@/api/graphql.js";
+import { computeAllStats } from "@/utils/computeStats.js";
+import { debug } from "@/utils/debug.js";
+import { AUTO_REFRESH_MS } from "@/constants.js";
 
 export function useStatistics(eventId, options = {}) {
   const { autoRefresh = true } = options;
@@ -45,10 +45,10 @@ export function useStatistics(eventId, options = {}) {
         return !(d.badges || []).some((b) => b.deliveredAt);
       });
       if (missingDelivered.length > 0) {
-        console.log(
+        debug.log(
           `[${eventName.value}] ${missingDelivered.length} délégué(s) checked-in sans badge marqué délivré :`,
         );
-        console.table(
+        debug.table(
           missingDelivered.map((d) => ({
             id: d.id,
             familyName: d.familyName || "",
@@ -70,12 +70,12 @@ export function useStatistics(eventId, options = {}) {
   load();
 
   // Auto-refresh toutes les 10 minutes (desactivable pour l'event de comparaison).
-  const nextRefreshAt = ref(Date.now() + AUTO_REFRESH_INTERVAL);
+  const nextRefreshAt = ref(Date.now() + AUTO_REFRESH_MS);
   if (autoRefresh) {
     const autoRefreshTimer = setInterval(() => {
-      nextRefreshAt.value = Date.now() + AUTO_REFRESH_INTERVAL;
+      nextRefreshAt.value = Date.now() + AUTO_REFRESH_MS;
       load();
-    }, AUTO_REFRESH_INTERVAL);
+    }, AUTO_REFRESH_MS);
     onUnmounted(() => clearInterval(autoRefreshTimer));
   }
 
@@ -90,7 +90,7 @@ export function useStatistics(eventId, options = {}) {
     mobileAppId: readonly(mobileAppId),
     nextRefreshAt: readonly(nextRefreshAt),
     reload() {
-      nextRefreshAt.value = Date.now() + AUTO_REFRESH_INTERVAL;
+      nextRefreshAt.value = Date.now() + AUTO_REFRESH_MS;
       load();
     },
   };

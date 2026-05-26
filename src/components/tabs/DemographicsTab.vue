@@ -162,6 +162,7 @@ import FilterBanner from "../FilterBanner.vue";
 import CsvButton from "../CsvButton.vue";
 import { countryCodeToFlag, COUNTRY_CONTINENTS } from "../../utils/countries.js";
 import { useFilteredStats } from "../../composables/useFilteredStats.js";
+import { fmt, pct } from "@/utils/formatters.js";
 
 const props = defineProps({ stats: Object, delegates: Array });
 
@@ -170,8 +171,6 @@ const {
   hasFilters, filteredCount, toggleFilter, removeFilter, clearFilters,
 } = useFilteredStats(() => props.delegates);
 
-const fmt = (n) => (n ?? 0).toLocaleString("fr-FR");
-const pct = (a, b) => (b > 0 ? ((a / b) * 100).toFixed(1) + "%" : "0%");
 const countryFlag = (code) => countryCodeToFlag(code);
 
 function getCountryCode(d) {

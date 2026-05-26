@@ -94,27 +94,43 @@
             <div v-for="tab in exportTabs" :key="'pdf-' + tab.id" :data-tab-id="tab.id">
               <div class="pdf-page-break"></div>
               <h2 class="pdf-tab-title">{{ tab.label }}</h2>
-              <OverviewTab v-if="tab.id === 'overview'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" :compare-delegates="compareDelegates" :compare-event-name="compareEventName" />
+              <OverviewTab
+                v-if="tab.id === 'overview'"
+                :stats="stats"
+                :delegates="delegates"
+                :mobile-app-id="mobileAppId"
+                :event-name="eventName"
+                :compare-delegates="compareDelegates"
+                :compare-event-name="compareEventName"
+                :live-api="liveApi"
+                :replay-api="replayApi"
+                :compare-live-api="compareLiveApi"
+                :compare-replay-api="compareReplayApi"
+              />
               <DemographicsTab v-if="tab.id === 'demographics'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
               <RegistrationsTab v-if="tab.id === 'registrations'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
               <TemporalTab v-if="tab.id === 'temporal'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
               <BadgesTab v-if="tab.id === 'badges'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
               <ScansTab v-if="tab.id === 'scans'" />
-              <LiveTab v-if="tab.id === 'live'" :delegates="delegates" />
+              <LiveTab v-if="tab.id === 'live'" :delegates="delegates" :live-api="liveApi" />
               <LiveComparisonTab
                 v-if="tab.id === 'liveCompare'"
                 :delegates="delegates"
                 :compare-delegates="compareDelegates"
                 :event-name="eventName"
                 :compare-event-name="compareEventName"
+                :live-api="liveApi"
+                :compare-live-api="compareLiveApi"
               />
-              <ReplayTab v-if="tab.id === 'replay'" :delegates="delegates" />
+              <ReplayTab v-if="tab.id === 'replay'" :delegates="delegates" :replay-api="replayApi" />
               <ReplayComparisonTab
                 v-if="tab.id === 'replayCompare'"
                 :delegates="delegates"
                 :compare-delegates="compareDelegates"
                 :event-name="eventName"
                 :compare-event-name="compareEventName"
+                :replay-api="replayApi"
+                :compare-replay-api="compareReplayApi"
               />
               <DataTab v-if="tab.id === 'data'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
               <ComparisonTab
@@ -132,30 +148,52 @@
             </div>
           </template>
           <template v-else>
-            <OverviewTab v-if="activeTab === 'overview'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" :compare-delegates="compareDelegates" :compare-event-name="compareEventName" />
+            <OverviewTab
+              v-if="activeTab === 'overview'"
+              :stats="stats"
+              :delegates="delegates"
+              :mobile-app-id="mobileAppId"
+              :event-name="eventName"
+              :compare-delegates="compareDelegates"
+              :compare-event-name="compareEventName"
+              :live-api="liveApi"
+              :replay-api="replayApi"
+              :compare-live-api="compareLiveApi"
+              :compare-replay-api="compareReplayApi"
+            />
             <DemographicsTab v-if="activeTab === 'demographics'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
             <RegistrationsTab v-if="activeTab === 'registrations'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
             <TemporalTab v-if="activeTab === 'temporal'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
             <BadgesTab v-if="activeTab === 'badges'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
             <ScansTab v-if="activeTab === 'scans'" />
-            <LiveTab v-if="activeTab === 'live'" :delegates="delegates" />
+            <LiveTab v-if="activeTab === 'live'" :delegates="delegates" :live-api="liveApi" />
             <LiveComparisonTab
               v-if="activeTab === 'liveCompare'"
               :delegates="delegates"
               :compare-delegates="compareDelegates"
               :event-name="eventName"
               :compare-event-name="compareEventName"
+              :live-api="liveApi"
+              :compare-live-api="compareLiveApi"
             />
-            <ReplayTab v-if="activeTab === 'replay'" :delegates="delegates" />
+            <ReplayTab v-if="activeTab === 'replay'" :delegates="delegates" :replay-api="replayApi" />
             <ReplayComparisonTab
               v-if="activeTab === 'replayCompare'"
               :delegates="delegates"
               :compare-delegates="compareDelegates"
               :event-name="eventName"
               :compare-event-name="compareEventName"
+              :replay-api="replayApi"
+              :compare-replay-api="compareReplayApi"
             />
             <DataTab v-if="activeTab === 'data'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
-            <ExportsTab v-if="activeTab === 'exports'" :delegates="delegates" :event-name="eventName" />
+            <ExportsTab
+              v-if="activeTab === 'exports'"
+              :delegates="delegates"
+              :event-name="eventName"
+              :live-api="liveApi"
+              :replay-api="replayApi"
+            />
             <ComparisonTab
               v-if="activeTab === 'comparison'"
               :stats="stats"
@@ -178,9 +216,12 @@
 <script setup>
 import { ref, computed, nextTick, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
-import { useStatistics } from "../composables/useStatistics.js";
-import { useExportPdf } from "../composables/useExportPdf.js";
-import { useExportPptx } from "../composables/useExportPptx.js";
+import { useStatistics } from "@/composables/useStatistics.js";
+import { useLive } from "@/composables/useLive.js";
+import { useReplay } from "@/composables/useReplay.js";
+import { useExportPdf } from "@/composables/useExportPdf.js";
+import { useExportPptx } from "@/composables/useExportPptx.js";
+import { COUNTDOWN_TICK_MS } from "@/constants.js";
 import OverviewTab from "../components/tabs/OverviewTab.vue";
 import DemographicsTab from "../components/tabs/DemographicsTab.vue";
 import RegistrationsTab from "../components/tabs/RegistrationsTab.vue";
@@ -200,9 +241,23 @@ const eventId = route.params.eventId;
 const compareEventId = route.query.compareWith || null;
 const { loading, refreshing, error, progress, stats, eventName, delegates, mobileAppId, reload, nextRefreshAt } = useStatistics(eventId);
 
+// Live / Replay : instancies UNE fois ici (proprietaire = StatisticsView),
+// puis propages en prop a tous les tabs qui en consomment (Overview, Live,
+// Replay, LiveComparison, ReplayComparison, Exports). Le setInterval est
+// proprement clean via onUnmounted dans le composable — pas de cache module
+// (etait source d'accumulation de timers en HMR).
+const liveApi = useLive(eventId);
+const replayApi = useReplay(eventId);
+
 // Event de comparaison : chargement one-shot, sans auto-refresh.
 const compareApi = compareEventId
   ? useStatistics(compareEventId, { autoRefresh: false })
+  : null;
+const compareLiveApi = compareEventId
+  ? useLive(compareEventId, { autoRefresh: false })
+  : null;
+const compareReplayApi = compareEventId
+  ? useReplay(compareEventId, { autoRefresh: false })
   : null;
 const compareLoading = computed(() => compareApi?.loading.value || false);
 const compareError = computed(() => compareApi?.error.value || null);
@@ -212,12 +267,12 @@ const compareDelegates = computed(() => compareApi?.delegates.value || []);
 const compareProgress = computed(() => compareApi?.progress.value || { loaded: 0, total: 0, page: 0 });
 
 const now = ref(Date.now());
-const countdownTimer = setInterval(() => { now.value = Date.now(); }, 10_000);
+const countdownTimer = setInterval(() => { now.value = Date.now(); }, COUNTDOWN_TICK_MS);
 onUnmounted(() => clearInterval(countdownTimer));
 
 const nextRefreshLabel = computed(() => {
   const remaining = Math.max(0, nextRefreshAt.value - now.value);
-  const totalSec = Math.round(remaining / 10_000) * 10;
+  const totalSec = Math.round(remaining / COUNTDOWN_TICK_MS) * 10;
   if (totalSec <= 0) return "Refresh imminent...";
   const min = Math.floor(totalSec / 60);
   const sec = totalSec % 60;

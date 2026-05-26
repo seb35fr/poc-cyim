@@ -121,27 +121,25 @@
 
 <script setup>
 import { computed } from "vue";
-import { useRoute } from "vue-router";
 import { Bar } from "vue-chartjs";
-import { useLive } from "../../composables/useLive.js";
 import {
   buildDelegateLookup,
   getRemoteOnlyDelegateIds,
 } from "../../utils/viewerJoin.js";
+import { fmt, shortName } from "@/utils/formatters.js";
 
 const props = defineProps({
   delegates: { type: Array, default: () => [] },
   compareDelegates: { type: Array, default: () => [] },
   eventName: { type: String, default: "" },
   compareEventName: { type: String, default: "" },
+  // Instances useLive A (event courant) + B (compare). B est null si pas de compareWith.
+  liveApi: { type: Object, required: true },
+  compareLiveApi: { type: Object, default: null },
 });
 
-const route = useRoute();
-const eventId = route.params.eventId;
-const compareEventId = route.query.compareWith || null;
-
-const liveA = useLive(eventId);
-const liveB = compareEventId ? useLive(compareEventId, { autoRefresh: false }) : null;
+const liveA = props.liveApi;
+const liveB = props.compareLiveApi;
 
 const loading = computed(() => liveA.loading.value || (liveB?.loading.value ?? false));
 const error = computed(() => liveA.error.value || liveB?.error.value || null);
@@ -157,11 +155,6 @@ const COLORS = {
 // Palette stable pour les origines (mêmes couleurs sur les 2 barres).
 const ORIGIN_PALETTE = ["#1E4E66", "#30DD92", "#6F45FF", "#FF8A3D", "#1FB6D6", "#E07A5F"];
 
-const fmt = (n) => (n ?? 0).toLocaleString("fr-FR");
-function shortName(name) {
-  if (!name) return "—";
-  return name.length > 38 ? name.slice(0, 36) + "…" : name;
-}
 function formatDuration(sec) {
   if (!sec || sec < 0) return "0s";
   const total = Math.round(sec);

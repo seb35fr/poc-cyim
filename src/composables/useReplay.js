@@ -1,16 +1,14 @@
-import { ref, computed, readonly } from "vue";
-import { fetchReplayViews } from "../api/elasticsearch.js";
-import { fetchEventSessions } from "../api/graphql.js";
-import { computeReplayStats } from "../utils/computeReplayStats.js";
+import { ref, computed, readonly, onUnmounted } from "vue";
+import { fetchReplayViews } from "@/api/elasticsearch.js";
+import { fetchEventSessions } from "@/api/graphql.js";
+import { computeReplayStats } from "@/utils/computeReplayStats.js";
+import { debug } from "@/utils/debug.js";
+import { AUTO_REFRESH_MS } from "@/constants.js";
 
-const AUTO_REFRESH_INTERVAL = 10 * 60 * 1000;
-
-// Cache singleton par eventId : evite les re-fetch a chaque montage. Cf. useLive.
-const cache = new Map();
-
+// VOD replay views ES + enrichissement sessions GraphQL. Meme structure que
+// useLive — instancie une fois au niveau StatisticsView, propage en prop aux
+// tabs consommateurs. setInterval clean via onUnmounted.
 export function useReplay(eventId, options = {}) {
-  if (cache.has(eventId)) return cache.get(eventId);
-
   const { autoRefresh = true } = options;
 
   const loading = ref(true);
@@ -49,12 +47,11 @@ export function useReplay(eventId, options = {}) {
       hits.value = result;
       sessions.value = sessionsResult;
       if (result.length > 0) {
-        console.log("[Replay] Structure du 1er hit ES (_source) :", result[0]._source);
-        console.log("[Replay] Champs disponibles :", Object.keys(result[0]._source || {}));
+        debug.log("[Replay] Structure du 1er hit ES (_source) :", result[0]._source);
+        debug.log("[Replay] Champs disponibles :", Object.keys(result[0]._source || {}));
       }
-      // Dump complet des hits ES (_source) pour verification jointure
-      console.log(`[Replay] Dump complet ES (${result.length} hits) :`, result.map((h) => h._source));
-      console.log(`[Replay] ${sessionsResult.length} sessions chargees depuis GraphQL`);
+      debug.log(`[Replay] Dump complet ES (${result.length} hits) :`, result.map((h) => h._source));
+      debug.log(`[Replay] ${sessionsResult.length} sessions chargees depuis GraphQL`);
     } catch (e) {
       error.value = e.message;
       console.error("Failed to load replay views:", e);
@@ -66,15 +63,16 @@ export function useReplay(eventId, options = {}) {
 
   load();
 
-  const nextRefreshAt = ref(Date.now() + AUTO_REFRESH_INTERVAL);
+  const nextRefreshAt = ref(Date.now() + AUTO_REFRESH_MS);
   if (autoRefresh) {
-    setInterval(() => {
-      nextRefreshAt.value = Date.now() + AUTO_REFRESH_INTERVAL;
+    const timer = setInterval(() => {
+      nextRefreshAt.value = Date.now() + AUTO_REFRESH_MS;
       load();
-    }, AUTO_REFRESH_INTERVAL);
+    }, AUTO_REFRESH_MS);
+    onUnmounted(() => clearInterval(timer));
   }
 
-  const instance = {
+  return {
     loading: readonly(loading),
     refreshing: readonly(refreshing),
     error: readonly(error),
@@ -83,10 +81,8 @@ export function useReplay(eventId, options = {}) {
     stats,
     nextRefreshAt: readonly(nextRefreshAt),
     reload() {
-      nextRefreshAt.value = Date.now() + AUTO_REFRESH_INTERVAL;
+      nextRefreshAt.value = Date.now() + AUTO_REFRESH_MS;
       load();
     },
   };
-  cache.set(eventId, instance);
-  return instance;
 }

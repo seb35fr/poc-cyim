@@ -114,9 +114,9 @@ import FilterBanner from "../FilterBanner.vue";
 import CsvButton from "../CsvButton.vue";
 import { useFilteredStats } from "../../composables/useFilteredStats.js";
 import { makeDateLabeler } from "../../utils/formatDateLabel.js";
+import { fmt } from "@/utils/formatters.js";
 
 const props = defineProps({ stats: Object, delegates: Array });
-const fmt = (n) => (n ?? 0).toLocaleString("fr-FR");
 
 const {
   filteredStats: fs, activeFilters, activeFilterMap: afm,

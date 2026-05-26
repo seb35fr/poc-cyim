@@ -123,6 +123,7 @@ import CsvButton from "../CsvButton.vue";
 import { useFilteredStats } from "../../composables/useFilteredStats.js";
 import { makeDateLabeler } from "../../utils/formatDateLabel.js";
 import { parisDay } from "../../utils/parisTime.js";
+import { fmt, pct } from "@/utils/formatters.js";
 
 const props = defineProps({ stats: Object, delegates: Array });
 
@@ -130,9 +131,6 @@ const {
   filteredStats: fs, activeFilters, activeFilterMap: afm,
   hasFilters, filteredCount, toggleFilter, removeFilter, clearFilters,
 } = useFilteredStats(() => props.delegates);
-
-const fmt = (n) => (n ?? 0).toLocaleString("fr-FR");
-const pct = (a, b) => (b > 0 ? ((a / b) * 100).toFixed(1) + "%" : "0%");
 
 // --- Filtres ---
 function onCheckinDaySelect(label) {
