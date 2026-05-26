@@ -9,23 +9,14 @@
       @clear="clearFilters"
     />
 
-    <!-- Filtre global page par type de badge (multi-select). Filtre les
-         delegates EN AMONT de useFilteredStats : tous les KPIs, charts et
-         la decomposition Total participants en heritent. Appliqué aussi sur
-         le compare side pour que les % d'evolution restent significatifs. -->
-    <div v-if="availableBadgeTypes.length > 0" class="badge-type-filter">
-      <span class="badge-type-filter-label">Filtrer la page par type de badge :</span>
-      <div class="period-selector">
-        <button
-          :class="['period-btn', { active: selectedBadgeTypes.size === 0 }]"
-          @click="clearBadgeTypes"
-        >Tous</button>
-        <button v-for="t in availableBadgeTypes" :key="t"
-          :class="['period-btn', { active: selectedBadgeTypes.has(t) }]"
-          @click="toggleBadgeType(t)"
-        >{{ t }}</button>
-      </div>
-    </div>
+    <!-- Filtre global page par type de badge — etat partage avec Badges /
+         Comparison (cf. useBadgeTypeFilter dans StatisticsView). -->
+    <BadgeTypeFilter
+      :types="availableBadgeTypes"
+      :selected="selectedBadgeTypes"
+      @toggle="toggleBadgeType"
+      @clear="clearBadgeTypes"
+    />
 
     <div class="kpi-grid kpi-overview">
       <div class="kpi-card blue">
@@ -253,6 +244,7 @@ import HBarChart from "../charts/HBarChart.vue";
 import LineChart from "../charts/LineChart.vue";
 import FilterBanner from "../FilterBanner.vue";
 import CsvButton from "../CsvButton.vue";
+import BadgeTypeFilter from "../BadgeTypeFilter.vue";
 import { useFilteredStats } from "../../composables/useFilteredStats.js";
 import { makeDateLabeler } from "../../utils/formatDateLabel.js";
 import { getTypeColors } from "../../utils/typeColors.js";
@@ -261,7 +253,6 @@ import {
   getRemoteOnlyDelegateIds,
   getCheckedInDelegateIds,
 } from "../../utils/viewerJoin.js";
-import { delegateBadgeType } from "../../utils/checkinByType.js";
 import { fmt, pct } from "@/utils/formatters.js";
 
 const props = defineProps({
@@ -276,6 +267,8 @@ const props = defineProps({
   replayApi: { type: Object, required: true },
   compareLiveApi: { type: Object, default: null },
   compareReplayApi: { type: Object, default: null },
+  // Filtre badge type lifte au niveau StatisticsView (etat partage Overview/Badges/Comparison).
+  badgeFilter: { type: Object, required: true },
 });
 
 // --- KPIs Live / Replay : instances heritees de StatisticsView (cf. props).
@@ -288,36 +281,17 @@ const hasCompare = !!liveB;
 const liveUniqueUsers = computed(() => liveStats.value?.global?.uniqueUsers || 0);
 const replayUniqueUsers = computed(() => replayStats.value?.global?.uniqueUsers || 0);
 
-// --- Filtre global page par type de badge (multi-select). Set vide = no
-// filter. Sinon on garde les delegues ayant delegateBadgeType in selection.
-// Applique sur les 2 cotes (A et B) pour preserver le sens des % d'evolution.
-const selectedBadgeTypes = ref(new Set());
-function toggleBadgeType(type) {
-  const next = new Set(selectedBadgeTypes.value);
-  if (next.has(type)) next.delete(type);
-  else next.add(type);
-  selectedBadgeTypes.value = next;
-}
-function clearBadgeTypes() {
-  selectedBadgeTypes.value = new Set();
-}
-
-const availableBadgeTypes = computed(() => {
-  const set = new Set();
-  for (const d of props.delegates || []) set.add(delegateBadgeType(d));
-  for (const d of props.compareDelegates || []) set.add(delegateBadgeType(d));
-  set.delete("Inconnu");
-  return [...set].sort();
-});
-
-function filterByBadge(list) {
-  const sel = selectedBadgeTypes.value;
-  if (sel.size === 0) return list || [];
-  return (list || []).filter((d) => sel.has(delegateBadgeType(d)));
-}
-
-const pageFilteredDelegates = computed(() => filterByBadge(props.delegates));
-const pageFilteredCompareDelegates = computed(() => filterByBadge(props.compareDelegates));
+// --- Filtre global badge type : etat partage avec Badges/Comparison via
+// StatisticsView (cf. useBadgeTypeFilter). Applique sur les 2 cotes (A et B)
+// pour preserver le sens des % d'evolution.
+const {
+  selected: selectedBadgeTypes,
+  allBadgeTypes: availableBadgeTypes,
+  filteredDelegates: pageFilteredDelegates,
+  filteredCompareDelegates: pageFilteredCompareDelegates,
+  toggle: toggleBadgeType,
+  clear: clearBadgeTypes,
+} = props.badgeFilter;
 
 // --- KPI "Total participants" = check-in physique UNION live distanciel
 // UNION replay distanciel, dedupe sur delegate.id Mongo pour eviter le
@@ -644,22 +618,6 @@ const onboardingDatasets = computed(() => {
 .formula-delta.delta--bad { color: #b91c1c; background: #fee2e2; }
 .formula-delta.delta--neutral { color: var(--text-muted, #888); background: #f3f4f6; }
 
-/* Filtre global par type de badge (multi-select) */
-.badge-type-filter {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  margin: 4px 0 12px; padding: 10px 14px;
-  background: #f9fafb; border: 1px solid #f3f4f6; border-radius: 10px;
-}
-.badge-type-filter-label {
-  font-size: 12px; color: #414141; font-weight: 600;
-  text-transform: uppercase; letter-spacing: .3px;
-}
-.period-selector { display: flex; gap: 4px; flex-wrap: wrap; }
-.period-btn {
-  padding: 4px 10px; border: 1px solid #d1d5db; background: #fff;
-  border-radius: 4px; font-size: 11px; cursor: pointer; color: #646464;
-}
-.period-btn.active { background: #1E4E66; color: #fff; border-color: #1E4E66; }
 .formula-op {
   align-self: center;
   font-size: 22px;

@@ -19,21 +19,15 @@
       </div>
     </div>
 
-    <!-- Filtre global de page par type de badge (multi-select). Impacte les
-         KPI + graphes des deux events compares. Aucun selectionne = pas de filtre. -->
-    <div v-if="compareStats && availableBadgeTypes.length > 0" class="badge-type-filter">
-      <span class="badge-type-filter-label">Filtrer la page par type de badge :</span>
-      <div class="period-selector">
-        <button
-          :class="['period-btn', { active: selectedBadgeTypes.size === 0 }]"
-          @click="clearBadgeTypes"
-        >Tous</button>
-        <button v-for="t in availableBadgeTypes" :key="t"
-          :class="['period-btn', { active: selectedBadgeTypes.has(t) }]"
-          @click="toggleBadgeType(t)"
-        >{{ t }}</button>
-      </div>
-    </div>
+    <!-- Filtre global page par type de badge — etat partage avec
+         Overview/Badges (cf. useBadgeTypeFilter dans StatisticsView). -->
+    <BadgeTypeFilter
+      v-if="compareStats"
+      :types="availableBadgeTypes"
+      :selected="selectedBadgeTypes"
+      @toggle="toggleBadgeType"
+      @clear="clearBadgeTypes"
+    />
 
     <div v-if="compareLoading" class="cmp-loading">
       <div class="spinner"></div>
@@ -285,16 +279,16 @@
 </template>
 
 <script setup>
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import { Bar } from "vue-chartjs";
 import LineChart from "../charts/LineChart.vue";
+import BadgeTypeFilter from "../BadgeTypeFilter.vue";
 import { makeDateLabeler } from "../../utils/formatDateLabel.js";
 import { getTypeColor } from "../../utils/typeColors.js";
 import { computeAllStats } from "../../utils/computeStats.js";
 import { zipToRegion, REGION_NAMES } from "../../utils/frenchRegions.js";
 import { fmt, pct, shortName as shortNameBase } from "@/utils/formatters.js";
 import {
-  delegateBadgeType,
   buildCheckinByType,
   checkinByTypeOptions,
   checkinByTypeTotalsPlugin,
@@ -311,6 +305,8 @@ const props = defineProps({
   compareLoading: Boolean,
   compareError: String,
   compareProgress: Object,
+  // Filtre badge type lifte au niveau StatisticsView (etat partage avec Overview/Badges).
+  badgeFilter: { type: Object, required: true },
 });
 
 const COLORS = {
@@ -318,46 +314,19 @@ const COLORS = {
   compare: "#9CA3AF", // event de comparaison (gris neutre)
 };
 
-// --- Filtre global de page par type de badge (multi-select) ---
-// Set vide = pas de filtre. Sinon on garde les delegues ayant au moins un
-// badge delivre dans l'ensemble selectionne (OR entre les types), sur les
-// DEUX events. Les stats sont recalculees a partir de la liste filtree.
-const selectedBadgeTypes = ref(new Set());
+// --- Filtre global badge type : etat partage avec Overview/Badges ---
+const {
+  selected: selectedBadgeTypes,
+  allBadgeTypes: availableBadgeTypes,
+  filteredDelegates: effDelegates,
+  filteredCompareDelegates: effCompareDelegates,
+  toggle: toggleBadgeType,
+  clear: clearBadgeTypes,
+} = props.badgeFilter;
 
-function toggleBadgeType(type) {
-  const next = new Set(selectedBadgeTypes.value);
-  if (next.has(type)) next.delete(type);
-  else next.add(type);
-  selectedBadgeTypes.value = next;
-}
-function clearBadgeTypes() {
-  selectedBadgeTypes.value = new Set();
-}
-
-// Types disponibles dans le filtre : on prend le type "attendu" du delegate
-// (delegateBadgeType : 1er badge en base sinon 1ere registration). Inclut
-// donc aussi les delegues registered pas encore checkes (badge pas delivre)
-// — necessaire pour que Taux de presence / Restants / Conversion soient
-// significatifs quand un filtre est actif.
-const availableBadgeTypes = computed(() => {
-  const set = new Set();
-  for (const list of [props.delegates || [], props.compareDelegates || []]) {
-    for (const d of list) set.add(delegateBadgeType(d));
-  }
-  set.delete("Inconnu"); // pas un filtre utile
-  return [...set].sort();
-});
-
-function filterByBadge(delegates) {
-  const sel = selectedBadgeTypes.value;
-  if (sel.size === 0) return delegates || [];
-  return (delegates || []).filter((d) => sel.has(delegateBadgeType(d)));
-}
-
-// Effective = soit les props tels quels (aucune selection), soit recalcul a
-// partir des delegates filtres. Toutes les computeds en dessous lisent ces refs.
-const effDelegates = computed(() => filterByBadge(props.delegates));
-const effCompareDelegates = computed(() => filterByBadge(props.compareDelegates));
+// Effective stats : recalcul seulement si filtre actif (sinon on garde les
+// stats deja calculees dans useStatistics, evite computeAllStats sur tout
+// l'event sans raison).
 const effStats = computed(() =>
   selectedBadgeTypes.value.size === 0 ? props.stats : computeAllStats(effDelegates.value),
 );
@@ -1122,22 +1091,6 @@ const perf15minChart = computed(() => {
 .cmp-event-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; font-weight: 600; }
 .cmp-event-name { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cmp-vs { font-size: 11px; color: var(--text-muted); font-weight: 600; }
-
-.badge-type-filter {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  margin: 0 0 12px; padding: 10px 14px;
-  background: #f9fafb; border: 1px solid #f3f4f6; border-radius: 10px;
-}
-.badge-type-filter-label {
-  font-size: 12px; color: #414141; font-weight: 600;
-  text-transform: uppercase; letter-spacing: .3px;
-}
-.period-selector { display: flex; gap: 4px; flex-wrap: wrap; }
-.period-btn {
-  padding: 4px 10px; border: 1px solid #d1d5db; background: #fff;
-  border-radius: 4px; font-size: 11px; cursor: pointer; color: #646464;
-}
-.period-btn.active { background: #1E4E66; color: #fff; border-color: #1E4E66; }
 
 .dom-bar {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;

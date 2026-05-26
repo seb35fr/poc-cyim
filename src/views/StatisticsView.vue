@@ -106,11 +106,12 @@
                 :replay-api="replayApi"
                 :compare-live-api="compareLiveApi"
                 :compare-replay-api="compareReplayApi"
+                :badge-filter="badgeFilter"
               />
               <DemographicsTab v-if="tab.id === 'demographics'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
               <RegistrationsTab v-if="tab.id === 'registrations'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
               <TemporalTab v-if="tab.id === 'temporal'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
-              <BadgesTab v-if="tab.id === 'badges'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
+              <BadgesTab v-if="tab.id === 'badges'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" :badge-filter="badgeFilter" />
               <ScansTab v-if="tab.id === 'scans'" />
               <ViewersTab v-if="tab.id === 'live'" kind="live" :delegates="delegates" :viewer-api="liveApi" />
               <ViewersComparisonTab
@@ -146,6 +147,7 @@
                 :compare-loading="false"
                 :compare-error="null"
                 :compare-progress="{ loaded: 0, total: 0, page: 0 }"
+                :badge-filter="badgeFilter"
               />
             </div>
           </template>
@@ -162,11 +164,12 @@
               :replay-api="replayApi"
               :compare-live-api="compareLiveApi"
               :compare-replay-api="compareReplayApi"
+              :badge-filter="badgeFilter"
             />
             <DemographicsTab v-if="activeTab === 'demographics'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
             <RegistrationsTab v-if="activeTab === 'registrations'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
             <TemporalTab v-if="activeTab === 'temporal'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
-            <BadgesTab v-if="activeTab === 'badges'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
+            <BadgesTab v-if="activeTab === 'badges'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" :badge-filter="badgeFilter" />
             <ScansTab v-if="activeTab === 'scans'" />
             <ViewersTab v-if="activeTab === 'live'" kind="live" :delegates="delegates" :viewer-api="liveApi" />
             <ViewersComparisonTab
@@ -209,6 +212,7 @@
               :compare-loading="compareLoading"
               :compare-error="compareError"
               :compare-progress="compareProgress"
+              :badge-filter="badgeFilter"
             />
           </template>
         </div>
@@ -223,6 +227,7 @@ import { useRoute } from "vue-router";
 import { useStatistics } from "@/composables/useStatistics.js";
 import { useLive } from "@/composables/useLive.js";
 import { useReplay } from "@/composables/useReplay.js";
+import { useBadgeTypeFilter } from "@/composables/useBadgeTypeFilter.js";
 import { useExportPdf } from "@/composables/useExportPdf.js";
 import { useExportPptx } from "@/composables/useExportPptx.js";
 import { COUNTDOWN_TICK_MS } from "@/constants.js";
@@ -261,6 +266,16 @@ const compareLiveApi = compareEventId
 const compareReplayApi = compareEventId
   ? useReplay(compareEventId, { autoRefresh: false })
   : null;
+
+// Filtre global badge type : etat unique pour Overview / Badges / Comparison.
+// Avant : chaque tab avait son propre selectedBadgeTypes / pageFilteredDelegates
+// (selection perdue au switch d'onglet + risque d'incoherence). Maintenant la
+// selection persiste cross-tab et un seul niveau de filtrage existe.
+const badgeFilter = useBadgeTypeFilter(
+  () => delegates.value,
+  compareEventId ? () => compareDelegates.value : null,
+);
+
 const compareLoading = computed(() => compareApi?.loading.value || false);
 const compareError = computed(() => compareApi?.error.value || null);
 const compareStats = computed(() => compareApi?.stats.value || null);

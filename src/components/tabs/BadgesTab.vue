@@ -47,21 +47,14 @@
       </div>
     </div>
 
-    <!-- Filtre global par type de badge (multi-select) : impacte tous les
-         graphiques + KPI de la page. Aucun selectionne = pas de filtre. -->
-    <div v-if="availableBadgeTypes.length > 0" class="badge-type-filter">
-      <span class="badge-type-filter-label">Filtrer la page par type de badge :</span>
-      <div class="period-selector">
-        <button
-          :class="['period-btn', { active: selectedBadgeTypes.size === 0 }]"
-          @click="clearBadgeTypes"
-        >Tous</button>
-        <button v-for="t in availableBadgeTypes" :key="t"
-          :class="['period-btn', { active: selectedBadgeTypes.has(t) }]"
-          @click="toggleBadgeType(t)"
-        >{{ t }}</button>
-      </div>
-    </div>
+    <!-- Filtre global page par type de badge — etat partage avec
+         Overview/Comparison (cf. useBadgeTypeFilter dans StatisticsView). -->
+    <BadgeTypeFilter
+      :types="availableBadgeTypes"
+      :selected="selectedBadgeTypes"
+      @toggle="toggleBadgeType"
+      @clear="clearBadgeTypes"
+    />
 
     <!-- Progression du check-in (gauche) / Progression par type (droite) -->
     <div class="charts-row">
@@ -307,12 +300,13 @@
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { computed } from "vue";
 import { Bar } from "vue-chartjs";
 import HBarChart from "../charts/HBarChart.vue";
 import LineChart from "../charts/LineChart.vue";
 import FilterBanner from "../FilterBanner.vue";
 import CsvButton from "../CsvButton.vue";
+import BadgeTypeFilter from "../BadgeTypeFilter.vue";
 import { useFilteredStats } from "../../composables/useFilteredStats.js";
 import { makeDateLabeler } from "../../utils/formatDateLabel.js";
 import { parisDay } from "../../utils/parisTime.js";
@@ -329,41 +323,21 @@ import {
 import ChoroplethMap from "../charts/ChoroplethMap.vue";
 import FrenchRegionMap from "../charts/FrenchRegionMap.vue";
 
-const props = defineProps({ stats: Object, delegates: Array });
-
-// --- Filtre global de page par type de badge (multi-select) ---
-// Set vide = pas de filtre. Sinon on garde les delegues ayant au moins un
-// badge delivre dans l'ensemble selectionne (OR entre les types). Le filtre
-// s'applique EN AMONT de useFilteredStats, donc KPI, stats, graphiques et
-// exports CSV en heritent tous automatiquement.
-const selectedBadgeTypes = ref(new Set());
-
-function toggleBadgeType(type) {
-  const next = new Set(selectedBadgeTypes.value);
-  if (next.has(type)) next.delete(type);
-  else next.add(type);
-  selectedBadgeTypes.value = next;
-}
-function clearBadgeTypes() {
-  selectedBadgeTypes.value = new Set();
-}
-
-// Types disponibles dans le filtre : on prend le type "attendu" du delegate
-// (1er badge en base sinon 1ere registration). Inclut donc aussi les delegues
-// registered pas encore checkes — necessaire pour que Progression par type
-// preserve ses "restants" et que Badges par device reflete le scope.
-const availableBadgeTypes = computed(() => {
-  const set = new Set();
-  for (const d of props.delegates || []) set.add(delegateBadgeType(d));
-  set.delete("Inconnu");
-  return [...set].sort();
+const props = defineProps({
+  stats: Object,
+  delegates: Array,
+  // Filtre badge type lifte au niveau StatisticsView (etat partage avec Overview/Comparison).
+  badgeFilter: { type: Object, required: true },
 });
 
-const pageFilteredDelegates = computed(() => {
-  const sel = selectedBadgeTypes.value;
-  if (sel.size === 0) return props.delegates || [];
-  return (props.delegates || []).filter((d) => sel.has(delegateBadgeType(d)));
-});
+// --- Filtre global badge type : etat partage avec Overview/Comparison ---
+const {
+  selected: selectedBadgeTypes,
+  allBadgeTypes: availableBadgeTypes,
+  filteredDelegates: pageFilteredDelegates,
+  toggle: toggleBadgeType,
+  clear: clearBadgeTypes,
+} = props.badgeFilter;
 
 // Cle stable pour invalider les Choropleth quand la selection change.
 const badgeFilterKey = computed(() => {
@@ -1052,16 +1026,6 @@ const barOptions = {
 }
 .empty-msg { text-align: center; color: #9ca3af; padding: 20px; font-size: 13px; }
 .chart-hint { text-align: right; color: #9ca3af; font-size: 11px; margin: 6px 4px 0; font-style: italic; }
-
-.badge-type-filter {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  margin: 4px 0 12px; padding: 10px 14px;
-  background: #f9fafb; border: 1px solid #f3f4f6; border-radius: 10px;
-}
-.badge-type-filter-label {
-  font-size: 12px; color: #414141; font-weight: 600;
-  text-transform: uppercase; letter-spacing: .3px;
-}
 
 .dom-row {
   margin-top: 12px; padding-top: 10px;
