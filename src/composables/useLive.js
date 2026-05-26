@@ -3,6 +3,7 @@ import { fetchLiveViews } from "@/api/elasticsearch.js";
 import { fetchEventSessions } from "@/api/graphql.js";
 import { computeLiveStats } from "@/utils/computeLiveStats.js";
 import { debug } from "@/utils/debug.js";
+import { pushDiagnostic } from "@/composables/useDiagnostics.js";
 import { AUTO_REFRESH_MS } from "@/constants.js";
 
 // Live views ES + enrichissement sessions GraphQL.
@@ -44,6 +45,18 @@ export function useLive(eventId, options = {}) {
         }),
         fetchEventSessions(eventId).catch((e) => {
           console.warn("[Live] Echec fetch sessions GraphQL :", e.message);
+          // Surface en UI : sans les sessions, titres/types/durees sont
+          // absents des charts et de la table detail. L'admin doit le savoir
+          // (et ne pas exporter un PDF tronque). Fingerprint par eventId
+          // pour dedup en cas de retry.
+          pushDiagnostic({
+            severity: "warn",
+            title: "Enrichissement Live indisponible",
+            message:
+              "Impossible de récupérer la liste des sessions du congrès (GraphQL). " +
+              "Les titres, types et durées des sessions vont manquer dans l'onglet Live.",
+            fingerprint: `useLive:sessions:${eventId}`,
+          });
           return [];
         }),
       ]);
