@@ -301,7 +301,7 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { Bar } from "vue-chartjs";
 import HBarChart from "../charts/HBarChart.vue";
 import LineChart from "../charts/LineChart.vue";
