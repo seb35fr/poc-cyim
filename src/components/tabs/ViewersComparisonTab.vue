@@ -195,10 +195,14 @@ function formatDuration(sec) {
 // --- "Live/Replay sans présence physique" : delegues matched sur user_id ES
 // qui n'ont pas de check-in valide. Exclut les viewers ES non lies a la
 // registration (unknown).
-const lookupA = computed(() => buildDelegateLookup(props.delegates));
-const lookupB = computed(() => buildDelegateLookup(props.compareDelegates));
-const remoteA = computed(() => getRemoteOnlyDelegateIds(statsA.value.items, lookupA.value).size);
-const remoteB = computed(() => getRemoteOnlyDelegateIds(statsB.value.items, lookupB.value).size);
+const lookupA = computed(() => buildDelegateLookup(props.delegates, { datasetLabel: `${props.kind}-compare-A` }));
+const lookupB = computed(() => buildDelegateLookup(props.compareDelegates, { datasetLabel: `${props.kind}-compare-B` }));
+const remoteA = computed(() =>
+  getRemoteOnlyDelegateIds(statsA.value.items, lookupA.value, { datasetLabel: `${props.kind}-compare-A` }).size,
+);
+const remoteB = computed(() =>
+  getRemoteOnlyDelegateIds(statsB.value.items, lookupB.value, { datasetLabel: `${props.kind}-compare-B` }).size,
+);
 
 // --- KPI deltas ---
 function buildDeltaAbs(a, b, direction = "neutral", unit = "") {

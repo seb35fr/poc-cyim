@@ -301,13 +301,13 @@ const {
 // double-comptage entre live et replay (un meme delegue peut avoir vu les
 // deux sans etre venu sur place). Cf. utils/viewerJoin.js pour la
 // jointure ES (user_id keycloak) <-> delegate (emailAddresses[].source.id ACCOUNT).
-const delegateLookup = computed(() => buildDelegateLookup(pageFilteredDelegates.value));
+const delegateLookup = computed(() => buildDelegateLookup(pageFilteredDelegates.value, { datasetLabel: "overview-current" }));
 const physicallyCheckedInSet = computed(() => getCheckedInDelegateIds(pageFilteredDelegates.value));
 const liveRemoteSet = computed(() =>
-  getRemoteOnlyDelegateIds(liveStats.value?.items, delegateLookup.value),
+  getRemoteOnlyDelegateIds(liveStats.value?.items, delegateLookup.value, { datasetLabel: "live-current" }),
 );
 const replayRemoteSet = computed(() =>
-  getRemoteOnlyDelegateIds(replayStats.value?.items, delegateLookup.value),
+  getRemoteOnlyDelegateIds(replayStats.value?.items, delegateLookup.value, { datasetLabel: "replay-current" }),
 );
 const physicallyCheckedInCount = computed(() => physicallyCheckedInSet.value.size);
 const liveRemoteCount = computed(() => liveRemoteSet.value.size);
@@ -349,16 +349,16 @@ const replayOnlyRemoteCount = computed(() => replayOnlyRemoteSet.value.size);
 
 // --- Side B : meme decomposition pour le compareEventId (si present).
 // Permet d'afficher un delta % sur chaque chip de la decomposition.
-const lookupB = computed(() => buildDelegateLookup(pageFilteredCompareDelegates.value));
+const lookupB = computed(() => buildDelegateLookup(pageFilteredCompareDelegates.value, { datasetLabel: "overview-compare" }));
 const checkedInBSet = computed(() => getCheckedInDelegateIds(pageFilteredCompareDelegates.value));
 const liveRemoteBSet = computed(() =>
   hasCompare
-    ? getRemoteOnlyDelegateIds(liveB?.stats.value?.items, lookupB.value)
+    ? getRemoteOnlyDelegateIds(liveB?.stats.value?.items, lookupB.value, { datasetLabel: "live-compare" })
     : new Set(),
 );
 const replayRemoteBSet = computed(() =>
   hasCompare
-    ? getRemoteOnlyDelegateIds(replayB?.stats.value?.items, lookupB.value)
+    ? getRemoteOnlyDelegateIds(replayB?.stats.value?.items, lookupB.value, { datasetLabel: "replay-compare" })
     : new Set(),
 );
 const bothRemoteBSet = computed(() => {
