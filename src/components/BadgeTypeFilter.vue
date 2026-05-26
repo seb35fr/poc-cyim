@@ -1,5 +1,5 @@
 <template>
-  <div v-if="types.length > 0" class="badge-type-filter">
+  <div class="badge-type-filter">
     <span class="badge-type-filter-label">Filtrer la page par type de badge :</span>
     <div class="period-selector">
       <button
@@ -18,9 +18,17 @@
 // Pills multi-select pour le filtre badge type. Composant UI uniquement —
 // l'etat (selection + toggle/clear) est gere par le composable
 // useBadgeTypeFilter, instancie au niveau StatisticsView.
+//
+// Le v-if conditionnel a ete deplace cote parent (<BadgeTypeFilter v-if="...">) :
+// avoir un v-if au root template du composant fait flipper le root entre
+// comment vide et div reel, ce qui declenche un bug Vue 3 "Cannot set
+// properties of null (setting '__vnode')" lors du patch.
+//
+// type: Object (non Set) pour eviter un cas connu ou la validation Vue rate
+// quand un Ref<Set> est passe comme prop puis auto-unwrappe.
 defineProps({
   types: { type: Array, required: true },
-  selected: { type: Set, required: true },
+  selected: { type: Object, required: true },
 });
 defineEmits(["toggle", "clear"]);
 </script>

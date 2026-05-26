@@ -10,8 +10,11 @@
     />
 
     <!-- Filtre global page par type de badge — etat partage avec Badges /
-         Comparison (cf. useBadgeTypeFilter dans StatisticsView). -->
+         Comparison (cf. useBadgeTypeFilter dans StatisticsView). Le v-if est
+         cote parent (pas dans le composant) pour eviter le bug Vue 3 du
+         "v-if-at-component-root" qui casse le patch. -->
     <BadgeTypeFilter
+      v-if="availableBadgeTypes.length > 0"
       :types="availableBadgeTypes"
       :selected="selectedBadgeTypes"
       @toggle="toggleBadgeType"

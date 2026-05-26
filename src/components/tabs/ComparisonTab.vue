@@ -22,7 +22,7 @@
     <!-- Filtre global page par type de badge — etat partage avec
          Overview/Badges (cf. useBadgeTypeFilter dans StatisticsView). -->
     <BadgeTypeFilter
-      v-if="compareStats"
+      v-if="compareStats && availableBadgeTypes.length > 0"
       :types="availableBadgeTypes"
       :selected="selectedBadgeTypes"
       @toggle="toggleBadgeType"
