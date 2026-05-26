@@ -2,7 +2,7 @@
   <div>
     <div v-if="loading" class="cmp-loading">
       <div class="spinner"></div>
-      <p class="loading-label">Chargement des vues replay (2 events)…</p>
+      <p class="loading-label">Chargement des vues {{ L.kindLabel }} (2 events)…</p>
     </div>
 
     <div v-else-if="error" class="cmp-error">
@@ -15,13 +15,13 @@
         <div class="cmp-event">
           <span class="cmp-event-dot" :style="{ background: COLORS.current }"></span>
           <strong>{{ shortName(eventName) }}</strong>
-          <span class="cmp-event-meta">{{ fmt(liveStatsA.global.totalViews) }} vues · {{ fmt(liveStatsA.global.uniqueUsers) }} delegues</span>
+          <span class="cmp-event-meta">{{ fmt(statsA.global.totalViews) }} vues · {{ fmt(statsA.global.uniqueUsers) }} delegues</span>
         </div>
         <span class="cmp-vs">vs</span>
         <div class="cmp-event">
           <span class="cmp-event-dot" :style="{ background: COLORS.compare }"></span>
           <strong>{{ shortName(compareEventName) }}</strong>
-          <span class="cmp-event-meta">{{ fmt(liveStatsB.global.totalViews) }} vues · {{ fmt(liveStatsB.global.uniqueUsers) }} delegues</span>
+          <span class="cmp-event-meta">{{ fmt(statsB.global.totalViews) }} vues · {{ fmt(statsB.global.uniqueUsers) }} delegues</span>
         </div>
       </div>
 
@@ -65,7 +65,7 @@
           <div class="origin-event-label">
             <span class="kpi-dot" :style="{ background: COLORS.current }"></span>
             <span>{{ shortName(eventName) }}</span>
-            <span class="origin-volume">{{ fmt(liveStatsA.global.totalViews) }} vues</span>
+            <span class="origin-volume">{{ fmt(statsA.global.totalViews) }} vues</span>
           </div>
           <div class="origin-stack-bar">
             <div
@@ -83,7 +83,7 @@
           <div class="origin-event-label">
             <span class="kpi-dot" :style="{ background: COLORS.compare }"></span>
             <span>{{ shortName(compareEventName) }}</span>
-            <span class="origin-volume">{{ fmt(liveStatsB.global.totalViews) }} vues</span>
+            <span class="origin-volume">{{ fmt(statsB.global.totalViews) }} vues</span>
           </div>
           <div class="origin-stack-bar">
             <div
@@ -104,11 +104,11 @@
         </div>
       </div>
 
-      <!-- Délégués uniques en replay par jour : grouped bars J0/J1/J2... -->
+      <!-- Délégués uniques par jour : grouped bars J0/J1/J2... -->
       <div class="chart-card">
         <div class="chart-header">
-          <h3>Délégués uniques en replay par jour</h3>
-          <span class="cmp-axis-hint">Axe X : décalage en jours depuis le 1<sup>er</sup> visionnage VOD de chaque event (J0)</span>
+          <h3>{{ L.dailyChartTitle }}</h3>
+          <span class="cmp-axis-hint">Axe X : {{ L.dailyChartAxisHint }}</span>
         </div>
         <div v-if="dailyChart.labels.length > 0" :style="{ position: 'relative', height: '300px' }">
           <Bar :data="dailyChart" :options="dailyChartOptions" />
@@ -129,27 +129,49 @@ import {
 import { fmt, shortName } from "@/utils/formatters.js";
 
 const props = defineProps({
+  // 'live' | 'replay' — pilote tous les labels affiches a l'utilisateur.
+  // La structure des stats est identique entre les 2 sources (cf.
+  // computeLiveStats / computeReplayStats : meme shape { global, items,
+  // origins, uniqueByDay, ... }).
+  kind: { type: String, required: true, validator: (v) => v === "live" || v === "replay" },
   delegates: { type: Array, default: () => [] },
   compareDelegates: { type: Array, default: () => [] },
   eventName: { type: String, default: "" },
   compareEventName: { type: String, default: "" },
-  // Instances useReplay A (event courant) + B (compare). B est null si pas de compareWith.
-  replayApi: { type: Object, required: true },
-  compareReplayApi: { type: Object, default: null },
+  // Instances composable A (event courant) + B (compare). B est null si pas de compareWith.
+  // Pour kind='live' : useLive ; pour kind='replay' : useReplay.
+  viewerApi: { type: Object, required: true },
+  compareViewerApi: { type: Object, default: null },
 });
 
-const replayA = props.replayApi;
-const replayB = props.compareReplayApi;
+// Labels affiches : seul truc qui change vraiment entre live et replay.
+const LABELS = {
+  live: {
+    kindLabel: "live",
+    uniqueKpi: "Délégués uniques (live)",
+    remoteKpi: "Live sans présence physique",
+    dailyChartTitle: "Délégués uniques en live par jour",
+    dailyChartAxisHint: "décalage en jours depuis la 1ère diffusion live de chaque event (J0)",
+  },
+  replay: {
+    kindLabel: "replay",
+    uniqueKpi: "Délégués uniques (replay)",
+    remoteKpi: "Replay sans présence physique",
+    dailyChartTitle: "Délégués uniques en replay par jour",
+    dailyChartAxisHint: "décalage en jours depuis le 1er visionnage VOD de chaque event (J0)",
+  },
+};
+const L = computed(() => LABELS[props.kind]);
 
-const loading = computed(() => replayA.loading.value || (replayB?.loading.value ?? false));
-const error = computed(() => replayA.error.value || replayB?.error.value || null);
+const apiA = props.viewerApi;
+const apiB = props.compareViewerApi;
 
-// FIXME (Day 2) : noms incorrects (liveStatsA/B au lieu de replayStatsA/B) —
-// hérités du copy-paste de LiveComparisonTab. Les data sont bonnes (lient bien
-// replayA/replayB.stats.value), seuls les noms induisent en erreur. Day 2 va
-// fusionner les 2 composants dans un seul generique, ces noms disparaitront.
-const liveStatsA = computed(() => replayA.stats.value || { global: {}, items: [], origins: [], uniqueByDay: [] });
-const liveStatsB = computed(() => replayB?.stats.value || { global: {}, items: [], origins: [], uniqueByDay: [] });
+const loading = computed(() => apiA.loading.value || (apiB?.loading.value ?? false));
+const error = computed(() => apiA.error.value || apiB?.error.value || null);
+
+const EMPTY_STATS = { global: {}, items: [], origins: [], uniqueByDay: [] };
+const statsA = computed(() => apiA.stats.value || EMPTY_STATS);
+const statsB = computed(() => apiB?.stats.value || EMPTY_STATS);
 
 const COLORS = {
   current: "#27CE71",
@@ -170,11 +192,13 @@ function formatDuration(sec) {
   return `${s}s`;
 }
 
-// --- "Live sans présence physique" (cf. LiveTab) --
+// --- "Live/Replay sans présence physique" : delegues matched sur user_id ES
+// qui n'ont pas de check-in valide. Exclut les viewers ES non lies a la
+// registration (unknown).
 const lookupA = computed(() => buildDelegateLookup(props.delegates));
 const lookupB = computed(() => buildDelegateLookup(props.compareDelegates));
-const liveRemoteA = computed(() => getRemoteOnlyDelegateIds(liveStatsA.value.items, lookupA.value).size);
-const liveRemoteB = computed(() => getRemoteOnlyDelegateIds(liveStatsB.value.items, lookupB.value).size);
+const remoteA = computed(() => getRemoteOnlyDelegateIds(statsA.value.items, lookupA.value).size);
+const remoteB = computed(() => getRemoteOnlyDelegateIds(statsB.value.items, lookupB.value).size);
 
 // --- KPI deltas ---
 function buildDeltaAbs(a, b, direction = "neutral", unit = "") {
@@ -199,20 +223,20 @@ function buildDeltaDuration(aSec, bSec) {
 }
 
 const kpis = computed(() => {
-  const ga = liveStatsA.value.global;
-  const gb = liveStatsB.value.global;
+  const ga = statsA.value.global;
+  const gb = statsB.value.global;
   return [
     {
-      label: "Délégués uniques (replay)",
+      label: L.value.uniqueKpi,
       a: { display: fmt(ga.uniqueUsers || 0) },
       b: { display: fmt(gb.uniqueUsers || 0) },
       delta: buildDeltaAbs(ga.uniqueUsers || 0, gb.uniqueUsers || 0, "up"),
     },
     {
-      label: "Replay sans présence physique",
-      a: { display: fmt(liveRemoteA.value) },
-      b: { display: fmt(liveRemoteB.value) },
-      delta: buildDeltaAbs(liveRemoteA.value, liveRemoteB.value, "up"),
+      label: L.value.remoteKpi,
+      a: { display: fmt(remoteA.value) },
+      b: { display: fmt(remoteB.value) },
+      delta: buildDeltaAbs(remoteA.value, remoteB.value, "up"),
     },
     {
       label: "Vues totales",
@@ -232,8 +256,8 @@ const kpis = computed(() => {
 // --- Origines comparées ---
 const allOrigins = computed(() => {
   const set = new Set();
-  for (const o of liveStatsA.value.origins || []) if (o.origin) set.add(o.origin);
-  for (const o of liveStatsB.value.origins || []) if (o.origin) set.add(o.origin);
+  for (const o of statsA.value.origins || []) if (o.origin) set.add(o.origin);
+  for (const o of statsB.value.origins || []) if (o.origin) set.add(o.origin);
   return [...set];
 });
 
@@ -261,8 +285,8 @@ function originRow(stats) {
     .sort((a, b) => b.pct - a.pct);
 }
 
-const originRowA = computed(() => originRow(liveStatsA.value));
-const originRowB = computed(() => originRow(liveStatsB.value));
+const originRowA = computed(() => originRow(statsA.value));
+const originRowB = computed(() => originRow(statsB.value));
 
 // --- Daily chart J0/J1/J2 ---
 // Pour chaque event, on prend uniqueByDay [{day:"YYYY-MM-DD", count:N}],
@@ -283,8 +307,8 @@ function alignDaysOnJ0(uniqueByDay) {
 }
 
 const dailyChart = computed(() => {
-  const a = alignDaysOnJ0(liveStatsA.value.uniqueByDay);
-  const b = alignDaysOnJ0(liveStatsB.value.uniqueByDay);
+  const a = alignDaysOnJ0(statsA.value.uniqueByDay);
+  const b = alignDaysOnJ0(statsB.value.uniqueByDay);
   const maxOffset = Math.max(
     a.offsets.length > 0 ? a.offsets[a.offsets.length - 1] : -1,
     b.offsets.length > 0 ? b.offsets[b.offsets.length - 1] : -1,

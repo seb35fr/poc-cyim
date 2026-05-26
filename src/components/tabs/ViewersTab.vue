@@ -1,16 +1,16 @@
 <template>
   <div>
-    <div v-if="loading" class="live-state">
+    <div v-if="loading" class="viewers-state">
       <div class="spinner"></div>
-      <p class="loading-label">Chargement des vues live...</p>
-      <p class="live-progress">{{ fmt(progress.loaded) }} vues chargees</p>
+      <p class="loading-label">{{ L.loadingLabel }}</p>
+      <p class="viewers-progress">{{ fmt(progress.loaded) }} vues chargees</p>
     </div>
 
-    <div v-else-if="error" class="live-state error-state">
+    <div v-else-if="error" class="viewers-state error-state">
       <p><strong>Erreur Elasticsearch :</strong> {{ error }}</p>
-      <p class="live-hint">
+      <p class="viewers-hint">
         Verifier que <code>VITE_ES_URL</code> est configure et que l'index
-        <code>stats_user__live-view-duration-per-user-per-session</code> est accessible.
+        <code>{{ L.esIndex }}</code> est accessible.
       </p>
       <button class="btn-side" @click="reload">Reessayer</button>
     </div>
@@ -26,17 +26,17 @@
       <!-- KPI principal -->
       <div class="kpi-grid">
         <div class="kpi-card green">
-          <div class="kpi-label">Delegues uniques (live)</div>
+          <div class="kpi-label">{{ L.uniqueKpi }}</div>
           <div class="kpi-value">{{ fmt(g.uniqueUsers) }}</div>
-          <div class="kpi-sub">ayant consulte au moins une session en live</div>
+          <div class="kpi-sub">{{ L.uniqueKpiSub }}</div>
         </div>
         <div class="kpi-card orange">
-          <div class="kpi-label">Live sans présence physique</div>
-          <div class="kpi-value">{{ fmt(uniqueLiveUsersWithoutCheckin) }}</div>
+          <div class="kpi-label">{{ L.remoteKpi }}</div>
+          <div class="kpi-value">{{ fmt(uniqueUsersWithoutCheckin) }}</div>
           <div class="kpi-sub">
-            délégués de l'event ayant regardé en live mais sans check-in
-            <span v-if="liveJoinStats.unknown > 0">
-              · {{ fmt(liveJoinStats.unknown) }} viewers non liés à la registration
+            {{ L.remoteKpiSub }}
+            <span v-if="joinStats.unknown > 0">
+              · {{ fmt(joinStats.unknown) }} viewers non liés à la registration
             </span>
           </div>
         </div>
@@ -48,7 +48,7 @@
         <div class="kpi-card purple">
           <div class="kpi-label">Durée moyenne / vue</div>
           <div class="kpi-value">{{ formatDuration(g.avgViewDurationSec) }}</div>
-          <div class="kpi-sub">{{ formatDuration(g.totalDurationSec) }} cumulees</div>
+          <div class="kpi-sub">{{ formatDuration(g.totalDurationSec) }} cumulées</div>
         </div>
       </div>
 
@@ -58,7 +58,7 @@
           <div class="chart-header">
             <h3>Vues totales par origine</h3>
             <CsvButton
-              filename="live-par-origine"
+              :filename="`${kind}-par-origine`"
               :headers="['Origine', 'Vues', 'Délégués uniques']"
               :rows="stats.origins.map(o => [o.origin, o.views, o.uniqueUsers])"
             />
@@ -83,9 +83,9 @@
         </div>
         <div class="chart-card">
           <div class="chart-header">
-            <h3>Délégués uniques en live par jour</h3>
+            <h3>{{ L.byDayTitle }}</h3>
             <CsvButton
-              filename="live-delegues-uniques-par-jour"
+              :filename="`${kind}-delegues-uniques-par-jour`"
               :headers="['Jour', 'Delegues uniques']"
               :rows="stats.uniqueByDay.map(d => [d.day, d.count])"
             />
@@ -93,12 +93,13 @@
           <div v-if="stats.uniqueByDay.length > 0" :style="{ position: 'relative', height: '300px' }">
             <Bar :data="byDayChart" :options="byDayOptions" />
           </div>
-          <p v-else class="empty-msg">Aucun horodatage exploitable dans les vues live</p>
+          <p v-else class="empty-msg">{{ L.byDayEmpty }}</p>
         </div>
       </div>
 
-      <!-- Delegues uniques par tranche de 30 min de session_end -->
-      <div class="chart-card">
+      <!-- Delegues uniques par tranche de 30 min de session_end (live uniquement —
+           le pipeline VOD ne suit pas le timing live des sessions). -->
+      <div class="chart-card" v-if="kind === 'live' && stats.uniqueBy30min">
         <div class="chart-header">
           <h3>Délégués uniques par tranche de 30 min</h3>
           <CsvButton
@@ -113,8 +114,8 @@
         <p v-else class="empty-msg">Aucune date de fin de session exploitable</p>
       </div>
 
-      <!-- Camembert vues par session_type (cliquable -> filtre tableau) -->
-      <div class="chart-card" v-if="stats.sessionTypes && stats.sessionTypes.length > 0">
+      <!-- Camembert vues par session_type cliquable -> filtre tableau (live uniquement). -->
+      <div class="chart-card" v-if="kind === 'live' && stats.sessionTypes && stats.sessionTypes.length > 0">
         <div class="chart-header">
           <h3>Vues par type de session</h3>
           <CsvButton
@@ -150,12 +151,12 @@
         </div>
       </div>
 
-      <!-- Top sessions live par audience unique -->
+      <!-- Top sessions par audience unique -->
       <div class="chart-card" v-if="stats.topSessions.length > 0">
         <div class="chart-header">
-          <h3>Top sessions live par délégués uniques</h3>
+          <h3>{{ L.topSessionsTitle }}</h3>
           <CsvButton
-            filename="live-top-sessions"
+            :filename="`${kind}-top-sessions`"
             :headers="['Session', 'Délégués uniques', 'Vues', 'Durée moyenne (s)']"
             :rows="stats.topSessions.slice(0, topN).map(s => [s.title, s.uniqueUsers, s.views, Math.round(s.avgDuration)])"
           />
@@ -171,14 +172,14 @@
       <!-- Engagement : repartition par nombre de sessions consultees -->
       <div class="chart-card">
         <div class="chart-header">
-          <h3>Engagement — nombre de sessions consultées par délégué</h3>
+          <h3>{{ L.engagementTitle }}</h3>
           <CsvButton
-            filename="live-engagement"
+            :filename="`${kind}-engagement`"
             :headers="['Tranche', 'Délégués']"
             :rows="Object.entries(stats.sessionsPerUserBuckets).map(([k, v]) => [k, v])"
           />
         </div>
-        <div :style="{ position: 'relative', height: '220px' }">
+        <div :style="{ position: 'relative', height: kind === 'live' ? '220px' : '260px' }">
           <Bar :data="engagementChart" :options="engagementOptions" />
         </div>
       </div>
@@ -186,24 +187,28 @@
       <!-- Tableau detaille -->
       <div class="chart-card">
         <div class="chart-header">
-          <h3>Détail des vues live ({{ fmt(filteredItems.length) }}{{ selectedSessionType ? ' · filtré' : '' }})</h3>
+          <h3>
+            {{ L.detailTitle(filteredItems.length) }}
+            <span v-if="kind === 'live' && selectedSessionType"> · filtré</span>
+          </h3>
           <CsvButton
-            filename="live-detail"
-            :headers="['Délégué', 'Email', 'Session ID', 'Session', 'Type session', 'Début session', 'Horodatage vue', 'Durée (s)']"
-            :rows="filteredItems.map(it => [it.fullName, it.email, it.sessionId || '', it.sessionTitle, it.sessionType, formatTimestamp(it.sessionStart) || '', formatTimestamp(it.timestamp) || '', Math.round(it.duration)])"
+            :filename="`${kind}-detail`"
+            :headers="detailCsvHeaders"
+            :rows="filteredItems.map(detailCsvRow)"
           />
         </div>
-        <div v-if="filteredItems.length > 0" class="live-table-wrap">
-          <table class="data-table live-detail-table">
+        <div v-if="filteredItems.length > 0" class="viewers-table-wrap">
+          <table class="data-table viewers-detail-table">
             <thead>
               <tr>
                 <th>Délégué</th>
                 <th>Email</th>
                 <th>Session ID</th>
                 <th>Session</th>
-                <th>Type</th>
-                <th>Début session</th>
-                <th>Horodatage vue</th>
+                <th v-if="kind === 'live'">Type</th>
+                <th v-if="kind === 'live'">Début session</th>
+                <th v-if="kind === 'replay'">Origine</th>
+                <th>{{ kind === 'live' ? 'Horodatage vue' : 'Horodatage' }}</th>
                 <th>Durée</th>
               </tr>
             </thead>
@@ -213,18 +218,19 @@
                 <td>{{ it.email || '—' }}</td>
                 <td class="mono">{{ it.sessionId || '—' }}</td>
                 <td>{{ it.sessionTitle || '—' }}</td>
-                <td>{{ it.sessionType || '—' }}</td>
-                <td>{{ formatTimestamp(it.sessionStart) || '—' }}</td>
+                <td v-if="kind === 'live'">{{ it.sessionType || '—' }}</td>
+                <td v-if="kind === 'live'">{{ formatTimestamp(it.sessionStart) || '—' }}</td>
+                <td v-if="kind === 'replay'"><span class="origin-pill">{{ it.origin }}</span></td>
                 <td>{{ formatTimestamp(it.timestamp) || '—' }}</td>
                 <td>{{ formatDuration(it.duration) }}</td>
               </tr>
             </tbody>
           </table>
-          <p v-if="filteredItems.length > pageSize" class="live-hint">
+          <p v-if="filteredItems.length > pageSize" class="viewers-hint">
             Affichage des {{ pageSize }} premières vues (sur {{ fmt(filteredItems.length) }}). Utilisez le CSV pour tout exporter.
           </p>
         </div>
-        <p v-else class="empty-msg">Aucune vue live enregistrée</p>
+        <p v-else class="empty-msg">{{ L.detailEmpty }}</p>
       </div>
     </template>
   </div>
@@ -241,60 +247,87 @@ import { fmt } from "@/utils/formatters.js";
 import { debug } from "@/utils/debug.js";
 
 const props = defineProps({
-  // delegates de l'event (passes par StatisticsView) : utilise pour cross-matcher
-  // user_id ES avec checkedInDate et identifier les spectateurs live a distance.
+  // 'live' | 'replay' — pilote labels + variations de template (30min/sessionType pie
+  // sont live-only, colonne origine en detail est replay-only, code couleur du
+  // chart par jour change). Les stats elles-memes ont la meme shape.
+  kind: { type: String, required: true, validator: (v) => v === "live" || v === "replay" },
   delegates: { type: Array, default: () => [] },
-  // Instance useLive proprietee par StatisticsView (timer + cache mutualises).
-  liveApi: { type: Object, required: true },
+  // Instance composable proprietee par StatisticsView (useLive ou useReplay).
+  viewerApi: { type: Object, required: true },
 });
 
-const { loading, refreshing, error, progress, stats, reload } = props.liveApi;
+// Labels affiches. Centralises ici, jamais en dur dans le template.
+const LABELS = {
+  live: {
+    loadingLabel: "Chargement des vues live...",
+    esIndex: "stats_user__live-view-duration-per-user-per-session",
+    uniqueKpi: "Delegues uniques (live)",
+    uniqueKpiSub: "ayant consulte au moins une session en live",
+    remoteKpi: "Live sans présence physique",
+    remoteKpiSub: "délégués de l'event ayant regardé en live mais sans check-in",
+    byDayTitle: "Délégués uniques en live par jour",
+    byDayEmpty: "Aucun horodatage exploitable dans les vues live",
+    topSessionsTitle: "Top sessions live par délégués uniques",
+    engagementTitle: "Engagement — nombre de sessions consultées par délégué",
+    detailTitle: (n) => `Détail des vues live (${fmt(n)})`,
+    detailEmpty: "Aucune vue live enregistrée",
+    byDayColor: "#30DD92",
+    debugTag: "[Live]",
+  },
+  replay: {
+    loadingLabel: "Chargement des replays VOD...",
+    esIndex: "stats_user__vod-view-per-user-per-session-per-origin",
+    uniqueKpi: "Delegues uniques (replay)",
+    uniqueKpiSub: "ayant consulte au moins une VOD",
+    remoteKpi: "Replay sans présence physique",
+    remoteKpiSub: "délégués de l'event ayant consulté du replay mais sans check-in",
+    byDayTitle: "Délégués uniques en replay par jour",
+    byDayEmpty: "Aucun horodatage exploitable dans les vues VOD",
+    topSessionsTitle: "Top sessions VOD par délégués uniques",
+    engagementTitle: "Engagement — sessions consultées par délégué",
+    detailTitle: (n) => `Détail des vues VOD (${fmt(n)} au total)`,
+    detailEmpty: "Aucune vue VOD enregistrée",
+    byDayColor: "#6F45FF",
+    debugTag: "[Replay]",
+  },
+};
+const L = computed(() => LABELS[props.kind]);
+
+const { loading, refreshing, error, progress, stats, reload } = props.viewerApi;
 
 const g = computed(() => stats.value.global);
 const topN = 15;
 const pageSize = 200;
 
-// Filtre par session_type (declenche par clic sur le camembert ou la legende).
-// null = pas de filtre.
+// --- Filtre par session_type (live uniquement) ---
 const selectedSessionType = ref(null);
-
 function onSessionTypeSelect(type) {
   selectedSessionType.value = selectedSessionType.value === type ? null : type;
 }
-
 const filteredItems = computed(() => {
-  if (!selectedSessionType.value) return stats.value.items;
+  if (props.kind !== "live" || !selectedSessionType.value) return stats.value.items;
   return stats.value.items.filter(
     (it) => (it.sessionType || "Non renseigné") === selectedSessionType.value,
   );
 });
-
 const pagedItems = computed(() => filteredItems.value.slice(0, pageSize));
-
 const totalSessionTypeViews = computed(() =>
   (stats.value.sessionTypes || []).reduce((s, t) => s + t.views, 0),
 );
 
-// On considere un delegate comme "checke" uniquement si checkedInDate contient
-// une VRAIE date parsable. Truthy seul ne suffit pas : un champ string vide ou
-// invalide doit etre traite comme non-checke.
+// --- Jointure ES viewer (user_id = keycloak id) <-> delegate Mongo ---
+// Le user_id ES correspond a un account Keycloak (vu via contact.emailAddresses
+// .source.id avec source.type === ACCOUNT). Source la plus fiable d'apres
+// l'inspection cote service contacts. (Avant : 5 cles candidates testees a la
+// chaine — fragile et peu performant.)
 function hasValidCheckin(d) {
   if (!d?.checkedInDate) return false;
-  const t = Date.parse(d.checkedInDate);
-  return Number.isFinite(t);
+  return Number.isFinite(Date.parse(d.checkedInDate));
 }
-
-// --- Jointure ES live <-> delegates de la registration ---
-// Le user_id renvoye par l'index ES live est un IDENTIFIANT KEYCLOAK
-// (alias "account id" cote contacts service). On le retrouve dans
-// contact.emailAddresses[].source.id quand source.type === "ACCOUNT"
-// (c'est le lien email <-> compte Keycloak). Source de verite la plus
-// fiable d'apres l'inspection Mongo cote service contacts.
 function getKeycloakId(d) {
   const emails = d?.contact?.emailAddresses;
   if (!Array.isArray(emails)) return null;
-  const accountEmail = emails.find((e) => e?.source?.type === "ACCOUNT");
-  return accountEmail?.source?.id || null;
+  return emails.find((e) => e?.source?.type === "ACCOUNT")?.source?.id || null;
 }
 
 const delegateLookup = computed(() => {
@@ -304,11 +337,10 @@ const delegateLookup = computed(() => {
     if (!kcId) continue;
     const checkedIn = hasValidCheckin(d);
     if (map.has(kcId)) {
-      // Collision : 2 delegates partagent le meme keycloak id (anomalie data).
       const prev = map.get(kcId);
       if (prev.checkedIn !== checkedIn) {
         console.warn(
-          `[Live] Collision keycloakId ${kcId} entre 2 delegues avec checkedIn different`,
+          `${L.value.debugTag} Collision keycloakId ${kcId} entre 2 delegues avec checkedIn different`,
           { prev: prev.delegate?.email, current: d.email },
         );
       }
@@ -319,9 +351,8 @@ const delegateLookup = computed(() => {
   return map;
 });
 
-// Classifie chaque hit live (user_id = keycloak id) en :
-// "checked-in" / "no-checkin" / "unknown" (pas de delegate matchant).
-const liveJoinStats = computed(() => {
+// Classifie chaque hit en : checked-in / no-checkin / unknown (pas de delegate matchant).
+const joinStats = computed(() => {
   const lookup = delegateLookup.value;
   const checkedIn = new Set();
   const noCheckin = new Set();
@@ -334,18 +365,13 @@ const liveJoinStats = computed(() => {
     else if (entry.checkedIn) checkedIn.add(kcId);
     else noCheckin.add(kcId);
   }
-  return {
-    checkedIn: checkedIn.size,
-    noCheckin: noCheckin.size,
-    unknown: unknown.size,
-  };
+  return { checkedIn: checkedIn.size, noCheckin: noCheckin.size, unknown: unknown.size };
 });
 
-const uniqueLiveUsersWithoutCheckin = computed(() => liveJoinStats.value.noCheckin);
+const uniqueUsersWithoutCheckin = computed(() => joinStats.value.noCheckin);
 
-// Liste detaillee des delegues live sans check-in physique (pour debug console).
-// Dedupe sur le keycloak id.
-const liveWithoutCheckinList = computed(() => {
+// --- Dumps debug (en dev uniquement, cf. debug.js) ---
+const withoutCheckinList = computed(() => {
   const lookup = delegateLookup.value;
   const seen = new Set();
   const list = [];
@@ -366,20 +392,17 @@ const liveWithoutCheckinList = computed(() => {
   return list;
 });
 
-// Log console (utile pour debug + verifier les jointures). Se redeclenche
-// quand la liste change (changement de delegates ou de hits live).
 watch(
-  liveWithoutCheckinList,
+  withoutCheckinList,
   (list) => {
     if (list.length === 0) return;
-    debug.log(`[Live] ${list.length} delegues ont regarde du live SANS check-in physique :`);
+    const verb = props.kind === "live" ? "regarde du live" : "consulte du replay";
+    debug.log(`${L.value.debugTag} ${list.length} delegues ont ${verb} SANS check-in physique :`);
     debug.table(list);
   },
   { immediate: true },
 );
 
-// Dump de la lookup keycloakId -> email/checkedIn, pour cross-reference
-// manuelle avec le dump ES (les user_id ES doivent matcher ces keycloakId).
 watch(
   delegateLookup,
   (map) => {
@@ -395,33 +418,11 @@ watch(
         checkedInDate: entry.delegate?.checkedInDate || "",
       });
     }
-    debug.log(`[Live] delegateLookup (${rows.length} entrees, keycloakId -> delegate) :`);
+    debug.log(`${L.value.debugTag} delegateLookup (${rows.length} entrees, keycloakId -> delegate) :`);
     debug.table(rows);
   },
   { immediate: true },
 );
-
-// Mediane du nombre de sessions consultees par delegue (utilise les buckets)
-const medianSessionsPerUser = computed(() => {
-  const buckets = stats.value.sessionsPerUserBuckets;
-  const total = buckets["1"] + buckets["2-5"] + buckets["6-10"] + buckets["10+"];
-  if (total === 0) return "—";
-  let cum = 0;
-  const half = total / 2;
-  for (const [label, count] of Object.entries(buckets)) {
-    cum += count;
-    if (cum >= half) return label;
-  }
-  return "—";
-});
-
-const topBucketLabel = computed(() => {
-  const buckets = stats.value.sessionsPerUserBuckets;
-  const entries = Object.entries(buckets).filter(([, v]) => v > 0);
-  if (entries.length === 0) return "—";
-  const top = entries.reduce((a, b) => (b[1] > a[1] ? b : a));
-  return `pic dans la tranche "${top[0]}" (${top[1]} délégués)`;
-});
 
 // --- Charts ---
 const byDayChart = computed(() => ({
@@ -429,7 +430,7 @@ const byDayChart = computed(() => ({
   datasets: [{
     label: "Délégués uniques",
     data: stats.value.uniqueByDay.map((d) => d.count),
-    backgroundColor: "#30DD92",
+    backgroundColor: L.value.byDayColor,
     borderRadius: 4,
     barThickness: Math.max(12, Math.min(40, 500 / (stats.value.uniqueByDay.length || 1))),
   }],
@@ -455,10 +456,9 @@ const byDayOptions = {
   },
 };
 
-// Delegues uniques par tranche de 30 min (session_end).
-// Labels : "HH:MM" si tous les slots sont sur le meme jour, sinon "MM-DD HH:MM".
+// 30-min slot chart (live uniquement) — labels HH:MM (ou MM-DD HH:MM si multi-jour).
 const by30minChart = computed(() => {
-  const slots = stats.value.uniqueBy30min;
+  const slots = stats.value.uniqueBy30min || [];
   const days = new Set(slots.map((s) => s.slot.slice(0, 10)));
   const multiDay = days.size > 1;
   const labels = slots.map((s) => {
@@ -505,7 +505,7 @@ const engagementChart = computed(() => {
       data: labels.map((l) => buckets[l]),
       backgroundColor: ["#9CA3AF", "#1E4E66", "#30DD92", "#6F45FF"],
       borderRadius: 4,
-      barThickness: 60,
+      barThickness: props.kind === "live" ? 60 : 50,
     }],
   };
 });
@@ -530,7 +530,7 @@ const engagementOptions = {
   },
 };
 
-// --- Helpers ---
+// --- Helpers de format / detail table ---
 const ORIGIN_COLORS = ["#1E4E66", "#30DD92", "#6F45FF", "#FFA600", "#E53935", "#00BCD4", "#9C27B0", "#A3B86C"];
 
 const totalOriginViews = computed(() =>
@@ -565,20 +565,51 @@ function formatTimestamp(ts) {
   if (!p) return String(ts);
   return `${p.ymd} ${String(p.hour).padStart(2, "0")}:${String(p.minute).padStart(2, "0")}`;
 }
+
+// Headers / rows CSV du tableau detaille — varient selon kind.
+const detailCsvHeaders = computed(() =>
+  props.kind === "live"
+    ? ["Délégué", "Email", "Session ID", "Session", "Type session", "Début session", "Horodatage vue", "Durée (s)"]
+    : ["Délégué", "Email", "Session ID", "Session", "Origine", "Horodatage", "Durée (s)"]
+);
+
+function detailCsvRow(it) {
+  if (props.kind === "live") {
+    return [
+      it.fullName, it.email, it.sessionId || "", it.sessionTitle,
+      it.sessionType, formatTimestamp(it.sessionStart) || "",
+      formatTimestamp(it.timestamp) || "", Math.round(it.duration),
+    ];
+  }
+  return [
+    it.fullName, it.email, it.sessionId || "", it.sessionTitle,
+    it.origin, formatTimestamp(it.timestamp) || "", Math.round(it.duration),
+  ];
+}
 </script>
 
 <style scoped>
-.live-state { text-align: center; padding: 60px 20px; }
-.live-progress { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
-.live-hint { font-size: 11px; color: var(--text-muted); margin-top: 8px; font-style: italic; }
-.live-hint code {
+.viewers-state { text-align: center; padding: 60px 20px; }
+.viewers-progress { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+.viewers-hint { font-size: 11px; color: var(--text-muted); margin-top: 8px; font-style: italic; }
+.viewers-hint code {
   background: #f3f4f6; padding: 1px 5px; border-radius: 3px;
   font-family: "Fira Code", monospace; font-size: 10px;
 }
 
-.live-table-wrap { max-height: 600px; overflow: auto; }
-.live-table-wrap .data-table th { position: sticky; top: 0; z-index: 2; }
-.live-detail-table { min-width: 900px; }
+.viewers-table-wrap { max-height: 600px; overflow: auto; }
+.viewers-table-wrap .data-table th { position: sticky; top: 0; z-index: 2; }
+.viewers-detail-table { min-width: 900px; }
+.viewers-detail-table .mono {
+  font-family: "Fira Code", Consolas, monospace;
+  font-size: 10px; color: var(--text-secondary);
+}
+
+.origin-pill {
+  display: inline-block; padding: 1px 7px;
+  font-size: 10px; font-weight: 600;
+  border-radius: 8px; background: #6F45FF; color: #fff;
+}
 
 .origin-legend-row.clickable {
   cursor: pointer; padding: 3px 6px; border-radius: 6px;
@@ -600,11 +631,6 @@ function formatTimestamp(ts) {
   cursor: pointer; font-size: 11px; color: #646464;
 }
 .filter-clear:hover { background: #f3f4f6; }
-
-.live-detail-table .mono {
-  font-family: "Fira Code", Consolas, monospace;
-  font-size: 10px; color: var(--text-secondary);
-}
 
 .origin-pie-wrap {
   display: grid; grid-template-columns: 200px 1fr; gap: 16px; align-items: center;

@@ -112,25 +112,27 @@
               <TemporalTab v-if="tab.id === 'temporal'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
               <BadgesTab v-if="tab.id === 'badges'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
               <ScansTab v-if="tab.id === 'scans'" />
-              <LiveTab v-if="tab.id === 'live'" :delegates="delegates" :live-api="liveApi" />
-              <LiveComparisonTab
+              <ViewersTab v-if="tab.id === 'live'" kind="live" :delegates="delegates" :viewer-api="liveApi" />
+              <ViewersComparisonTab
                 v-if="tab.id === 'liveCompare'"
+                kind="live"
                 :delegates="delegates"
                 :compare-delegates="compareDelegates"
                 :event-name="eventName"
                 :compare-event-name="compareEventName"
-                :live-api="liveApi"
-                :compare-live-api="compareLiveApi"
+                :viewer-api="liveApi"
+                :compare-viewer-api="compareLiveApi"
               />
-              <ReplayTab v-if="tab.id === 'replay'" :delegates="delegates" :replay-api="replayApi" />
-              <ReplayComparisonTab
+              <ViewersTab v-if="tab.id === 'replay'" kind="replay" :delegates="delegates" :viewer-api="replayApi" />
+              <ViewersComparisonTab
                 v-if="tab.id === 'replayCompare'"
+                kind="replay"
                 :delegates="delegates"
                 :compare-delegates="compareDelegates"
                 :event-name="eventName"
                 :compare-event-name="compareEventName"
-                :replay-api="replayApi"
-                :compare-replay-api="compareReplayApi"
+                :viewer-api="replayApi"
+                :compare-viewer-api="compareReplayApi"
               />
               <DataTab v-if="tab.id === 'data'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
               <ComparisonTab
@@ -166,25 +168,27 @@
             <TemporalTab v-if="activeTab === 'temporal'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
             <BadgesTab v-if="activeTab === 'badges'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
             <ScansTab v-if="activeTab === 'scans'" />
-            <LiveTab v-if="activeTab === 'live'" :delegates="delegates" :live-api="liveApi" />
-            <LiveComparisonTab
+            <ViewersTab v-if="activeTab === 'live'" kind="live" :delegates="delegates" :viewer-api="liveApi" />
+            <ViewersComparisonTab
               v-if="activeTab === 'liveCompare'"
+              kind="live"
               :delegates="delegates"
               :compare-delegates="compareDelegates"
               :event-name="eventName"
               :compare-event-name="compareEventName"
-              :live-api="liveApi"
-              :compare-live-api="compareLiveApi"
+              :viewer-api="liveApi"
+              :compare-viewer-api="compareLiveApi"
             />
-            <ReplayTab v-if="activeTab === 'replay'" :delegates="delegates" :replay-api="replayApi" />
-            <ReplayComparisonTab
+            <ViewersTab v-if="activeTab === 'replay'" kind="replay" :delegates="delegates" :viewer-api="replayApi" />
+            <ViewersComparisonTab
               v-if="activeTab === 'replayCompare'"
+              kind="replay"
               :delegates="delegates"
               :compare-delegates="compareDelegates"
               :event-name="eventName"
               :compare-event-name="compareEventName"
-              :replay-api="replayApi"
-              :compare-replay-api="compareReplayApi"
+              :viewer-api="replayApi"
+              :compare-viewer-api="compareReplayApi"
             />
             <DataTab v-if="activeTab === 'data'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
             <ExportsTab
@@ -230,10 +234,8 @@ import BadgesTab from "../components/tabs/BadgesTab.vue";
 import DataTab from "../components/tabs/DataTab.vue";
 import ComparisonTab from "../components/tabs/ComparisonTab.vue";
 import ScansTab from "../components/tabs/ScansTab.vue";
-import LiveTab from "../components/tabs/LiveTab.vue";
-import LiveComparisonTab from "../components/tabs/LiveComparisonTab.vue";
-import ReplayTab from "../components/tabs/ReplayTab.vue";
-import ReplayComparisonTab from "../components/tabs/ReplayComparisonTab.vue";
+import ViewersTab from "../components/tabs/ViewersTab.vue";
+import ViewersComparisonTab from "../components/tabs/ViewersComparisonTab.vue";
 import ExportsTab from "../components/tabs/ExportsTab.vue";
 
 const route = useRoute();
