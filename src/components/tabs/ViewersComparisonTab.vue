@@ -25,36 +25,13 @@
         </div>
       </div>
 
-      <!-- KPI compare grid 4 cards -->
-      <div class="kpi-compare-grid">
-        <div v-for="kpi in kpis" :key="kpi.label" class="kpi-compare-card">
-          <div class="kpi-label">{{ kpi.label }}</div>
-          <div class="kpi-line">
-            <div class="kpi-side">
-              <div class="kpi-side-header">
-                <span class="kpi-dot" :style="{ background: COLORS.current }"></span>
-                <span class="kpi-side-name">{{ shortName(eventName) }}</span>
-              </div>
-              <div class="kpi-side-value">{{ kpi.a.display }}</div>
-              <div class="kpi-side-sub">{{ kpi.a.sub || ' ' }}</div>
-            </div>
-            <div class="kpi-delta-wrap">
-              <span v-if="kpi.delta" class="kpi-delta" :class="kpi.delta.cls">
-                {{ kpi.delta.arrow }} {{ kpi.delta.text }}
-              </span>
-              <span v-else class="kpi-delta kpi-delta--neutral">—</span>
-            </div>
-            <div class="kpi-side kpi-side--compare">
-              <div class="kpi-side-header">
-                <span class="kpi-side-name">{{ shortName(compareEventName) }}</span>
-                <span class="kpi-dot" :style="{ background: COLORS.compare }"></span>
-              </div>
-              <div class="kpi-side-value">{{ kpi.b.display }}</div>
-              <div class="kpi-side-sub">{{ kpi.b.sub || ' ' }}</div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <!-- KPI compare grid extrait dans KpiCompareGrid. -->
+      <KpiCompareGrid
+        :kpis="kpis"
+        :event-name="eventName"
+        :compare-event-name="compareEventName"
+        :colors="COLORS"
+      />
 
       <!-- Vues par origine : 2 barres 100% stacked l'une sous l'autre -->
       <div class="chart-card" v-if="allOrigins.length > 0">
@@ -63,7 +40,7 @@
         </div>
         <div class="origin-row">
           <div class="origin-event-label">
-            <span class="kpi-dot" :style="{ background: COLORS.current }"></span>
+            <span class="event-dot" :style="{ background: COLORS.current }"></span>
             <span>{{ shortName(eventName) }}</span>
             <span class="origin-volume">{{ fmt(statsA.global.totalViews) }} vues</span>
           </div>
@@ -81,7 +58,7 @@
         </div>
         <div class="origin-row">
           <div class="origin-event-label">
-            <span class="kpi-dot" :style="{ background: COLORS.compare }"></span>
+            <span class="event-dot" :style="{ background: COLORS.compare }"></span>
             <span>{{ shortName(compareEventName) }}</span>
             <span class="origin-volume">{{ fmt(statsB.global.totalViews) }} vues</span>
           </div>
@@ -127,6 +104,7 @@ import {
   getRemoteOnlyDelegateIds,
 } from "../../utils/viewerJoin.js";
 import { fmt, shortName } from "@/utils/formatters.js";
+import KpiCompareGrid from "../charts/KpiCompareGrid.vue";
 
 const props = defineProps({
   // 'live' | 'replay' — pilote tous les labels affiches a l'utilisateur.
@@ -364,43 +342,6 @@ const dailyChartOptions = {
 .cmp-event-meta { color: var(--text-muted); font-size: 11px; }
 .cmp-vs { font-weight: 700; color: var(--text-muted); }
 
-/* KPI compare grid (dupliqué depuis ComparisonTab pour styles scoped) */
-.kpi-compare-grid {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-  gap: 12px; margin-bottom: 14px;
-}
-.kpi-compare-card {
-  background: var(--card); border-radius: 10px; padding: 12px 16px 14px;
-  box-shadow: var(--shadow);
-  display: flex; flex-direction: column;
-}
-.kpi-compare-card .kpi-label {
-  font-size: 10px; text-transform: uppercase; letter-spacing: .5px;
-  color: var(--text-muted); font-weight: 600;
-  padding-bottom: 8px; border-bottom: 1px solid #f3f4f6; margin-bottom: 10px;
-}
-.kpi-line { display: grid; grid-template-columns: 1fr auto 1fr; align-items: start; gap: 12px; }
-.kpi-side { display: flex; flex-direction: column; min-width: 0; gap: 4px; }
-.kpi-side--compare { align-items: flex-end; text-align: right; }
-.kpi-side-header {
-  display: flex; align-items: center; gap: 6px;
-  font-size: 11px; color: var(--text-muted); font-weight: 500;
-  min-width: 0; max-width: 100%;
-}
-.kpi-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.kpi-side-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.kpi-side-value { font-weight: 700; color: var(--text); font-size: 22px; line-height: 1.1; font-variant-numeric: tabular-nums; }
-.kpi-side-sub { color: var(--text-muted); font-size: 11px; line-height: 1.3; min-height: 14px; }
-.kpi-delta-wrap { align-self: center; padding-top: 16px; }
-.kpi-delta {
-  font-weight: 700; font-size: 11px;
-  padding: 4px 10px; border-radius: 12px; white-space: nowrap;
-  display: inline-flex; align-items: center; gap: 4px;
-}
-.kpi-delta--good { color: #047857; background: #d1fae5; }
-.kpi-delta--bad { color: #b91c1c; background: #fee2e2; }
-.kpi-delta--neutral { color: var(--text-muted); background: #f3f4f6; }
-
 /* Stacked 100% rows */
 .origin-row {
   display: grid;
@@ -414,6 +355,7 @@ const dailyChartOptions = {
   font-size: 13px; color: var(--text);
 }
 .origin-event-label > span:nth-child(2) { font-weight: 600; }
+.event-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .origin-volume { color: var(--text-muted); font-size: 11px; }
 .origin-stack-bar {
   display: flex; width: 100%; height: 36px;

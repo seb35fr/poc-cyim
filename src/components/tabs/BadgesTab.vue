@@ -220,52 +220,12 @@
       </div>
     </div>
 
-    <!-- Repartition geographique : monde + France -->
-    <div class="charts-row">
-      <div class="chart-card">
-        <div class="chart-header">
-          <h3>Répartition géographique (monde)</h3>
-          <CsvButton filename="repartition-monde"
-            :headers="['Code pays', 'Inscrits']"
-            :rows="geoCountries.map(c => [c.value, c.totalCount])" />
-        </div>
-        <ChoroplethMap :countries="geoCountries" :height="380" :key="`world-${badgeFilterKey}`" />
-      </div>
-      <div class="chart-card">
-        <div class="chart-header">
-          <h3>Répartition par région française</h3>
-          <CsvButton filename="repartition-regions-fr"
-            :headers="['Code région', 'Région', 'Inscrits']"
-            :rows="frRegions.map(r => [r.code, REGION_NAMES[r.code] || r.code, r.count])" />
-        </div>
-        <FrenchRegionMap
-          :regions="frRegionsMetro"
-          :region-codes="METRO_REGION_CODES_ARR"
-          :global-max="frGlobalMax"
-          :height="380"
-          :key="`fr-metro-${badgeFilterKey}`"
-        />
-        <div v-if="frRegionsOverseas.length > 0" class="dom-row">
-          <div class="dom-row-label">Outre-mer</div>
-          <div class="dom-row-maps">
-            <div v-for="r in frRegionsOverseas" :key="r.code" class="dom-card">
-              <FrenchRegionMap
-                :regions="[r]"
-                :region-codes="[r.code]"
-                :global-max="frGlobalMax"
-                :height="110"
-                :show-legend="false"
-                :key="`fr-dom-${r.code}-${badgeFilterKey}`"
-              />
-              <div class="dom-card-caption">
-                <span>{{ REGION_NAMES[r.code] || r.code }}</span>
-                <strong>{{ r.count.toLocaleString("fr-FR") }}</strong>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- Repartition geographique (monde + France) — extrait dans RegionalMaps. -->
+    <RegionalMaps
+      :delegates="filteredDelegates"
+      :cache-key="badgeFilterKey"
+      filename-prefix="repartition"
+    />
 
     <!-- Flux par jour et heure : check-in (gauche) / badges (droite) -->
     <div class="charts-row">
@@ -313,7 +273,6 @@ import { makeDateLabeler } from "../../utils/formatDateLabel.js";
 import { parisDay } from "../../utils/parisTime.js";
 import { buildBurndownAbsolute } from "../../utils/burndown.js";
 import { getTypeColor } from "../../utils/typeColors.js";
-import { zipToRegion, REGION_NAMES } from "../../utils/frenchRegions.js";
 import { fmt, pct } from "@/utils/formatters.js";
 import {
   delegateBadgeType,
@@ -321,8 +280,7 @@ import {
   checkinByTypeOptions,
   checkinByTypeTotalsPlugin,
 } from "../../utils/checkinByType.js";
-import ChoroplethMap from "../charts/ChoroplethMap.vue";
-import FrenchRegionMap from "../charts/FrenchRegionMap.vue";
+import RegionalMaps from "../charts/RegionalMaps.vue";
 
 const props = defineProps({
   stats: Object,
@@ -579,45 +537,6 @@ const perfCheckin15Options = {
     y: { grid: { color: "#f3f4f6" }, ticks: { font: { size: 11 } }, beginAtZero: true },
   },
 };
-
-// --- Repartition geographique (monde + France) ---
-// Les delegates filtres incluent deja le filtre global de page (selectedBadgeType)
-// + les cross-filtres en cours sur la page (device, jour, etc.).
-const geoCountries = computed(() => {
-  const map = {};
-  for (const d of filteredDelegates.value) {
-    const code = d.primaryAddress?.countryCode || d.primaryAddress?.country?.code;
-    if (!code) continue;
-    map[code] = (map[code] || 0) + 1;
-  }
-  return Object.entries(map)
-    .map(([value, totalCount]) => ({ value, totalCount }))
-    .sort((a, b) => b.totalCount - a.totalCount);
-});
-
-const frRegions = computed(() => {
-  const counts = new Map();
-  for (const d of filteredDelegates.value) {
-    const addr = d.primaryAddress;
-    if (!addr) continue;
-    const country = addr.countryCode || addr.country?.code;
-    if (country && country !== "FR") continue;
-    const region = zipToRegion(addr.zipCode);
-    if (!region) continue;
-    counts.set(region, (counts.get(region) || 0) + 1);
-  }
-  return [...counts.entries()].map(([code, count]) => ({ code, count }));
-});
-
-// Codes regions metropolitaines (13 regions) — utilise pour separer DOM dans l'affichage.
-const METRO_REGION_CODES_ARR = ["11", "24", "27", "28", "32", "44", "52", "53", "75", "76", "84", "93", "94"];
-const METRO_REGION_CODES = new Set(METRO_REGION_CODES_ARR);
-const frRegionsMetro = computed(() => frRegions.value.filter((r) => METRO_REGION_CODES.has(r.code)));
-const frRegionsOverseas = computed(() => frRegions.value.filter((r) => !METRO_REGION_CODES.has(r.code)));
-// Max global toutes regions confondues pour partager l'echelle de couleurs
-// entre la carte metropole et les mini-cartes DOM (sinon un DOM serait toujours
-// au max localement et le visiteur ne saurait pas comparer).
-const frGlobalMax = computed(() => Math.max(1, ...frRegions.value.map((r) => r.count)));
 
 // --- Badges par device, stacke par type de badge ---
 // Source = pageFilteredDelegates (page-level badge type), PAS filteredDelegates :
@@ -1028,25 +947,4 @@ const barOptions = {
 .empty-msg { text-align: center; color: #9ca3af; padding: 20px; font-size: 13px; }
 .chart-hint { text-align: right; color: #9ca3af; font-size: 11px; margin: 6px 4px 0; font-style: italic; }
 
-.dom-row {
-  margin-top: 12px; padding-top: 10px;
-  border-top: 1px dashed #e5e7eb;
-}
-.dom-row-label {
-  font-size: 11px; color: #646464; text-transform: uppercase;
-  letter-spacing: .5px; font-weight: 600; margin-bottom: 8px;
-}
-.dom-row-maps {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 10px;
-}
-.dom-card {
-  background: #fafafa; border: 1px solid #f3f4f6; border-radius: 8px;
-  padding: 6px 6px 8px;
-}
-.dom-card-caption {
-  display: flex; justify-content: space-between; align-items: center;
-  margin-top: 2px; font-size: 11px; color: #414141; padding: 0 4px;
-}
-.dom-card-caption strong { color: #1E4E66; font-size: 13px; }
 </style>
