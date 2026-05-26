@@ -3,13 +3,17 @@
 // dans contact.emailAddresses[].source.id quand source.type === "ACCOUNT"
 // (lien email <-> compte Keycloak cote service contacts).
 //
-// Diagnostics (cf. _warnedFingerprints + checkCoverage* ci-dessous) : on
-// emet un console.warn si la couverture Keycloak cote delegues tombe sous
-// 50% (= le schema contacts a probablement bouge), ou si le taux de match
-// cote hits ES devient anormalement bas (= les user_id ES ne sont plus des
-// Keycloak IDs). Permet de detecter en prod les KPI "sans presence physique"
-// silencieusement faux. Dedupe par fingerprint pour ne pas spammer la
-// console — un warn par dataset.
+// Diagnostics : 2 warnings distincts.
+// - Couverture Keycloak basse cote delegues (buildDelegateLookup) : remonte
+//   en UI via pushDiagnostic ET en console. C'est un probleme actionnable
+//   par l'admin qui voit le dashboard (il nous previent pour qu'on regarde
+//   cote contacts MS).
+// - Faible match ES cote hits (getRemoteOnlyDelegateIds) : console-only.
+//   Symptome downstream d'un changement de pipeline Flink, l'admin n'y peut
+//   rien — on le voit dans les logs internes.
+// Dedupe par fingerprint pour ne pas spammer.
+
+import { pushDiagnostic } from "@/composables/useDiagnostics.js";
 
 // Module-level set des fingerprints deja warned (evite spam quand un meme
 // computed se recalcule sur le meme dataset).
@@ -63,12 +67,27 @@ export function buildDelegateLookup(delegates, { datasetLabel = "" } = {}) {
       if (!_warnedFingerprints.has(fp)) {
         _warnedFingerprints.add(fp);
         const label = datasetLabel ? ` (${datasetLabel})` : "";
+        const pctStr = `${(coverage * 100).toFixed(1)}%`;
+        const missing = total - withKeycloakId;
+        // Console : message technique complet
         console.warn(
           `[viewerJoin] Faible couverture Keycloak${label} : ${withKeycloakId}/${total} ` +
-            `(${(coverage * 100).toFixed(1)}%) — la jointure live/replay va manquer ` +
-            `${total - withKeycloakId} delegues. Verifier contact.emailAddresses[].source.type === "ACCOUNT" ` +
-            `cote service contacts (les KPI "sans presence physique" seront sous-estimes).`,
+            `(${pctStr}) — la jointure live/replay va manquer ${missing} delegues. ` +
+            `Verifier contact.emailAddresses[].source.type === "ACCOUNT" cote service contacts ` +
+            `(les KPI "sans presence physique" seront sous-estimes).`,
         );
+        // UI : message synthetique pour l'admin qui consulte les stats.
+        // Le fingerprint partage evite le double-push si plusieurs computeds
+        // recalculent la meme lookup.
+        pushDiagnostic({
+          severity: "warn",
+          title: "Anomalie de données détectée",
+          message:
+            `Seuls ${pctStr} des délégués${label} ont un identifiant Keycloak exploitable ` +
+            `(${missing} sur ${total} manquants). Les KPI Live et Replay "sans présence ` +
+            `physique" sont probablement sous-estimés.`,
+          fingerprint: fp,
+        });
       }
     }
   }

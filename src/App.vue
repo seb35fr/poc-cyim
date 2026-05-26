@@ -1,6 +1,11 @@
 <template>
   <router-view />
+  <DiagnosticsBanner />
 </template>
+
+<script setup>
+import DiagnosticsBanner from "@/components/DiagnosticsBanner.vue";
+</script>
 
 <style>
 :root {
