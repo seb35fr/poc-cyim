@@ -213,26 +213,40 @@
     <div class="charts-row" >
       <div class="chart-card">
         <div class="chart-header">
-          <h3>Repartition par type d'inscription</h3>
-          <CsvButton filename="types-inscription" :headers="['Type', 'Nombre']" :rows="fs.registrations.types.map(t => [t.value, t.totalCount])" />
+          <h3>Répartition par type d'inscription</h3>
+          <span class="chart-hint">délégués registered · physique · live/replay seul · aucune participation</span>
+          <CsvButton
+            filename="types-inscription"
+            :headers="['Type', 'Total registered', 'Physique', 'Live/Replay seul', 'Aucune participation']"
+            :rows="registeredTypesBreakdown.map(t => [t.value, t.total, t.physical, t.remote, t.none])"
+          />
         </div>
-        <HBarChart
-          :labels="fs.registrations.types.slice(0, 8).map(t => t.value)"
-          :data="fs.registrations.types.slice(0, 8).map(t => t.totalCount)"
-          :colors="getTypeColors(fs.registrations.types.slice(0, 8).map(t => t.value))"
+        <StackedBarChart
+          :labels="registeredTypesBreakdown.slice(0, 8).map(t => t.value)"
+          :datasets="participationDatasets(registeredTypesBreakdown.slice(0, 8))"
+          :horizontal="true"
+          :show-total="true"
+          :height="320"
           :active-label="afm.regType"
           @select="onTypeSelect"
         />
       </div>
       <div class="chart-card">
         <div class="chart-header">
-          <h3>Top 10 categories</h3>
-          <CsvButton filename="categories" :headers="['Catégorie', 'Nombre']" :rows="topCategories.map(c => [c.value, c.totalCount])" />
+          <h3>Top 10 catégories</h3>
+          <span class="chart-hint">délégués registered · physique · live/replay seul · aucune participation</span>
+          <CsvButton
+            filename="categories"
+            :headers="['Catégorie', 'Total registered', 'Physique', 'Live/Replay seul', 'Aucune participation']"
+            :rows="registeredCategoriesBreakdown.map(c => [c.value, c.total, c.physical, c.remote, c.none])"
+          />
         </div>
-        <HBarChart
-          :labels="topCategories.map(c => c.value)"
-          :data="topCategories.map(c => c.totalCount)"
-          color="#2a6a8a"
+        <StackedBarChart
+          :labels="registeredCategoriesBreakdown.slice(0, 10).map(c => c.value)"
+          :datasets="participationDatasets(registeredCategoriesBreakdown.slice(0, 10))"
+          :horizontal="true"
+          :show-total="true"
+          :height="380"
           :active-label="afm.category"
           @select="onCategorySelect"
         />
@@ -243,7 +257,7 @@
 
 <script setup>
 import { computed, ref } from "vue";
-import HBarChart from "../charts/HBarChart.vue";
+import StackedBarChart from "../charts/StackedBarChart.vue";
 import LineChart from "../charts/LineChart.vue";
 import FilterBanner from "../FilterBanner.vue";
 import CsvButton from "../CsvButton.vue";
@@ -442,6 +456,86 @@ const registeredCount = computed(() =>
   pageFilteredDelegates.value.filter((d) => d.status?.toLowerCase() === "registered").length
 );
 
+// --- Decomposition participation par type / categorie ---
+// Calcule pour chaque registration type (et chaque categorie) le nombre de
+// delegues registered :
+//   - physical : checkedInDate valide (presents sur place)
+//   - remote   : pas physique mais vu en live ou replay
+//   - none     : aucune participation detectee (inscrits no-show)
+// La somme des 3 == nombre total de registered ayant ce type / cette categorie.
+// Note : un delegate avec plusieurs registrations compte dans chacun de ses
+// types / categories (meme logique que fs.registrations.types.totalCount).
+function buildParticipationBreakdown(extractKeys) {
+  const phyIds = physicallyCheckedInSet.value;
+  const remoteIds = new Set([...liveRemoteSet.value, ...replayRemoteSet.value]);
+  const byKey = new Map();
+  for (const d of pageFilteredDelegates.value) {
+    if (d.status?.toLowerCase() !== "registered") continue;
+    const isPhy = phyIds.has(d.id);
+    const isRemote = !isPhy && remoteIds.has(d.id);
+    const keys = extractKeys(d);
+    for (const k of keys) {
+      if (!byKey.has(k)) byKey.set(k, { physical: 0, remote: 0, none: 0 });
+      const b = byKey.get(k);
+      if (isPhy) b.physical++;
+      else if (isRemote) b.remote++;
+      else b.none++;
+    }
+  }
+  return [...byKey.entries()]
+    .map(([value, b]) => ({
+      value,
+      total: b.physical + b.remote + b.none,
+      physical: b.physical,
+      remote: b.remote,
+      none: b.none,
+    }))
+    .sort((a, b) => b.total - a.total);
+}
+
+const registeredTypesBreakdown = computed(() =>
+  buildParticipationBreakdown((d) => {
+    const set = new Set();
+    for (const r of d.registrations || []) if (r.type) set.add(r.type);
+    return set;
+  }),
+);
+
+const registeredCategoriesBreakdown = computed(() =>
+  buildParticipationBreakdown((d) => {
+    const set = new Set();
+    for (const r of d.registrations || []) {
+      for (const c of r.categories || []) if (c) set.add(c);
+    }
+    return set;
+  }),
+);
+
+// Construit les 3 datasets (physique / distanciel-seul / aucune) pour
+// StackedBarChart depuis le breakdown.
+function participationDatasets(breakdown) {
+  return [
+    {
+      label: "Physique",
+      data: breakdown.map((b) => b.physical),
+      backgroundColor: "#30DD92",
+      borderRadius: 4,
+    },
+    {
+      label: "Live/Replay uniquement",
+      data: breakdown.map((b) => b.remote),
+      backgroundColor: "#6F45FF",
+      borderRadius: 4,
+    },
+    {
+      label: "Aucune participation",
+      data: breakdown.map((b) => b.none),
+      backgroundColor: "#D1D5DB",
+      borderRadius: 4,
+    },
+  ];
+}
+
 // --- Filtres ---
 function onTypeSelect(label) {
   toggleFilter("regType", label, (d) => (d.registrations || []).some((r) => r.type === label));
@@ -453,7 +547,6 @@ function onCategorySelect(label) {
 }
 
 // --- Computed charts ---
-const topCategories = computed(() => (fs.value?.registrations?.categories || []).slice(0, 10));
 
 // --- Mobile app timeline ---
 const mobileAppDaily = computed(() => fs.value?.mobileApp?.daily || []);
@@ -563,6 +656,10 @@ const onboardingDatasets = computed(() => {
 </script>
 
 <style scoped>
+.chart-hint {
+  font-size: 10px; color: var(--text-muted); font-style: italic;
+  margin-left: auto; padding-right: 8px;
+}
 .kpi-overview {
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 }
