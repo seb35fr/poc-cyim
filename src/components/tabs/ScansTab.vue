@@ -31,15 +31,17 @@
         <div class="kpi-card blue">
           <div class="kpi-label">Total scans</div>
           <div class="kpi-value">{{ fmt(g.totalScans) }}</div>
+          <!-- "entree" masquee quand aucun scan de portique : ce flux est dormant
+               depuis avril 2025, afficher "0 entree" faisait croire a un bug. -->
           <div class="kpi-sub">
-            {{ fmt(g.totalAudienceScans) }} salle · {{ fmt(g.totalCheckinScans) }} entree · {{ fmt(g.totalZoneScans) }} zones
+            {{ fmt(g.totalAudienceScans) }} salle<template v-if="g.totalCheckinScans > 0"> · {{ fmt(g.totalCheckinScans) }} entree</template> · {{ fmt(g.totalZoneScans) }} zones
           </div>
         </div>
         <div class="kpi-card green">
           <div class="kpi-label">Delegues uniques scannes</div>
           <div class="kpi-value">{{ fmt(g.uniqueDelegatesAll) }}</div>
           <div class="kpi-sub">
-            dont {{ fmt(g.uniqueAudienceDelegates) }} en salle · {{ fmt(g.uniqueCheckinDelegates) }} a l'entree
+            dont {{ fmt(g.uniqueAudienceDelegates) }} en salle<template v-if="g.totalCheckinScans > 0"> · {{ fmt(g.uniqueCheckinDelegates) }} a l'entree</template><span v-else class="entree-note" title="Aucun scan de portique d'entree enregistre pour ce congres — flux dormant depuis avril 2025"> · entree non scannee</span>
           </div>
         </div>
         <div class="kpi-card purple">
@@ -369,6 +371,8 @@ function formatTimestamp(ts) {
 .scans-state {
   text-align: center; padding: 60px 20px;
 }
+/* Mention "entree non scannee" : ton attenue pour ne pas alarmer (vs un "0"). */
+.entree-note { opacity: 0.6; font-style: italic; }
 .scans-progress { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
 .scans-hint { font-size: 11px; color: var(--text-muted); margin-top: 8px; font-style: italic; }
 .scans-hint code {
