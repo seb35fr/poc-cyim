@@ -1,7 +1,8 @@
 import { ref } from "vue";
 import { generateAnalysis } from "@/utils/generateAnalysis.js";
-import { delegateBadgeType } from "@/utils/checkinByType.js";
-import { hasValidCheckin, buildDelegateLookup, getRemoteOnlyDelegateIds } from "@/utils/viewerJoin.js";
+import { buildCheckinByType } from "@/utils/checkinByType.js";
+import { buildDelegateLookup, getRemoteOnlyDelegateIds } from "@/utils/viewerJoin.js";
+import { computeParticipation } from "@/utils/participation.js";
 
 // Export Markdown du dashboard — destine a etre donne a un LLM (Claude,
 // ChatGPT, Gemini) pour produire automatiquement un bilan, un email client,
@@ -128,6 +129,39 @@ function sectionGlobal(stats, delegates) {
   return out;
 }
 
+// "Total participants" = photo unique et dedoublonnee de qui a reellement
+// participe au congres (presence physique + distanciels live/replay). KPI le
+// plus important du bilan selon le DG : il faut absolument qu'il sorte dans le
+// MD pour qu'un LLM redige un bilan correct. Logique partagee avec OverviewTab
+// via utils/participation.js (dedup sur delegate.id Mongo, jointure Keycloak).
+function sectionTotalParticipants(delegates, liveItems, replayItems, label = "md-export") {
+  const { counts: c } = computeParticipation(delegates, liveItems, replayItems, { datasetLabel: label });
+  if (c.total === 0) return ""; // aucune donnee de participation (event sans live/replay/check-in)
+
+  let out = h(2, "Total participants (vue dédoublonnée)");
+  out +=
+    "_Photo unique de **qui a réellement participé** au congrès, tous canaux confondus. " +
+    "Chaque délégué compte **une seule fois** : un présent physique absorbe ses éventuelles vues " +
+    "live/replay ; un délégué non présent compte une fois selon qu'il a vu en live, en replay ou les deux. " +
+    "Déduplication sur `delegate.id` (Mongo) via la jointure Keycloak. " +
+    "C'est l'indicateur d'audience global du congrès._\n\n";
+  out += mdTable(
+    ["Composante", "Délégués", "% du total participants"],
+    [
+      ["Présence physique (check-in)", fmtNum(c.checkedIn), fmtPct(c.checkedIn, c.total)],
+      ["Live distanciel uniquement", fmtNum(c.liveOnly), fmtPct(c.liveOnly, c.total)],
+      ["Live & Replay distanciel", fmtNum(c.both), fmtPct(c.both, c.total)],
+      ["Replay distanciel uniquement", fmtNum(c.replayOnly), fmtPct(c.replayOnly, c.total)],
+      ["**Total participants (dédoublonnés)**", `**${fmtNum(c.total)}**`, "**100%**"],
+    ],
+  );
+  out +=
+    "> Note : les viewers live/replay non rapprochés d'un délégué (user_id Keycloak inconnu côté ES) " +
+    "ne sont pas comptés ici — le total participants peut donc être légèrement sous-estimé sur les " +
+    "événements à faible couverture Keycloak.\n\n";
+  return out;
+}
+
 function sectionDemographics(stats) {
   const d = stats?.demographics;
   if (!d) return "";
@@ -183,7 +217,7 @@ function sectionDemographics(stats) {
   return out;
 }
 
-function sectionRegistrations(stats, delegates, liveItems, replayItems) {
+function sectionRegistrations(stats, delegates, liveItems, replayItems, label = "md-export") {
   const r = stats?.registrations;
   if (!r) return "";
   let out = h(2, "Inscriptions");
@@ -195,6 +229,24 @@ function sectionRegistrations(stats, delegates, liveItems, replayItems) {
     (r.statuses || []).map((s) => [s.value, fmtNum(s.totalCount), fmtPct(s.totalCount, totalStatus)]),
   );
 
+  // Statut par type d'inscription : croise chaque type avec la repartition de
+  // ses statuts (registered / pending / annule...). r.types[].statuses est
+  // agrege cote computeRegistrations. Colonnes = union des statuts rencontres.
+  const statusKeys = new Set();
+  for (const t of r.types || []) {
+    for (const k of Object.keys(t.statuses || {})) statusKeys.add(k);
+  }
+  if (statusKeys.size > 0) {
+    out += h(3, "Statut par type d'inscription");
+    const keys = [...statusKeys].sort();
+    out += mdTable(
+      ["Type", ...keys, "Total"],
+      [...(r.types || [])]
+        .sort((a, b) => b.totalCount - a.totalCount)
+        .map((t) => [t.value, ...keys.map((k) => fmtNum(t.statuses?.[k] || 0)), fmtNum(t.totalCount)]),
+    );
+  }
+
   // Decomposition participation par type : physique / live-replay seul / aucune participation
   // (uniquement pour les delegues registered — coherent avec OverviewTab)
   out += h(3, "Types d'inscription — décomposition de participation");
@@ -203,7 +255,7 @@ function sectionRegistrations(stats, delegates, liveItems, replayItems) {
     const set = new Set();
     for (const reg of d.registrations || []) if (reg.type) set.add(reg.type);
     return set;
-  });
+  }, label);
   out += mdTable(
     ["Type", "Total", "Physique", "Live/Replay seul", "Aucune participation", "% présence"],
     typesBreakdown.map((b) => [
@@ -219,7 +271,7 @@ function sectionRegistrations(stats, delegates, liveItems, replayItems) {
       for (const c of reg.categories || []) if (c) set.add(c);
     }
     return set;
-  });
+  }, label);
   out += mdTable(
     ["Catégorie", "Total", "Physique", "Live/Replay seul", "Aucune participation", "% présence"],
     catsBreakdown.slice(0, 15).map((b) => [
@@ -246,18 +298,14 @@ function sectionRegistrations(stats, delegates, liveItems, replayItems) {
   return out;
 }
 
-// Helper : decompose les delegues registered en physique/distanciel-seul/none
-// (re-implementation locale identique a buildParticipationBreakdown d'OverviewTab,
-// pour ne pas dependre du tab ouvert).
-function buildParticipationBreakdown(delegates, liveItems, replayItems, extractKeys) {
-  const lookup = buildDelegateLookup(delegates || [], { datasetLabel: "md-export" });
-  const phyIds = new Set();
-  for (const d of delegates || []) {
-    if (d.id && hasValidCheckin(d)) phyIds.add(d.id);
-  }
-  const remoteIds = new Set();
-  for (const id of getRemoteOnlyDelegateIds(liveItems, lookup, { datasetLabel: "md-export-live" })) remoteIds.add(id);
-  for (const id of getRemoteOnlyDelegateIds(replayItems, lookup, { datasetLabel: "md-export-replay" })) remoteIds.add(id);
+// Helper : decompose les delegues registered en physique/distanciel-seul/none,
+// agrege par cle (type ou categorie). La derivation physique/distanciel vient
+// de computeParticipation (source unique partagee avec OverviewTab et la
+// section "Total participants"), pour ne pas redupliquer la logique de jointure.
+function buildParticipationBreakdown(delegates, liveItems, replayItems, extractKeys, label = "md-export") {
+  const p = computeParticipation(delegates, liveItems, replayItems, { datasetLabel: label });
+  const phyIds = p.checkedIn;
+  const remoteIds = new Set([...p.liveRemote, ...p.replayRemote]);
 
   const byKey = new Map();
   for (const d of delegates || []) {
@@ -325,6 +373,18 @@ function sectionTemporal(stats) {
     );
   }
 
+  if ((t.weeklyStatuses || []).length > 0) {
+    out += h(3, "Évolution hebdomadaire par statut (top 10 semaines récentes)");
+    const lastWeeks = (t.weeklyStatuses || []).slice(-10);
+    const allStatuses = new Set();
+    for (const w of lastWeeks) Object.keys(w.statuses || {}).forEach((s) => allStatuses.add(s));
+    const statusList = [...allStatuses];
+    out += mdTable(
+      ["Semaine", ...statusList],
+      lastWeeks.map((w) => [w.week, ...statusList.map((s) => fmtNum(w.statuses?.[s] || 0))]),
+    );
+  }
+
   return out;
 }
 
@@ -356,10 +416,10 @@ function sectionCheckinFlow(stats) {
   return out;
 }
 
-function sectionBadges(stats) {
+function sectionBadges(stats, delegates) {
   const b = stats?.badges;
   if (!b) return "";
-  let out = h(2, "Badges délivrés");
+  let out = h(2, "Badges délivrés & check-in par type");
 
   out += h(3, "Globalement");
   out += mdScalars([
@@ -368,7 +428,53 @@ function sectionBadges(stats) {
     ["Pic 1 min (perf max)", `${fmtNum(b.peakMinute?.count || 0)} le ${b.peakMinute?.date || "—"} à ${b.peakMinute?.time || "—"}`],
   ]);
 
-  out += h(3, "Par device de délivrance");
+  // Check-in par type de badge (= "Progression du check-in par type" du
+  // dashboard). buildCheckinByType agrege par type attendu (1er badge sinon
+  // 1ere registration), top 10 + Autres, sur les delegues registered.
+  const cbt = buildCheckinByType(delegates || []);
+  if (cbt.labels.length > 0) {
+    const checkinData = cbt.chartData.datasets[0]?.data || [];
+    const remainingData = cbt.chartData.datasets[1]?.data || [];
+    out += h(3, "Check-in par type de badge");
+    out += "_Délégués `registered`. Type attendu = 1er badge en base, sinon 1ère registration (top 10 + Autres)._\n\n";
+    out += mdTable(
+      ["Type", "Check-in", "Restants", "Attendus", "% présence"],
+      cbt.labels.map((label, i) => {
+        const ci = checkinData[i] || 0;
+        const rem = remainingData[i] || 0;
+        const total = ci + rem;
+        return [label, fmtNum(ci), fmtNum(rem), fmtNum(total), fmtPct(ci, total)];
+      }),
+    );
+  }
+
+  // Mix des types d'inscription chez les presents confirmes (= chart
+  // "Mix des types (presents confirmes)" du dashboard). Population :
+  // status=registered ET checkedInDate renseignee. Une inscription = une ligne
+  // (un delegue multi-inscriptions compte dans chacun de ses types).
+  const mixCounts = new Map();
+  let mixTotal = 0;
+  for (const d of delegates || []) {
+    if (d.status?.toLowerCase() !== "registered") continue;
+    if (!d.checkedInDate) continue;
+    for (const r of d.registrations || []) {
+      const type = r.type || "Non renseigné";
+      mixCounts.set(type, (mixCounts.get(type) || 0) + 1);
+      mixTotal++;
+    }
+  }
+  if (mixTotal > 0) {
+    out += h(3, "Mix des types d'inscription (présents confirmés)");
+    out += "_Population : `status = registered` ET `checkedInDate` renseignée._\n\n";
+    out += mdTable(
+      ["Type", "Inscriptions présentes", "% du mix"],
+      [...mixCounts.entries()].sort((a, b) => b[1] - a[1]).map(([type, count]) => [
+        type, fmtNum(count), fmtPct(count, mixTotal),
+      ]),
+    );
+  }
+
+  out += h(3, "Badges délivrés par device de délivrance");
   out += mdTable(
     ["Device / Borne", "Badges délivrés"],
     (b.byDevice || []).map((d) => [d.device, fmtNum(d.count)]),
@@ -543,39 +649,70 @@ function sectionScans(scanStats) {
     ["Zones distinctes", fmtNum(g.distinctZones || 0)],
   ]);
 
+  // NB : topSessions/topRooms/topZones ne portent que { label, count }
+  // (cf. computeScanStats.topN) — pas de delegues uniques par ligne, donc pas
+  // de colonne "Délégués uniques" ici (elle vaudrait 0 partout).
   if ((scanStats.audience?.topSessions || []).length > 0) {
     out += h(3, "Top 15 sessions par audience scannée");
     out += mdTable(
-      ["Session / Salle", "Scans", "Délégués uniques"],
-      scanStats.audience.topSessions.slice(0, 15).map((s) => [
-        s.name || s.label || "—",
-        fmtNum(s.count || 0),
-        fmtNum(s.uniqueDelegates || 0),
-      ]),
+      ["Session / Salle", "Scans"],
+      scanStats.audience.topSessions.slice(0, 15).map((s) => [s.label || s.name || "—", fmtNum(s.count || 0)]),
     );
   }
 
   if ((scanStats.audience?.topRooms || []).length > 0) {
     out += h(3, "Top 15 salles par audience scannée");
     out += mdTable(
-      ["Salle", "Scans", "Délégués uniques"],
-      scanStats.audience.topRooms.slice(0, 15).map((r) => [
-        r.name || r.label || "—",
-        fmtNum(r.count || 0),
-        fmtNum(r.uniqueDelegates || 0),
-      ]),
+      ["Salle", "Scans"],
+      scanStats.audience.topRooms.slice(0, 15).map((r) => [r.label || r.name || "—", fmtNum(r.count || 0)]),
     );
   }
 
   if ((scanStats.zone?.topZones || []).length > 0) {
     out += h(3, "Top 15 zones par accès");
     out += mdTable(
-      ["Zone", "Scans", "Délégués uniques"],
-      scanStats.zone.topZones.slice(0, 15).map((z) => [
-        z.name || z.label || "—",
-        fmtNum(z.count || 0),
-        fmtNum(z.uniqueDelegates || 0),
-      ]),
+      ["Zone", "Scans"],
+      scanStats.zone.topZones.slice(0, 15).map((z) => [z.label || z.name || "—", fmtNum(z.count || 0)]),
+    );
+  }
+
+  // Delegues uniques scannes par jour (tous index confondus, dedoublonne sur
+  // delegate.id Mongo, placeholder "-" exclu). combined.uniqueDelegatesByDay
+  // est un objet { "YYYY-MM-DD": count }.
+  const byDay = Object.entries(scanStats.combined?.uniqueDelegatesByDay || {}).sort((a, b) => a[0].localeCompare(b[0]));
+  if (byDay.length > 0) {
+    out += h(3, "Délégués uniques scannés par jour");
+    out += mdTable(["Jour", "Délégués uniques"], byDay.map(([day, count]) => [day, fmtNum(count)]));
+  }
+
+  // Sens des scans (entree / sortie / inconnu) par index. byDirection =
+  // { in, out, unknown }. Heuristique cote computeScanStats.normalizeDirection.
+  const dirRows = [
+    ["Audience (salle)", scanStats.audience?.byDirection],
+    ["Check-in congrès", scanStats.checkin?.byDirection],
+    ["Zones", scanStats.zone?.byDirection],
+  ].filter(([, d]) => d && (d.in || d.out || d.unknown));
+  if (dirRows.length > 0) {
+    out += h(3, "Sens des scans (entrée / sortie)");
+    out += "_Direction déduite par heuristique (`in*`/`entr*` → entrée, `out*`/`sort*` → sortie)._\n\n";
+    out += mdTable(
+      ["Source", "Entrée", "Sortie", "Inconnu"],
+      dirRows.map(([label, d]) => [label, fmtNum(d.in || 0), fmtNum(d.out || 0), fmtNum(d.unknown || 0)]),
+    );
+  }
+
+  // Scans par type de badge (audience + check-in). byBadgeType = { type: count }.
+  for (const [title, map] of [
+    ["Audience — scans par type de badge", scanStats.audience?.byBadgeType],
+    ["Check-in congrès — scans par type de badge", scanStats.checkin?.byBadgeType],
+  ]) {
+    const entries = Object.entries(map || {}).sort((a, b) => b[1] - a[1]);
+    if (entries.length === 0) continue;
+    const totalBt = entries.reduce((s, [, v]) => s + v, 0);
+    out += h(3, title);
+    out += mdTable(
+      ["Type de badge", "Scans", "%"],
+      entries.map(([type, count]) => [type, fmtNum(count), fmtPct(count, totalBt)]),
     );
   }
 
@@ -654,6 +791,31 @@ function sectionFooter({ eventName, compareEventName }) {
   return out;
 }
 
+// Rend le corps complet d'UN event (toutes les sections per-event, dans le
+// meme ordre que l'event principal). Utilise pour l'event principal ET pour
+// l'annexe de comparaison (event B), afin que le LLM dispose d'une structure
+// identique de chaque cote. `participationLabel` distingue les diagnostics de
+// jointure Keycloak A vs B. `scanStats` peut etre null (l'event compare ne
+// charge pas les scans).
+function renderEventBody({ stats, delegates = [], liveStats = null, replayStats = null, scanStats = null, participationLabel = "md-export" }) {
+  const liveItems = liveStats?.items || [];
+  const replayItems = replayStats?.items || [];
+  let out = "";
+  out += sectionGlobal(stats, delegates);
+  out += sectionTotalParticipants(delegates, liveItems, replayItems, participationLabel);
+  out += sectionDemographics(stats);
+  out += sectionRegistrations(stats, delegates, liveItems, replayItems, participationLabel);
+  out += sectionTemporal(stats);
+  out += sectionCheckinFlow(stats);
+  out += sectionBadges(stats, delegates);
+  out += sectionOnboarding(stats);
+  out += sectionMobileApp(stats);
+  out += sectionLiveReplay("Live (sessions diffusées en direct)", liveStats, delegates);
+  out += sectionLiveReplay("Replay (VOD)", replayStats, delegates);
+  out += sectionScans(scanStats);
+  return out;
+}
+
 // --- Composable principal ---------------------------------------------------
 
 export function useExportMarkdown() {
@@ -672,6 +834,8 @@ export function useExportMarkdown() {
       compareStats = null,
       compareEventName = null,
       compareDelegates = null,
+      compareLiveStats = null,
+      compareReplayStats = null,
       liveStats = null,
       replayStats = null,
       scanStats = null,
@@ -679,8 +843,6 @@ export function useExportMarkdown() {
     } = opts;
 
     const registered = delegates.filter((d) => d.status?.toLowerCase() === "registered").length;
-    const liveItems = liveStats?.items || [];
-    const replayItems = replayStats?.items || [];
 
     let md = "";
     md += `# Bilan — ${eventName || eventId || "Event"}\n\n`;
@@ -693,23 +855,32 @@ export function useExportMarkdown() {
       filterState: badgeFilterTypes,
       compareEventName,
     });
-    md += sectionGlobal(stats, delegates);
-    md += sectionDemographics(stats);
-    md += sectionRegistrations(stats, delegates, liveItems, replayItems);
-    md += sectionTemporal(stats);
-    md += sectionCheckinFlow(stats);
-    md += sectionBadges(stats);
-    md += sectionOnboarding(stats);
-    md += sectionMobileApp(stats);
-    md += sectionLiveReplay("Live (sessions diffusées en direct)", liveStats, delegates);
-    md += sectionLiveReplay("Replay (VOD)", replayStats, delegates);
-    md += sectionScans(scanStats);
+
+    // Corps complet de l'event principal (toutes les sections per-event).
+    md += renderEventBody({ stats, delegates, liveStats, replayStats, scanStats, participationLabel: "md-export" });
+
+    // Comparaison : tableau Δ executif (vue rapide), puis annexe complete de
+    // l'event B en fin de document pour que le LLM ait toute la donnee des deux.
     md += sectionComparison({ stats, compareStats, eventName, compareEventName });
     md += sectionAnalysis({
       stats, registeredCount: registered, eventName,
       compareStats, compareEventName, delegates, compareDelegates,
     });
     md += sectionFooter({ eventName, compareEventName });
+
+    if (compareStats && compareEventName) {
+      md += "---\n\n";
+      md += `# Annexe — Données complètes de l'event comparé : ${compareEventName}\n\n`;
+      md += `> Toutes les sections ci-dessous concernent **${compareEventName}** (l'event de comparaison), avec la même structure que l'event principal pour faciliter la mise en regard. _Les scans QR ne sont pas chargés pour l'event comparé._\n\n`;
+      md += renderEventBody({
+        stats: compareStats,
+        delegates: compareDelegates || [],
+        liveStats: compareLiveStats,
+        replayStats: compareReplayStats,
+        scanStats: null,
+        participationLabel: "md-export-compare",
+      });
+    }
 
     return md;
   }

@@ -265,11 +265,7 @@ import BadgeTypeFilter from "../BadgeTypeFilter.vue";
 import { useFilteredStats } from "../../composables/useFilteredStats.js";
 import { makeDateLabeler } from "../../utils/formatDateLabel.js";
 import { getTypeColors } from "../../utils/typeColors.js";
-import {
-  buildDelegateLookup,
-  getRemoteOnlyDelegateIds,
-  getCheckedInDelegateIds,
-} from "../../utils/viewerJoin.js";
+import { computeParticipation } from "@/utils/participation.js";
 import { fmt, pct } from "@/utils/formatters.js";
 
 const props = defineProps({
@@ -311,99 +307,47 @@ const {
 } = props.badgeFilter;
 
 // --- KPI "Total participants" = check-in physique UNION live distanciel
-// UNION replay distanciel, dedupe sur delegate.id Mongo pour eviter le
-// double-comptage entre live et replay (un meme delegue peut avoir vu les
-// deux sans etre venu sur place). Cf. utils/viewerJoin.js pour la
-// jointure ES (user_id keycloak) <-> delegate (emailAddresses[].source.id ACCOUNT).
-const delegateLookup = computed(() => buildDelegateLookup(pageFilteredDelegates.value, { datasetLabel: "overview-current" }));
-const physicallyCheckedInSet = computed(() => getCheckedInDelegateIds(pageFilteredDelegates.value));
-const liveRemoteSet = computed(() =>
-  getRemoteOnlyDelegateIds(liveStats.value?.items, delegateLookup.value, { datasetLabel: "live-current" }),
+// UNION replay distanciel, dedupe sur delegate.id Mongo (un meme delegue ne
+// compte qu'une fois, meme s'il a vu live + replay sans venir). Logique
+// extraite dans utils/participation.js et partagee avec l'export MD. Cf.
+// utils/viewerJoin.js pour la jointure ES (user_id keycloak) <-> delegate
+// (emailAddresses[].source.id ACCOUNT).
+const participation = computed(() =>
+  computeParticipation(
+    pageFilteredDelegates.value,
+    liveStats.value?.items,
+    replayStats.value?.items,
+    { datasetLabel: "overview-current" },
+  ),
 );
-const replayRemoteSet = computed(() =>
-  getRemoteOnlyDelegateIds(replayStats.value?.items, delegateLookup.value, { datasetLabel: "replay-current" }),
-);
-const physicallyCheckedInCount = computed(() => physicallyCheckedInSet.value.size);
-const liveRemoteCount = computed(() => liveRemoteSet.value.size);
-const replayRemoteCount = computed(() => replayRemoteSet.value.size);
-const totalParticipants = computed(() => {
-  const union = new Set(physicallyCheckedInSet.value);
-  for (const id of liveRemoteSet.value) union.add(id);
-  for (const id of replayRemoteSet.value) union.add(id);
-  return union.size;
-});
-
-// Decomposition pour le bar chart : intersection live/replay (les deux) et
-// chacun "uniquement" (l'autre exclu). Tout est calcule sur des Set<delegate.id>
-// pour deduper proprement.
-const bothRemoteSet = computed(() => {
-  const set = new Set();
-  for (const id of liveRemoteSet.value) {
-    if (replayRemoteSet.value.has(id)) set.add(id);
-  }
-  return set;
-});
-const liveOnlyRemoteSet = computed(() => {
-  const set = new Set();
-  for (const id of liveRemoteSet.value) {
-    if (!replayRemoteSet.value.has(id)) set.add(id);
-  }
-  return set;
-});
-const replayOnlyRemoteSet = computed(() => {
-  const set = new Set();
-  for (const id of replayRemoteSet.value) {
-    if (!liveRemoteSet.value.has(id)) set.add(id);
-  }
-  return set;
-});
-const bothRemoteCount = computed(() => bothRemoteSet.value.size);
-const liveOnlyRemoteCount = computed(() => liveOnlyRemoteSet.value.size);
-const replayOnlyRemoteCount = computed(() => replayOnlyRemoteSet.value.size);
+// Sets reutilises par buildParticipationBreakdown (decomposition par type/categorie).
+const physicallyCheckedInSet = computed(() => participation.value.checkedIn);
+const liveRemoteSet = computed(() => participation.value.liveRemote);
+const replayRemoteSet = computed(() => participation.value.replayRemote);
+// Counts pour la decomposition visuelle (chips + barre + legende).
+const physicallyCheckedInCount = computed(() => participation.value.counts.checkedIn);
+const liveOnlyRemoteCount = computed(() => participation.value.counts.liveOnly);
+const bothRemoteCount = computed(() => participation.value.counts.both);
+const replayOnlyRemoteCount = computed(() => participation.value.counts.replayOnly);
+const totalParticipants = computed(() => participation.value.counts.total);
 
 // --- Side B : meme decomposition pour le compareEventId (si present).
 // Permet d'afficher un delta % sur chaque chip de la decomposition.
-const lookupB = computed(() => buildDelegateLookup(pageFilteredCompareDelegates.value, { datasetLabel: "overview-compare" }));
-const checkedInBSet = computed(() => getCheckedInDelegateIds(pageFilteredCompareDelegates.value));
-const liveRemoteBSet = computed(() =>
+const participationB = computed(() =>
   hasCompare
-    ? getRemoteOnlyDelegateIds(liveB?.stats.value?.items, lookupB.value, { datasetLabel: "live-compare" })
-    : new Set(),
+    ? computeParticipation(
+        pageFilteredCompareDelegates.value,
+        liveB?.stats.value?.items,
+        replayB?.stats.value?.items,
+        { datasetLabel: "overview-compare" },
+      )
+    : { counts: { checkedIn: 0, liveOnly: 0, both: 0, replayOnly: 0, total: 0 } },
 );
-const replayRemoteBSet = computed(() =>
-  hasCompare
-    ? getRemoteOnlyDelegateIds(replayB?.stats.value?.items, lookupB.value, { datasetLabel: "replay-compare" })
-    : new Set(),
-);
-const bothRemoteBSet = computed(() => {
-  const set = new Set();
-  for (const id of liveRemoteBSet.value) {
-    if (replayRemoteBSet.value.has(id)) set.add(id);
-  }
-  return set;
-});
-const liveOnlyRemoteBCount = computed(() => {
-  let n = 0;
-  for (const id of liveRemoteBSet.value) {
-    if (!replayRemoteBSet.value.has(id)) n++;
-  }
-  return n;
-});
-const replayOnlyRemoteBCount = computed(() => {
-  let n = 0;
-  for (const id of replayRemoteBSet.value) {
-    if (!liveRemoteBSet.value.has(id)) n++;
-  }
-  return n;
-});
-const checkedInBCount = computed(() => checkedInBSet.value.size);
-const bothRemoteBCount = computed(() => bothRemoteBSet.value.size);
-const totalParticipantsB = computed(() => {
-  const union = new Set(checkedInBSet.value);
-  for (const id of liveRemoteBSet.value) union.add(id);
-  for (const id of replayRemoteBSet.value) union.add(id);
-  return union.size;
-});
+const checkedInBCount = computed(() => participationB.value.counts.checkedIn);
+const liveOnlyRemoteBCount = computed(() => participationB.value.counts.liveOnly);
+const bothRemoteBCount = computed(() => participationB.value.counts.both);
+const replayOnlyRemoteBCount = computed(() => participationB.value.counts.replayOnly);
+const totalParticipantsB = computed(() => participationB.value.counts.total);
 
 // Calcule un delta % (a vs b). Si b == 0 et a > 0 : "Nouveau" (vert).
 // Si a == 0 et b > 0 : "-100%" (rouge). Sinon : signe + pct + classe.

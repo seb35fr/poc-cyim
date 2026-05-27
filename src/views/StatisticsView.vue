@@ -359,6 +359,8 @@ async function handleExportMarkdown() {
     compareStats: compareStats.value,
     compareEventName: compareEventName.value,
     compareDelegates: compareDelegates.value,
+    compareLiveStats: compareLiveApi?.stats.value || null,
+    compareReplayStats: compareReplayApi?.stats.value || null,
     liveStats: liveApi.stats.value,
     replayStats: replayApi.stats.value,
     scanStats: scansApi.stats.value,

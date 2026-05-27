@@ -68,6 +68,7 @@ Sources de données :
 | | `src/utils/debug.js` | Wrapper `debug.log` / `debug.table` no-op en PROD via `import.meta.env.DEV` |
 | | `src/constants.js` | `AUTO_REFRESH_MS`, `COUNTDOWN_TICK_MS`, `DELEGATES_PAGE_SIZE`, `SLOW_QUERY_THRESHOLD_MS`, `ES_BATCH_SIZE` |
 | | `src/utils/viewerJoin.js` | Jointure ES `user_id` (Keycloak ACCOUNT) ↔ délégué Mongo. `buildDelegateLookup`, `getRemoteOnlyDelegateIds`, `getCheckedInDelegateIds`, `hasValidCheckin`, `getKeycloakId`. **Warnings auto** (console + UI banner pour la couverture délégués) si jointure suspecte. |
+| | `src/utils/participation.js` | `computeParticipation(delegates, liveItems, replayItems)` : décomposition **dédoublonnée** "Total participants" (`checkedIn` / `liveOnly` / `both` / `replayOnly` / `total`, Sets + counts). Source unique partagée OverviewTab + export MD. S'appuie sur `viewerJoin.js`. |
 | | `src/utils/countries.js` | Country code ↔ continent/flag |
 | | `src/utils/frenchRegions.js` | Mapping département (2 chars du zipCode) → région INSEE + libellés |
 | | `src/utils/parisTime.js` | `parisDateParts(iso)` (UTC→Paris CET/CEST), `parisDay(iso)`, `parisDateTime(iso)` (format CSV "YYYY-MM-DD HH:mm:ss") |
@@ -154,7 +155,8 @@ Delegate fields : `givenName/familyName/email/status/gender/company/occupation/j
 **PPTX** (`useExportPptx.js`) : slides natives Chart.js quand possible, sinon image HD. Filename: `stats-{eventName}-{date}.pptx`
 
 **MD** (`useExportMarkdown.js`) — destiné aux LLM (Claude/ChatGPT/Gemini) :
-- Dump **complet** : métadonnées, chiffres clés globaux, démographie (pays/continents/genre/professions/qualifications/sociétés), inscriptions (statuts/types/catégories avec décomposition physique/distanciel/no-show), temporel, check-in flow, badges, onboarding, mobile, live, replay, scans QR, comparaison, analyse textuelle
+- Dump **complet** : métadonnées, chiffres clés, **total participants dédoublonné**, démographie, inscriptions (statuts/**statut par type**/types/catégories + décomposition physique/distanciel/no-show), temporel (+ **hebdo par statut**), check-in flow, badges (+ **check-in par type** + **mix des présents**), onboarding, mobile, live, replay, scans QR (+ **par jour/sens/type de badge**), comparaison, analyse textuelle, **annexe complète de l'event comparé**
+- Corps per-event factorisé dans `renderEventBody()` (rejoué pour l'event B en annexe)
 - Lecture **directe** des stats objects (pas DOM walking — beaucoup plus propre pour MD)
 - Footer avec **suggestions de prompts** pour l'utilisateur (résumé, communiqué, comparaison, slides...)
 - Filename: `bilan-{eventName}-{date}.md`
@@ -340,22 +342,28 @@ Les composables `useLive` et `useReplay` sont liftés au niveau `StatisticsView`
 
 **Pourquoi MD** : les LLM ont été entraînés sur des tonnes de markdown (READMEs, docs), ils en extraient la structure (titres, tableaux, listes) sans pré-traitement. Plus pratique que PDF (perte de structure) ou CSV (pas de sémantique).
 
-**Contenu** — toutes les sections du dashboard :
+**Structure** — le corps per-event est factorisé dans `renderEventBody()` (toutes les sections d'un event, même ordre), appelé pour l'event principal **et** pour l'annexe de comparaison. Ordre du document :
 1. Métadonnées (event, ID, filtre badge actif)
 2. Chiffres clés globaux (KPI table)
-3. Démographie complète (pays top 20, continents, genre, professions, qualifications, sociétés)
-4. Inscriptions (statuts, types et catégories avec décomposition physique/distanciel/no-show sur registered, jours d'accès, multi-inscriptions)
-5. Temporel (insights, top jours, jour de semaine, hebdo par type)
-6. Check-in flow (pic, par jour, top créneaux 15 min)
-7. Badges (devices, peak slot/minute, par jour)
-8. Onboarding + Mobile app
-9. Live (KPI, top sessions, origines, engagement, par jour, 30min slots si dispo)
-10. Replay (idem)
-11. Scans QR (audience, salles, zones)
-12. Comparaison côte-à-côte avec Δ si `?compareWith=`
-13. Analyse textuelle (réutilise `generateAnalysis.js`)
-14. Footer avec **suggestions de prompts** pour l'utilisateur
+3. **Total participants (vue dédoublonnée)** — décomposition check-in physique + live-only + live&replay + replay-only = total dédoublonné sur `delegate.id`. KPI le plus important du bilan. Logique partagée avec OverviewTab via `utils/participation.js`
+4. Démographie complète (pays top 20, continents, genre, professions, qualifications, civilité, sociétés)
+5. Inscriptions (statuts, **statut par type**, types et catégories avec décomposition physique/distanciel/no-show sur registered, jours d'accès, multi-inscriptions)
+6. Temporel (insights, top jours, jour de semaine, hebdo par type, **hebdo par statut**)
+7. Check-in flow (pic, par jour, top créneaux 15 min)
+8. Badges (**check-in par type de badge**, **mix des types des présents confirmés**, devices, peak slot/minute, par jour, créneaux 15 min)
+9. Onboarding + Mobile app
+10. Live (KPI, top sessions, origines, engagement, par jour, 30min slots si dispo)
+11. Replay (idem)
+12. Scans QR (volumétrie, top sessions/salles/zones, **délégués uniques par jour**, **sens entrée/sortie**, **par type de badge**)
+13. Comparaison côte-à-côte avec Δ si `?compareWith=` (tableau exécutif)
+14. Analyse textuelle (réutilise `generateAnalysis.js`)
+15. Footer avec **suggestions de prompts** pour l'utilisateur
+16. **Annexe — données complètes de l'event comparé** : `renderEventBody()` rejoué pour l'event B (toutes les sections, sauf scans QR non chargés côté compare). Avant : event B n'avait que 5 KPI.
 
 Filename : `bilan-{eventName}-{date}.md`. Lecture **directe** des stats objects (pas DOM walking — plus propre, plus complet).
 
 Bouton "MD" couleur accent CYIM dans la sidebar, à côté de PDF / PPTX.
+
+**Limites assumées** :
+- L'event comparé ne charge pas les scans QR (`useRoomScans` n'est pas instancié pour le compare) → l'annexe B n'a pas de section Scans, et le signale.
+- Top sessions/salles/zones des scans n'exposent pas de "délégués uniques" par ligne (`computeScanStats.topN` ne porte que `{ label, count }`) — pas de colonne trompeuse à 0.
