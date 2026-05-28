@@ -19,6 +19,7 @@
       :selected="selectedBadgeTypes"
       @toggle="toggleBadgeType"
       @clear="clearBadgeTypes"
+      @select="setBadgeTypes"
     />
 
     <div class="kpi-grid kpi-overview">
@@ -304,6 +305,7 @@ const {
   filteredCompareDelegates: pageFilteredCompareDelegates,
   toggle: toggleBadgeType,
   clear: clearBadgeTypes,
+  setSelection: setBadgeTypes,
 } = props.badgeFilter;
 
 // --- KPI "Total participants" = check-in physique UNION live distanciel

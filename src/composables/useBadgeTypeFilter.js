@@ -52,6 +52,12 @@ export function useBadgeTypeFilter(getDelegates, getCompareDelegates = null) {
     selected.value = new Set();
   }
 
+  // Set complet — utile pour le dropdown "Tout cocher visible" qui sinon
+  // genererait N toggles en cascade.
+  function setSelection(types) {
+    selected.value = new Set(types || []);
+  }
+
   return {
     selected,
     allBadgeTypes,
@@ -59,5 +65,6 @@ export function useBadgeTypeFilter(getDelegates, getCompareDelegates = null) {
     filteredCompareDelegates,
     toggle,
     clear,
+    setSelection,
   };
 }

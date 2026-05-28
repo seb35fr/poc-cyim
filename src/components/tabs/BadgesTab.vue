@@ -16,7 +16,14 @@
         <div class="kpi-sub">{{ pct(fs.global.checkedInCount, registeredCount) }} des présents</div>
       </div>
       <div class="kpi-card blue">
-        <div class="kpi-label">Badges imprimés</div>
+        <div class="kpi-label kpi-label-with-action">
+          <span>Badges imprimés</span>
+          <CsvButton
+            filename="badges-imprimes"
+            :headers="badgesCsvHeaders"
+            :rows="badgesCsvRows"
+          />
+        </div>
         <div class="kpi-value">{{ fmt(fs.global.totalBadgesDelivered) }}</div>
         <div class="kpi-sub">{{ pct(fs.global.totalBadgesDelivered, registeredCount) }} des attendus</div>
       </div>
@@ -55,6 +62,7 @@
       :selected="selectedBadgeTypes"
       @toggle="toggleBadgeType"
       @clear="clearBadgeTypes"
+      @select="setBadgeTypes"
     />
 
     <!-- Progression du check-in (gauche) / Progression par type (droite) -->
@@ -270,7 +278,7 @@ import CsvButton from "../CsvButton.vue";
 import BadgeTypeFilter from "../BadgeTypeFilter.vue";
 import { useFilteredStats } from "../../composables/useFilteredStats.js";
 import { makeDateLabeler } from "../../utils/formatDateLabel.js";
-import { parisDay } from "../../utils/parisTime.js";
+import { parisDay, parisDateTime } from "../../utils/parisTime.js";
 import { buildBurndownAbsolute } from "../../utils/burndown.js";
 import { getTypeColor } from "../../utils/typeColors.js";
 import { fmt, pct } from "@/utils/formatters.js";
@@ -296,6 +304,7 @@ const {
   filteredDelegates: pageFilteredDelegates,
   toggle: toggleBadgeType,
   clear: clearBadgeTypes,
+  setSelection: setBadgeTypes,
 } = props.badgeFilter;
 
 // Cle stable pour invalider les Choropleth quand la selection change.
@@ -307,6 +316,34 @@ const {
   filteredDelegates, filteredStats: fs, activeFilters, activeFilterMap: afm,
   hasFilters, filteredCount, toggleFilter, removeFilter, clearFilters,
 } = useFilteredStats(() => pageFilteredDelegates.value);
+
+// --- Export CSV des badges imprimes (KPI "Badges imprimes") ---
+// Source = filteredDelegates pour coller au compteur affiche (respecte le
+// filtre badge type global + les cross-clics du tab). Une ligne par badge
+// effectivement delivre (deliveredAt non null).
+const badgesCsvHeaders = [
+  "delegateId", "badgeId", "badgeType", "deliveredAt", "deliveredBy",
+  "givenName", "familyName", "email",
+];
+const badgesCsvRows = computed(() => {
+  const rows = [];
+  for (const d of filteredDelegates.value || []) {
+    for (const b of d.badges || []) {
+      if (!b.deliveredAt) continue;
+      rows.push([
+        d.id || "",
+        b.id || "",
+        b.type || "",
+        parisDateTime(b.deliveredAt) || b.deliveredAt || "",
+        b.deliveredBy || "",
+        d.givenName || "",
+        d.familyName || "",
+        d.email || "",
+      ]);
+    }
+  }
+  return rows;
+});
 
 // --- Filtres ---
 function onDeviceSelect(label) {
@@ -926,6 +963,13 @@ const barOptions = {
 </script>
 
 <style scoped>
+/* Label de KPI avec une action (bouton CSV) alignee a droite. */
+.kpi-label-with-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
 .perf-summary {
   display: flex; gap: 24px; margin-top: 12px; padding: 10px 16px;
   background: #f9fafb; border-radius: 8px; font-size: 13px; color: #414141;

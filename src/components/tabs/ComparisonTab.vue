@@ -27,6 +27,7 @@
       :selected="selectedBadgeTypes"
       @toggle="toggleBadgeType"
       @clear="clearBadgeTypes"
+      @select="setBadgeTypes"
     />
 
     <div v-if="compareLoading" class="cmp-loading">
@@ -300,6 +301,7 @@ const {
   filteredCompareDelegates: effCompareDelegates,
   toggle: toggleBadgeType,
   clear: clearBadgeTypes,
+  setSelection: setBadgeTypes,
 } = props.badgeFilter;
 
 // Effective stats : recalcul seulement si filtre actif (sinon on garde les
