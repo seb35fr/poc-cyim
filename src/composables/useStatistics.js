@@ -5,7 +5,7 @@ import { debug } from "@/utils/debug.js";
 import { AUTO_REFRESH_MS } from "@/constants.js";
 
 export function useStatistics(eventId, options = {}) {
-  const { autoRefresh = true } = options;
+  const { autoRefresh = false } = options;
   const loading = ref(true);
   const refreshing = ref(false);
   const error = ref(null);
@@ -69,15 +69,35 @@ export function useStatistics(eventId, options = {}) {
 
   load();
 
-  // Auto-refresh toutes les 10 minutes (desactivable pour l'event de comparaison).
-  const nextRefreshAt = ref(Date.now() + AUTO_REFRESH_MS);
-  if (autoRefresh) {
-    const autoRefreshTimer = setInterval(() => {
+  // Auto-refresh toutes les 10 minutes. Off par defaut, pilotable runtime
+  // via setAutoRefresh(true/false) — toggle UI dans la sidebar.
+  const autoRefreshEnabled = ref(!!autoRefresh);
+  const nextRefreshAt = ref(null);
+  let autoRefreshTimer = null;
+
+  function startTimer() {
+    if (autoRefreshTimer) return;
+    nextRefreshAt.value = Date.now() + AUTO_REFRESH_MS;
+    autoRefreshTimer = setInterval(() => {
       nextRefreshAt.value = Date.now() + AUTO_REFRESH_MS;
       load();
     }, AUTO_REFRESH_MS);
-    onUnmounted(() => clearInterval(autoRefreshTimer));
   }
+  function stopTimer() {
+    if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+    autoRefreshTimer = null;
+    nextRefreshAt.value = null;
+  }
+  function setAutoRefresh(enabled) {
+    const next = !!enabled;
+    if (next === autoRefreshEnabled.value) return;
+    autoRefreshEnabled.value = next;
+    if (next) startTimer();
+    else stopTimer();
+  }
+
+  if (autoRefresh) startTimer();
+  onUnmounted(stopTimer);
 
   return {
     loading: readonly(loading),
@@ -89,8 +109,10 @@ export function useStatistics(eventId, options = {}) {
     delegates: readonly(delegates),
     mobileAppId: readonly(mobileAppId),
     nextRefreshAt: readonly(nextRefreshAt),
+    autoRefreshEnabled: readonly(autoRefreshEnabled),
+    setAutoRefresh,
     reload() {
-      nextRefreshAt.value = Date.now() + AUTO_REFRESH_MS;
+      if (autoRefreshEnabled.value) nextRefreshAt.value = Date.now() + AUTO_REFRESH_MS;
       load();
     },
   };

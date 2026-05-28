@@ -9,7 +9,7 @@ import { debug } from "@/utils/debug.js";
 import { AUTO_REFRESH_MS } from "@/constants.js";
 
 export function useRoomScans(eventId, options = {}) {
-  const { autoRefresh = true } = options;
+  const { autoRefresh = false } = options;
 
   const loading = ref(true);
   const refreshing = ref(false);
@@ -82,14 +82,34 @@ export function useRoomScans(eventId, options = {}) {
 
   load();
 
-  const nextRefreshAt = ref(Date.now() + AUTO_REFRESH_MS);
-  if (autoRefresh) {
-    const timer = setInterval(() => {
+  // Auto-refresh pilotable (off par defaut, cf. useStatistics).
+  const autoRefreshEnabled = ref(!!autoRefresh);
+  const nextRefreshAt = ref(null);
+  let timer = null;
+
+  function startTimer() {
+    if (timer) return;
+    nextRefreshAt.value = Date.now() + AUTO_REFRESH_MS;
+    timer = setInterval(() => {
       nextRefreshAt.value = Date.now() + AUTO_REFRESH_MS;
       load();
     }, AUTO_REFRESH_MS);
-    onUnmounted(() => clearInterval(timer));
   }
+  function stopTimer() {
+    if (timer) clearInterval(timer);
+    timer = null;
+    nextRefreshAt.value = null;
+  }
+  function setAutoRefresh(enabled) {
+    const next = !!enabled;
+    if (next === autoRefreshEnabled.value) return;
+    autoRefreshEnabled.value = next;
+    if (next) startTimer();
+    else stopTimer();
+  }
+
+  if (autoRefresh) startTimer();
+  onUnmounted(stopTimer);
 
   return {
     loading: readonly(loading),
@@ -101,8 +121,10 @@ export function useRoomScans(eventId, options = {}) {
     zone: readonly(zone),
     stats,
     nextRefreshAt: readonly(nextRefreshAt),
+    autoRefreshEnabled: readonly(autoRefreshEnabled),
+    setAutoRefresh,
     reload() {
-      nextRefreshAt.value = Date.now() + AUTO_REFRESH_MS;
+      if (autoRefreshEnabled.value) nextRefreshAt.value = Date.now() + AUTO_REFRESH_MS;
       load();
     },
   };

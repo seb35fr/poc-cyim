@@ -59,6 +59,15 @@
           <button class="btn-side btn-side-ghost" @click="confirmReload" :disabled="loading || refreshing">
             {{ refreshing ? "⏳ Refresh..." : "↻ Rafraichir" }}
           </button>
+          <label class="auto-refresh-toggle" :title="autoRefreshEnabled ? 'Désactiver l’auto-refresh' : 'Activer l’auto-refresh toutes les 10 min'">
+            <input
+              type="checkbox"
+              :checked="autoRefreshEnabled"
+              @change="toggleAutoRefresh"
+            />
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="toggle-label">Auto-refresh</span>
+          </label>
           <span v-if="!refreshing" class="refresh-timer">{{ nextRefreshLabel }}</span>
         </div>
       </div>
@@ -253,7 +262,11 @@ import ExportsTab from "../components/tabs/ExportsTab.vue";
 const route = useRoute();
 const eventId = route.params.eventId;
 const compareEventId = route.query.compareWith || null;
-const { loading, refreshing, error, progress, stats, eventName, delegates, mobileAppId, reload, nextRefreshAt } = useStatistics(eventId);
+const statsApi = useStatistics(eventId);
+const {
+  loading, refreshing, error, progress, stats, eventName, delegates, mobileAppId,
+  reload, nextRefreshAt,
+} = statsApi;
 
 // Live / Replay : instancies UNE fois ici (proprietaire = StatisticsView),
 // puis propages en prop a tous les tabs qui en consomment (Overview, Live,
@@ -298,8 +311,24 @@ const now = ref(Date.now());
 const countdownTimer = setInterval(() => { now.value = Date.now(); }, COUNTDOWN_TICK_MS);
 onUnmounted(() => clearInterval(countdownTimer));
 
+// Auto-refresh global : off par defaut, l'utilisateur l'active manuellement.
+// Etat unique pilote par le toggle UI ; setAutoRefresh est appelle sur les 4
+// composables principaux. Les compareXxx restent toujours off (chargement one-shot).
+const autoRefreshEnabled = ref(false);
+function toggleAutoRefresh() {
+  const next = !autoRefreshEnabled.value;
+  autoRefreshEnabled.value = next;
+  statsApi.setAutoRefresh(next);
+  liveApi.setAutoRefresh(next);
+  replayApi.setAutoRefresh(next);
+  scansApi.setAutoRefresh(next);
+}
+
 const nextRefreshLabel = computed(() => {
-  const remaining = Math.max(0, nextRefreshAt.value - now.value);
+  if (!autoRefreshEnabled.value) return "Auto-refresh en pause";
+  const at = nextRefreshAt.value;
+  if (!at) return "—";
+  const remaining = Math.max(0, at - now.value);
   const totalSec = Math.round(remaining / COUNTDOWN_TICK_MS) * 10;
   if (totalSec <= 0) return "Refresh imminent...";
   const min = Math.floor(totalSec / 60);
@@ -582,8 +611,44 @@ function toggleGroup(groupId) {
   font-weight: 500; font-size: 11px;
 }
 .btn-side-ghost:hover { background: rgba(255,255,255,.08); }
-.sidebar-refresh { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.sidebar-refresh { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .refresh-timer { font-size: 9px; color: rgba(255,255,255,.4); }
+
+/* Toggle auto-refresh : switch compact dans le sidebar-footer */
+.auto-refresh-toggle {
+  display: inline-flex; align-items: center; gap: 7px;
+  cursor: pointer; user-select: none;
+  font-size: 10px; color: rgba(255,255,255,.7);
+}
+.auto-refresh-toggle input[type="checkbox"] {
+  position: absolute; opacity: 0; pointer-events: none;
+}
+.toggle-track {
+  position: relative; display: inline-block;
+  width: 28px; height: 14px;
+  background: rgba(255,255,255,.18);
+  border: 1px solid rgba(255,255,255,.22);
+  border-radius: 999px;
+  transition: background .18s;
+}
+.toggle-thumb {
+  position: absolute; top: 1px; left: 1px;
+  width: 10px; height: 10px;
+  background: #fff; border-radius: 50%;
+  transition: transform .18s;
+}
+.auto-refresh-toggle input:checked + .toggle-track {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.auto-refresh-toggle input:checked + .toggle-track .toggle-thumb {
+  transform: translateX(14px);
+  background: #0b3b29;
+}
+.auto-refresh-toggle:hover .toggle-track { background: rgba(255,255,255,.28); }
+.auto-refresh-toggle input:checked ~ .toggle-label,
+.auto-refresh-toggle:has(input:checked) .toggle-label { color: rgba(255,255,255,.95); }
+.toggle-label { white-space: nowrap; }
 
 /* ── Main content ── */
 .main-content {
