@@ -29,13 +29,9 @@
       <!-- KPI -->
       <div class="kpi-grid">
         <div class="kpi-card blue">
-          <div class="kpi-label">Total scans</div>
-          <div class="kpi-value">{{ fmt(g.totalScans) }}</div>
-          <!-- "entree" masquee quand aucun scan de portique : ce flux est dormant
-               depuis avril 2025, afficher "0 entree" faisait croire a un bug. -->
-          <div class="kpi-sub">
-            {{ fmt(g.totalAudienceScans) }} salle<template v-if="g.totalCheckinScans > 0"> · {{ fmt(g.totalCheckinScans) }} entree</template> · {{ fmt(g.totalZoneScans) }} zones
-          </div>
+          <div class="kpi-label">Vues en salle</div>
+          <div class="kpi-value">{{ fmt(g.audienceUniqueDelegateSessions) }}</div>
+          <div class="kpi-sub">cumul des présences par session (un délégué compte 1× par session suivie)</div>
         </div>
         <div class="kpi-card green">
           <div class="kpi-label">Delegues uniques scannes</div>
@@ -55,19 +51,38 @@
         </div>
       </div>
 
+      <!-- Comparaison d'events : grille KPI A | Δ | B (si ?compareWith=) -->
+      <div v-if="hasCompare" class="chart-card scans-compare-card">
+        <div class="chart-header">
+          <h3>Comparaison des scans · {{ eventName }} vs {{ compareEventName }}</h3>
+        </div>
+        <div v-if="compareLoading" class="empty-msg">Chargement des scans de l'event comparé…</div>
+        <div v-else-if="!gB" class="empty-msg">Scans de l'event comparé indisponibles.</div>
+        <KpiCompareGrid
+          v-else
+          :kpis="compareKpis"
+          :event-name="eventName"
+          :compare-event-name="compareEventName"
+        />
+      </div>
+
       <!-- Delegues uniques scannes par jour -->
       <div class="chart-card">
         <div class="chart-header">
           <h3>Delegues uniques scannes par jour</h3>
           <CsvButton
             filename="delegues-uniques-par-jour"
-            :headers="['Jour', 'Delegues uniques (total)', 'dont audience salle', 'dont entree congres', 'dont zones']"
+            :headers="['Jour', 'Delegues uniques (total)', 'dont audience salle', 'dont entree congres', 'dont zones', ...uniqueByDay.badgeTypes]"
             :rows="uniqueByDay.rows"
           />
         </div>
-        <div v-if="uniqueByDay.labels.length > 0" :style="{ position: 'relative', height: '300px' }">
-          <Bar :data="uniqueByDay.chartData" :options="uniqueByDayOptions" />
-        </div>
+        <StackedBarChart
+          v-if="uniqueByDay.labels.length > 0"
+          :labels="uniqueByDay.labels"
+          :datasets="uniqueByDay.chartData.datasets"
+          :height="320"
+          show-total
+        />
         <p v-else class="empty-msg">Aucun scan horodate</p>
       </div>
 
@@ -77,8 +92,8 @@
           <h3>Top sessions par audience (entree de salle)</h3>
           <CsvButton
             filename="top-sessions"
-            :headers="['Session', 'Scans']"
-            :rows="audience.topSessions.map(s => [s.label, s.count])"
+            :headers="['Session', 'Scans', 'Délégués uniques']"
+            :rows="audience.topSessions.map(s => [s.label, s.count, s.uniqueDelegates])"
           />
         </div>
         <HBarChart
@@ -177,16 +192,22 @@
 
 <script setup>
 import { computed, ref } from "vue";
-import { Bar } from "vue-chartjs";
 import HBarChart from "../charts/HBarChart.vue";
 import LineChart from "../charts/LineChart.vue";
+import StackedBarChart from "../charts/StackedBarChart.vue";
+import KpiCompareGrid from "../charts/KpiCompareGrid.vue";
 import CsvButton from "../CsvButton.vue";
 import { parisDateParts } from "../../utils/parisTime.js";
 import { fmt } from "@/utils/formatters.js";
+import { getTypeColor } from "@/utils/typeColors.js";
 
 const props = defineProps({
   // Instance useRoomScans proprietee par StatisticsView (mutualisee avec ExportsTab + export MD).
   scansApi: { type: Object, required: true },
+  // Scans de l'event compare (?compareWith=) — null si pas de comparaison.
+  compareScansApi: { type: Object, default: null },
+  eventName: { type: String, default: "" },
+  compareEventName: { type: String, default: "" },
 });
 
 const { loading, refreshing, error, progress, stats, reload } = props.scansApi;
@@ -194,66 +215,94 @@ const { loading, refreshing, error, progress, stats, reload } = props.scansApi;
 const g = computed(() => stats.value.global);
 const audience = computed(() => stats.value.audience);
 
+// --- Comparaison d'events (optionnelle) ---
+// On affiche un KpiCompareGrid A | Δ | B des que compareScansApi est fourni et
+// a fini de charger ses 3 index ES. Logique de delta calquee sur ComparisonTab.
+const compareLoading = computed(() => props.compareScansApi?.loading?.value ?? false);
+const gB = computed(() => props.compareScansApi?.stats?.value?.global || null);
+const hasCompare = computed(() => !!props.compareScansApi);
+
+function buildDeltaAbs(a, b, direction = "up") {
+  if (a == null || b == null) return null;
+  const diff = a - b;
+  if (diff === 0) return { arrow: "=", text: "0", cls: "kpi-delta--neutral" };
+  let cls = "kpi-delta--neutral";
+  if (direction === "up") cls = diff > 0 ? "kpi-delta--good" : "kpi-delta--bad";
+  if (direction === "down") cls = diff < 0 ? "kpi-delta--good" : "kpi-delta--bad";
+  const arrow = diff > 0 ? "▲" : "▼";
+  const sign = diff > 0 ? "+" : "−";
+  return { arrow, text: `${sign}${fmt(Math.abs(diff))}`, cls };
+}
+
+const compareKpis = computed(() => {
+  const a = g.value;
+  const b = gB.value;
+  if (!b) return [];
+  const mk = (label, key) => ({
+    label,
+    a: { display: fmt(a[key] || 0) },
+    b: { display: fmt(b[key] || 0) },
+    delta: buildDeltaAbs(a[key] || 0, b[key] || 0, "up"),
+  });
+  return [
+    mk("Vues en salle (présences cumulées / session)", "audienceUniqueDelegateSessions"),
+    mk("Délégués uniques scannés", "uniqueDelegatesAll"),
+    mk("Délégués uniques en salle", "uniqueAudienceDelegates"),
+    mk("Sessions scannées", "distinctSessions"),
+    mk("Salles distinctes", "distinctRooms"),
+    mk("Zones distinctes", "distinctZones"),
+  ];
+});
+
 // --- Delegues uniques scannes par jour (toutes sources + detail par source) ---
 const uniqueByDay = computed(() => {
   const total = stats.value.combined.uniqueDelegatesByDay || {};
   const audienceMap = stats.value.combined.uniqueDelegatesByDayAudience || {};
   const checkinMap = stats.value.combined.uniqueDelegatesByDayCheckin || {};
   const zoneMap = stats.value.combined.uniqueDelegatesByDayZone || {};
+  // { day: { badgeType: count } } — pour empiler chaque barre par type de badge.
+  const byType = stats.value.combined.uniqueDelegatesByDayByBadgeType || {};
   const labels = [...new Set([
     ...Object.keys(total),
     ...Object.keys(audienceMap),
     ...Object.keys(checkinMap),
     ...Object.keys(zoneMap),
   ])].sort();
-  const totalData = labels.map((l) => total[l] || 0);
+
+  // Liste des types presents, tries par volume total decroissant (legende
+  // stable + segments les plus gros en bas de pile).
+  const typeTotals = {};
+  for (const day of Object.keys(byType)) {
+    for (const [type, count] of Object.entries(byType[day])) {
+      typeTotals[type] = (typeTotals[type] || 0) + count;
+    }
+  }
+  const badgeTypes = Object.keys(typeTotals).sort((a, b) => typeTotals[b] - typeTotals[a]);
+
+  const barThickness = Math.max(12, Math.min(40, 500 / (labels.length || 1)));
+  const datasets = badgeTypes.map((type) => ({
+    label: type,
+    data: labels.map((l) => byType[l]?.[type] || 0),
+    backgroundColor: getTypeColor(type),
+    borderRadius: 3,
+    barThickness,
+    stack: "delegates",
+  }));
+
   return {
     labels,
-    chartData: {
-      labels,
-      datasets: [
-        {
-          label: "Delegues uniques (total)",
-          data: totalData,
-          backgroundColor: "#1E4E66",
-          borderRadius: 4,
-          barThickness: Math.max(12, Math.min(40, 500 / (labels.length || 1))),
-        },
-      ],
-    },
+    badgeTypes,
+    chartData: { labels, datasets },
     rows: labels.map((l) => [
       l,
       total[l] || 0,
       audienceMap[l] || 0,
       checkinMap[l] || 0,
       zoneMap[l] || 0,
+      ...badgeTypes.map((t) => byType[l]?.[t] || 0),
     ]),
   };
 });
-
-const uniqueByDayOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: { display: false },
-    datalabels: {
-      display: true,
-      anchor: "end",
-      align: "end",
-      color: "#414141",
-      font: { weight: 600, size: 11 },
-    },
-    tooltip: {
-      callbacks: {
-        label: (ctx) => `${ctx.raw.toLocaleString("fr-FR")} delegues uniques`,
-      },
-    },
-  },
-  scales: {
-    x: { grid: { display: false }, ticks: { font: { size: 11 } } },
-    y: { grid: { color: "#f3f4f6" }, ticks: { font: { size: 11 } }, beginAtZero: true },
-  },
-};
 
 // Timeline tri-source : on bucke par "YYYY-MM-DD HH" et on aligne les 3 series.
 const timeline = computed(() => {

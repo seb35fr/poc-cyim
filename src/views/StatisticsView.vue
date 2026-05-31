@@ -102,6 +102,31 @@
           </p>
         </div>
 
+        <!-- Filtres GLOBAUX : persistent sur tous les onglets. Masques pendant
+             l'export (PDF/PPTX rendent tous les tabs hors interaction). -->
+        <div v-if="!exporting && !exportingPptx" class="global-filters">
+          <div class="gf-dates">
+            <span class="gf-title" title="N'affecte que les statistiques de consultation : Live, Replay, Scans QR (salle / zone)">Plage de dates · consultation</span>
+            <label class="gf-field">
+              <span>Du</span>
+              <input type="date" v-model="startYMD" :max="endYMD" />
+            </label>
+            <label class="gf-field">
+              <span>au</span>
+              <input type="date" v-model="endYMD" :min="startYMD" />
+            </label>
+            <button v-if="!isDateDefault" class="gf-reset" @click="resetDateRange" title="Réinitialiser la plage (tout l'historique → aujourd'hui)">↺</button>
+          </div>
+          <BadgeTypeFilter
+            v-if="allBadgeTypes.length > 0"
+            :types="allBadgeTypes"
+            :selected="selectedBadgeTypes"
+            @toggle="toggleBadgeType"
+            @clear="clearBadgeTypes"
+            @select="setBadgeTypes"
+          />
+        </div>
+
         <div id="pdf-content" class="tab-content" :class="{ 'pdf-exporting': exporting || exportingPptx }">
           <template v-if="exporting || exportingPptx">
             <div v-for="tab in exportTabs" :key="'pdf-' + tab.id" :data-tab-id="tab.id">
@@ -110,57 +135,67 @@
               <OverviewTab
                 v-if="tab.id === 'overview'"
                 :stats="stats"
-                :delegates="delegates"
+                :delegates="pageDelegates"
                 :mobile-app-id="mobileAppId"
                 :event-name="eventName"
-                :compare-delegates="compareDelegates"
+                :compare-delegates="pageCompareDelegates"
                 :compare-event-name="compareEventName"
                 :live-api="liveApi"
                 :replay-api="replayApi"
                 :compare-live-api="compareLiveApi"
                 :compare-replay-api="compareReplayApi"
+                :scans-api="scansApi"
+                :compare-scans-api="compareScansApi"
                 :badge-filter="badgeFilter"
+                :date-range="effectiveDateRange"
               />
-              <DemographicsTab v-if="tab.id === 'demographics'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
-              <RegistrationsTab v-if="tab.id === 'registrations'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
-              <TemporalTab v-if="tab.id === 'temporal'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
-              <BadgesTab v-if="tab.id === 'badges'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" :badge-filter="badgeFilter" />
-              <ScansTab v-if="tab.id === 'scans'" :scans-api="scansApi" />
-              <ViewersTab v-if="tab.id === 'live'" kind="live" :delegates="delegates" :viewer-api="liveApi" />
+              <DemographicsTab v-if="tab.id === 'demographics'" :stats="pageStats" :delegates="pageDelegates" :mobile-app-id="mobileAppId" :event-name="eventName" :date-range="effectiveDateRange" />
+              <RegistrationsTab v-if="tab.id === 'registrations'" :stats="pageStats" :delegates="pageDelegates" :mobile-app-id="mobileAppId" :event-name="eventName" :date-range="effectiveDateRange" />
+              <TemporalTab v-if="tab.id === 'temporal'" :stats="pageStats" :delegates="pageDelegates" :mobile-app-id="mobileAppId" :event-name="eventName" :date-range="effectiveDateRange" />
+              <BadgesTab v-if="tab.id === 'badges'" :stats="pageStats" :delegates="pageDelegates" :mobile-app-id="mobileAppId" :event-name="eventName" :date-range="effectiveDateRange" :badge-filter="badgeFilter" />
+              <ScansTab
+                v-if="tab.id === 'scans'"
+                :scans-api="scansApi"
+                :compare-scans-api="compareScansApi"
+                :event-name="eventName"
+                :compare-event-name="compareEventName"
+              />
+              <ViewersTab v-if="tab.id === 'live'" kind="live" :delegates="pageDelegates" :viewer-api="liveApi" />
               <ViewersComparisonTab
                 v-if="tab.id === 'liveCompare'"
                 kind="live"
-                :delegates="delegates"
-                :compare-delegates="compareDelegates"
+                :delegates="pageDelegates"
+                :compare-delegates="pageCompareDelegates"
                 :event-name="eventName"
                 :compare-event-name="compareEventName"
                 :viewer-api="liveApi"
                 :compare-viewer-api="compareLiveApi"
               />
-              <ViewersTab v-if="tab.id === 'replay'" kind="replay" :delegates="delegates" :viewer-api="replayApi" />
+              <ViewersTab v-if="tab.id === 'replay'" kind="replay" :delegates="pageDelegates" :viewer-api="replayApi" />
               <ViewersComparisonTab
                 v-if="tab.id === 'replayCompare'"
                 kind="replay"
-                :delegates="delegates"
-                :compare-delegates="compareDelegates"
+                :delegates="pageDelegates"
+                :compare-delegates="pageCompareDelegates"
                 :event-name="eventName"
                 :compare-event-name="compareEventName"
                 :viewer-api="replayApi"
                 :compare-viewer-api="compareReplayApi"
               />
-              <DataTab v-if="tab.id === 'data'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
+              <DataTab v-if="tab.id === 'data'" :stats="pageStats" :delegates="pageDelegates" :mobile-app-id="mobileAppId" :event-name="eventName" :date-range="effectiveDateRange" />
               <ComparisonTab
                 v-if="tab.id === 'comparison'"
                 :stats="stats"
-                :delegates="delegates"
+                :delegates="pageDelegates"
                 :event-name="eventName"
                 :compare-stats="compareStats"
-                :compare-delegates="compareDelegates"
+                :compare-delegates="pageCompareDelegates"
                 :compare-event-name="compareEventName"
                 :compare-loading="false"
                 :compare-error="null"
                 :compare-progress="{ loaded: 0, total: 0, page: 0 }"
                 :badge-filter="badgeFilter"
+                :date-range="effectiveDateRange"
               />
             </div>
           </template>
@@ -168,48 +203,57 @@
             <OverviewTab
               v-if="activeTab === 'overview'"
               :stats="stats"
-              :delegates="delegates"
+              :delegates="pageDelegates"
               :mobile-app-id="mobileAppId"
               :event-name="eventName"
-              :compare-delegates="compareDelegates"
+              :compare-delegates="pageCompareDelegates"
               :compare-event-name="compareEventName"
               :live-api="liveApi"
               :replay-api="replayApi"
               :compare-live-api="compareLiveApi"
               :compare-replay-api="compareReplayApi"
+              :scans-api="scansApi"
+              :compare-scans-api="compareScansApi"
               :badge-filter="badgeFilter"
+              :date-range="effectiveDateRange"
             />
-            <DemographicsTab v-if="activeTab === 'demographics'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
-            <RegistrationsTab v-if="activeTab === 'registrations'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
-            <TemporalTab v-if="activeTab === 'temporal'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
-            <BadgesTab v-if="activeTab === 'badges'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" :badge-filter="badgeFilter" />
-            <ScansTab v-if="activeTab === 'scans'" :scans-api="scansApi" />
-            <ViewersTab v-if="activeTab === 'live'" kind="live" :delegates="delegates" :viewer-api="liveApi" />
+            <DemographicsTab v-if="activeTab === 'demographics'" :stats="pageStats" :delegates="pageDelegates" :mobile-app-id="mobileAppId" :event-name="eventName" :date-range="effectiveDateRange" />
+            <RegistrationsTab v-if="activeTab === 'registrations'" :stats="pageStats" :delegates="pageDelegates" :mobile-app-id="mobileAppId" :event-name="eventName" :date-range="effectiveDateRange" />
+            <TemporalTab v-if="activeTab === 'temporal'" :stats="pageStats" :delegates="pageDelegates" :mobile-app-id="mobileAppId" :event-name="eventName" :date-range="effectiveDateRange" />
+            <BadgesTab v-if="activeTab === 'badges'" :stats="pageStats" :delegates="pageDelegates" :mobile-app-id="mobileAppId" :event-name="eventName" :date-range="effectiveDateRange" :badge-filter="badgeFilter" />
+            <ScansTab
+              v-if="activeTab === 'scans'"
+              :scans-api="scansApi"
+              :compare-scans-api="compareScansApi"
+              :event-name="eventName"
+              :compare-event-name="compareEventName"
+            />
+            <ViewersTab v-if="activeTab === 'live'" kind="live" :delegates="pageDelegates" :viewer-api="liveApi" />
             <ViewersComparisonTab
               v-if="activeTab === 'liveCompare'"
               kind="live"
-              :delegates="delegates"
-              :compare-delegates="compareDelegates"
+              :delegates="pageDelegates"
+              :compare-delegates="pageCompareDelegates"
               :event-name="eventName"
               :compare-event-name="compareEventName"
               :viewer-api="liveApi"
               :compare-viewer-api="compareLiveApi"
             />
-            <ViewersTab v-if="activeTab === 'replay'" kind="replay" :delegates="delegates" :viewer-api="replayApi" />
+            <ViewersTab v-if="activeTab === 'replay'" kind="replay" :delegates="pageDelegates" :viewer-api="replayApi" />
             <ViewersComparisonTab
               v-if="activeTab === 'replayCompare'"
               kind="replay"
-              :delegates="delegates"
-              :compare-delegates="compareDelegates"
+              :delegates="pageDelegates"
+              :compare-delegates="pageCompareDelegates"
               :event-name="eventName"
               :compare-event-name="compareEventName"
               :viewer-api="replayApi"
               :compare-viewer-api="compareReplayApi"
             />
-            <DataTab v-if="activeTab === 'data'" :stats="stats" :delegates="delegates" :mobile-app-id="mobileAppId" :event-name="eventName" />
+            <DataTab v-if="activeTab === 'data'" :stats="pageStats" :delegates="pageDelegates" :mobile-app-id="mobileAppId" :event-name="eventName" :date-range="effectiveDateRange" />
             <ExportsTab
               v-if="activeTab === 'exports'"
-              :delegates="delegates"
+              :delegates="pageDelegates"
               :event-name="eventName"
               :live-api="liveApi"
               :replay-api="replayApi"
@@ -218,15 +262,16 @@
             <ComparisonTab
               v-if="activeTab === 'comparison'"
               :stats="stats"
-              :delegates="delegates"
+              :delegates="pageDelegates"
               :event-name="eventName"
               :compare-stats="compareStats"
-              :compare-delegates="compareDelegates"
+              :compare-delegates="pageCompareDelegates"
               :compare-event-name="compareEventName"
               :compare-loading="compareLoading"
               :compare-error="compareError"
               :compare-progress="compareProgress"
               :badge-filter="badgeFilter"
+              :date-range="effectiveDateRange"
             />
           </template>
         </div>
@@ -236,13 +281,15 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onUnmounted } from "vue";
+import { ref, computed, nextTick, onUnmounted, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useStatistics } from "@/composables/useStatistics.js";
 import { useLive } from "@/composables/useLive.js";
 import { useReplay } from "@/composables/useReplay.js";
 import { useRoomScans } from "@/composables/useRoomScans.js";
 import { useBadgeTypeFilter } from "@/composables/useBadgeTypeFilter.js";
+import { useDateRangeFilter } from "@/composables/useDateRangeFilter.js";
+import { computeAllStats } from "@/utils/computeStats.js";
 import { useExportPdf } from "@/composables/useExportPdf.js";
 import { useExportPptx } from "@/composables/useExportPptx.js";
 import { useExportMarkdown } from "@/composables/useExportMarkdown.js";
@@ -258,6 +305,7 @@ import ScansTab from "../components/tabs/ScansTab.vue";
 import ViewersTab from "../components/tabs/ViewersTab.vue";
 import ViewersComparisonTab from "../components/tabs/ViewersComparisonTab.vue";
 import ExportsTab from "../components/tabs/ExportsTab.vue";
+import BadgeTypeFilter from "../components/BadgeTypeFilter.vue";
 
 const route = useRoute();
 const eventId = route.params.eventId;
@@ -268,37 +316,10 @@ const {
   reload, nextRefreshAt,
 } = statsApi;
 
-// Live / Replay : instancies UNE fois ici (proprietaire = StatisticsView),
-// puis propages en prop a tous les tabs qui en consomment (Overview, Live,
-// Replay, LiveComparison, ReplayComparison, Exports). Le setInterval est
-// proprement clean via onUnmounted dans le composable — pas de cache module
-// (etait source d'accumulation de timers en HMR).
-const liveApi = useLive(eventId);
-const replayApi = useReplay(eventId);
-// Scans QR (audience + checkin + zone) : mutualises au niveau StatisticsView
-// pour que (a) ScansTab + ExportsTab partagent une seule instance, (b) la donnee
-// soit disponible immediatement pour l'export Markdown sans avoir a visiter Scans.
-const scansApi = useRoomScans(eventId);
-
 // Event de comparaison : chargement one-shot, sans auto-refresh.
 const compareApi = compareEventId
   ? useStatistics(compareEventId, { autoRefresh: false })
   : null;
-const compareLiveApi = compareEventId
-  ? useLive(compareEventId, { autoRefresh: false })
-  : null;
-const compareReplayApi = compareEventId
-  ? useReplay(compareEventId, { autoRefresh: false })
-  : null;
-
-// Filtre global badge type : etat unique pour Overview / Badges / Comparison.
-// Avant : chaque tab avait son propre selectedBadgeTypes / pageFilteredDelegates
-// (selection perdue au switch d'onglet + risque d'incoherence). Maintenant la
-// selection persiste cross-tab et un seul niveau de filtrage existe.
-const badgeFilter = useBadgeTypeFilter(
-  () => delegates.value,
-  compareEventId ? () => compareDelegates.value : null,
-);
 
 const compareLoading = computed(() => compareApi?.loading.value || false);
 const compareError = computed(() => compareApi?.error.value || null);
@@ -306,6 +327,91 @@ const compareStats = computed(() => compareApi?.stats.value || null);
 const compareEventName = computed(() => compareApi?.eventName.value || "");
 const compareDelegates = computed(() => compareApi?.delegates.value || []);
 const compareProgress = computed(() => compareApi?.progress.value || { loaded: 0, total: 0, page: 0 });
+
+// ═══ FILTRES GLOBAUX (badge type + plage de dates) ═══
+// Liftes ici et appliques a la SOURCE : tous les onglets/sous-onglets en
+// heritent sans avoir a re-selectionner en naviguant. Le badge type filtre la
+// POPULATION de delegues ; le filtre date est PER-ACTIVITE (chaque date propre
+// — createdAt / checkedInDate / deliveredAt / timestamps ES — testee dans
+// computeAllStats et les stats ES). Defaut : debut = inscription la plus
+// ancienne, fin = aujourd'hui.
+const dateFilter = useDateRangeFilter(() =>
+  compareEventId
+    ? [...(delegates.value || []), ...(compareDelegates.value || [])]
+    : delegates.value,
+);
+const dateRange = dateFilter.range; // computed { start, end } en ms
+// Refs top-level pour auto-unwrap dans le template (toolbar globale).
+const { startYMD, endYMD, isDefault: isDateDefault, reset: resetDateRange } = dateFilter;
+// Plage EFFECTIVE transmise aux composables ES : null tant que l'utilisateur
+// n'a pas touche aux bornes (defaut = aucun filtrage). Evite de masquer toute
+// la donnee de consultation quand les items ES n'ont pas de timestamp de vue
+// fiable (le bucketage retombe sur session_start/end, parfois hors plage par
+// defaut [inscription la plus ancienne -> aujourd'hui]).
+const effectiveDateRange = computed(() => (isDateDefault.value ? null : dateRange.value));
+
+const badgeFilter = useBadgeTypeFilter(
+  () => delegates.value,
+  compareEventId ? () => compareDelegates.value : null,
+);
+const {
+  allBadgeTypes,
+  selected: selectedBadgeTypes,
+  toggle: toggleBadgeType,
+  clear: clearBadgeTypes,
+  setSelection: setBadgeTypes,
+} = badgeFilter;
+
+// Live / Replay / Scans : instancies UNE fois ici, propages en prop. getDateRange
+// branche le filtre date global sur les stats ES (items filtres par timestamp).
+// Scans : aussi le filtre badge type (les scans portent un badge_type).
+const liveApi = useLive(eventId, { getDateRange: () => effectiveDateRange.value });
+const replayApi = useReplay(eventId, { getDateRange: () => effectiveDateRange.value });
+const scansApi = useRoomScans(eventId, {
+  getDateRange: () => effectiveDateRange.value,
+  getBadgeTypes: () => badgeFilter.selected.value,
+});
+const compareLiveApi = compareEventId
+  ? useLive(compareEventId, { autoRefresh: false, getDateRange: () => effectiveDateRange.value })
+  : null;
+const compareReplayApi = compareEventId
+  ? useReplay(compareEventId, { autoRefresh: false, getDateRange: () => effectiveDateRange.value })
+  : null;
+const compareScansApi = compareEventId
+  ? useRoomScans(compareEventId, {
+      autoRefresh: false,
+      getDateRange: () => effectiveDateRange.value,
+      getBadgeTypes: () => badgeFilter.selected.value,
+    })
+  : null;
+
+// Donnees centralisees passees aux onglets : delegues badge-filtres + stats
+// badge-filtrees. Le filtre date s'applique au CHECK-IN (perimetre consultation
+// + presence) via effectiveDateRange — les autres stats d'inscription (createdAt,
+// badges, onboarding, demographie) restent non filtrees par date (cf. computeAllStats).
+const pageDelegates = computed(() => badgeFilter.filteredDelegates.value);
+const pageCompareDelegates = computed(() => badgeFilter.filteredCompareDelegates.value);
+const pageStats = computed(() =>
+  computeAllStats(pageDelegates.value, mobileAppId.value, effectiveDateRange.value),
+);
+const pageCompareStats = computed(() =>
+  computeAllStats(pageCompareDelegates.value, mobileAppId.value, effectiveDateRange.value),
+);
+
+// Titre de l'onglet navigateur : reflete l'event courant (et l'event compare
+// si ?compareWith=). Reactif — se met a jour des que les noms sont resolus via
+// GraphQL (config.branding). Fallback sur l'eventId tant que le nom n'est pas
+// charge, puis sur un libelle generique.
+watch(
+  [eventName, compareEventName],
+  ([name, compareName]) => {
+    const base = name || eventId || "Statistiques";
+    document.title = compareName
+      ? `${base} vs ${compareName} — Stats CYIM`
+      : `${base} — Stats CYIM`;
+  },
+  { immediate: true },
+);
 
 const now = ref(Date.now());
 const countdownTimer = setInterval(() => { now.value = Date.now(); }, COUNTDOWN_TICK_MS);
@@ -341,7 +447,7 @@ const { exportingPptx, exportToPptx } = useExportPptx();
 const { exportingMd, exportToMarkdown } = useExportMarkdown();
 
 const registeredCount = computed(() =>
-  (delegates.value || []).filter((d) => d.status?.toLowerCase() === "registered").length
+  (pageDelegates.value || []).filter((d) => d.status?.toLowerCase() === "registered").length
 );
 
 function confirmReload() {
@@ -362,9 +468,9 @@ async function handleExportPdf() {
   await waitForCharts();
   const el = document.getElementById("pdf-content");
   await exportToPdf(
-    el, exportTabs.value, stats.value, registeredCount.value, eventName.value,
-    compareStats.value, compareEventName.value,
-    delegates.value, compareDelegates.value,
+    el, exportTabs.value, pageStats.value, registeredCount.value, eventName.value,
+    pageCompareStats.value, compareEventName.value,
+    pageDelegates.value, pageCompareDelegates.value,
   );
 }
 
@@ -372,9 +478,9 @@ async function handleExportPptx() {
   await waitForCharts();
   const el = document.getElementById("pdf-content");
   await exportToPptx(
-    el, exportTabs.value, stats.value, registeredCount.value, eventName.value,
-    compareStats.value, compareEventName.value,
-    delegates.value, compareDelegates.value,
+    el, exportTabs.value, pageStats.value, registeredCount.value, eventName.value,
+    pageCompareStats.value, compareEventName.value,
+    pageDelegates.value, pageCompareDelegates.value,
   );
 }
 
@@ -383,16 +489,17 @@ async function handleExportMarkdown() {
   await exportToMarkdown({
     eventId,
     eventName: eventName.value,
-    delegates: delegates.value,
-    stats: stats.value,
-    compareStats: compareStats.value,
+    delegates: pageDelegates.value,
+    stats: pageStats.value,
+    compareStats: pageCompareStats.value,
     compareEventName: compareEventName.value,
-    compareDelegates: compareDelegates.value,
+    compareDelegates: pageCompareDelegates.value,
     compareLiveStats: compareLiveApi?.stats.value || null,
     compareReplayStats: compareReplayApi?.stats.value || null,
     liveStats: liveApi.stats.value,
     replayStats: replayApi.stats.value,
     scanStats: scansApi.stats.value,
+    compareScanStats: compareScansApi?.stats.value || null,
     badgeFilterTypes: [...badgeFilter.selected.value],
   });
 }
@@ -696,6 +803,46 @@ function toggleGroup(groupId) {
 .refresh-bar-text {
   font-size: 11px; color: var(--text-muted); margin-top: 6px; text-align: center;
 }
+
+/* ── Filtres globaux (badge type + plage de dates) ── */
+.global-filters {
+  display: flex; align-items: center; gap: 12px 16px; flex-wrap: wrap;
+  padding: 10px 16px; margin-bottom: 14px;
+  background: var(--card); border-radius: 10px; box-shadow: var(--shadow);
+  position: sticky; top: 8px; z-index: 20;
+}
+.gf-dates { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.gf-title {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+  color: var(--text-muted); margin-right: 4px; white-space: nowrap;
+}
+.gf-field {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; text-transform: uppercase; letter-spacing: .3px;
+  font-weight: 600; color: var(--text-muted);
+}
+/* Hauteur commune a tous les controles de la barre (dates, reset, badge type)
+   pour un alignement horizontal net. */
+.global-filters .gf-field input[type="date"],
+.global-filters .gf-reset,
+.global-filters .bt-trigger {
+  height: 32px; box-sizing: border-box;
+}
+.gf-field input[type="date"] {
+  font-family: inherit; font-size: 12px; font-weight: 400; padding: 0 8px;
+  border: 1px solid var(--border); border-radius: 6px; color: var(--text);
+  background: #fff; cursor: pointer; text-transform: none; letter-spacing: 0;
+}
+.gf-field input[type="date"]:focus { outline: none; border-color: var(--primary); }
+.gf-reset {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; padding: 0; border: 1px solid var(--border); border-radius: 6px;
+  background: #fff; color: var(--text-secondary); cursor: pointer; font-size: 14px;
+}
+.gf-reset:hover { background: #f3f4f6; color: var(--primary); }
+/* Le BadgeTypeFilter est concu standalone (margin-bottom) : on neutralise ici.
+   Il se place juste a droite de la plage de dates (groupe aligne a gauche). */
+.global-filters .badge-type-filter { margin: 0; }
 
 /* ═══════════════════════════════════════════
    SHARED COMPONENT STYLES (all tabs)

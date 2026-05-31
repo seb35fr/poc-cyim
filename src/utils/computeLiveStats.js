@@ -1,4 +1,5 @@
 import { parisDateParts } from "./parisTime.js";
+import { makeInRange } from "./dateRange.js";
 
 // Normalise un hit ES de l'index stats_user__live-view-duration-per-user-per-session
 // vers un format unifie. Enrichi avec les sessions fetchees via GraphQL si
@@ -49,13 +50,24 @@ function normalize(hit, sessionMap) {
       || null,
     sessionDuration: sess?.duration ?? null,
     origin: s.origin || s.platform || s.source || s.device || null,
+    // channel_id : identifiant de la chaine de diffusion live (l'index n'expose
+    // pas de libelle lisible — on derive des labels "Chaine N" cote compute).
+    channelId: s.channel_id || s.channelId || null,
     timestamp,
     duration: Number(s.view_duration ?? s.duration ?? s.live_duration ?? 0) || 0,
   };
 }
 
-export function computeLiveStats(rawHits, sessionMap = null) {
-  const items = (rawHits || []).map((h) => normalize(h, sessionMap));
+export function computeLiveStats(rawHits, sessionMap = null, dateRange = null) {
+  let items = (rawHits || []).map((h) => normalize(h, sessionMap));
+  // Filtre date global du LIVE : on filtre sur la DATE DE DIFFUSION de la session
+  // (sessionEnd, repli sessionStart puis timestamp) — c'est la date pertinente
+  // pour le live, le timestamp de la vue cote ES n'etant pas fiable. Coherent
+  // avec le bucketage "par jour" plus bas qui utilise la meme reference.
+  if (dateRange) {
+    const inRange = makeInRange(dateRange);
+    items = items.filter((it) => inRange(it.sessionEnd || it.sessionStart || it.timestamp));
+  }
 
   // KPI principal : nombre de delegues uniques (par user_id) ayant consulte du live.
   const uniqueUsers = new Set();
@@ -145,6 +157,45 @@ export function computeLiveStats(rawHits, sessionMap = null) {
     .map(([day, set]) => ({ day, count: set.size }))
     .sort((a, b) => a.day.localeCompare(b.day));
 
+  // Delegues uniques par jour ET par chaine de diffusion (channel_id).
+  // Dedoublonnage PAR (jour, chaine) : un delegue est compte une fois par
+  // chaine qu'il a regardee ce jour-la. Quelqu'un qui a suivi 3 chaines compte
+  // dans les 3 -> la somme d'un jour peut depasser le total dedoublonne de
+  // uniqueByDay (c'est voulu : on veut l'audience propre de chaque chaine, pas
+  // une repartition d'un total). L'index n'expose pas de libelle de chaine : on
+  // classe les chaines par volume decroissant et on derive des labels lisibles
+  // "Chaine 1", "Chaine 2"..., le channel_id brut restant dispo pour le CSV.
+  const channelUsersByDay = new Map(); // day -> Map<channelId, Set<userId>>
+  for (const it of items) {
+    if (!it.userId || !it.channelId) continue;
+    const bucketRef = it.sessionEnd || it.sessionStart || it.timestamp;
+    if (!bucketRef) continue;
+    const p = parisDateParts(bucketRef);
+    if (!p) continue;
+    if (!channelUsersByDay.has(p.ymd)) channelUsersByDay.set(p.ymd, new Map());
+    const dayMap = channelUsersByDay.get(p.ymd);
+    if (!dayMap.has(it.channelId)) dayMap.set(it.channelId, new Set());
+    dayMap.get(it.channelId).add(it.userId);
+  }
+  const channelTotals = new Map(); // channelId -> somme des uniques par jour (pour le tri)
+  const byDayChannelCounts = {}; // { day: { channelId: count } }
+  for (const [day, dayMap] of channelUsersByDay) {
+    const byChannel = {};
+    for (const [channelId, set] of dayMap) {
+      byChannel[channelId] = set.size;
+      channelTotals.set(channelId, (channelTotals.get(channelId) || 0) + set.size);
+    }
+    byDayChannelCounts[day] = byChannel;
+  }
+  const channels = [...channelTotals.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([id], i) => ({ id, label: `Chaîne ${i + 1}`, total: channelTotals.get(id) }));
+  const uniqueByDayByChannel = {
+    days: [...channelUsersByDay.keys()].sort((a, b) => a.localeCompare(b)),
+    channels,
+    byDay: byDayChannelCounts,
+  };
+
   // Delegues uniques par creneau de 30 min de session_end (heure de Paris).
   // Cle = "YYYY-MM-DD HH:MM" arrondi a la frontiere 30 min. Utilise pour voir
   // la repartition des viewers le long de la timeline des sessions live.
@@ -176,6 +227,7 @@ export function computeLiveStats(rawHits, sessionMap = null) {
     topSessions,
     sessionsPerUserBuckets,
     uniqueByDay,
+    uniqueByDayByChannel,
     uniqueBy30min,
     origins: [...originCounts.entries()]
       .map(([origin, v]) => ({ origin, views: v.views, uniqueUsers: v.users.size }))

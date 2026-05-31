@@ -17,18 +17,56 @@
 import {
   buildDelegateLookup,
   getCheckedInDelegateIds,
+  getMatchedViewerDelegateIds,
   getRemoteOnlyDelegateIds,
+  hasValidCheckin,
 } from "@/utils/viewerJoin.js";
+import { makeInRange } from "@/utils/dateRange.js";
 
 // Retourne les Set<delegate.id> de chaque composante + un objet `counts`.
 // `liveItems` / `replayItems` sont les `stats.items` ES bruts (peuvent etre
 // null/undefined pendant le chargement — la fonction renvoie alors juste la
 // composante physique).
-export function computeParticipation(delegates, liveItems, replayItems, { datasetLabel = "" } = {}) {
+export function computeParticipation(delegates, liveItems, replayItems, { datasetLabel = "", dateRange = null } = {}) {
   const lookup = buildDelegateLookup(delegates || [], { datasetLabel });
-  const checkedIn = getCheckedInDelegateIds(delegates || []);
+  // Le check-in physique FAIT partie du perimetre du filtre date : on ne compte
+  // un present physique que si son check-in tombe dans la plage. liveItems/
+  // replayItems sont deja filtres par date en amont (stats ES), donc liveRemote/
+  // replayRemote refletent aussi la plage.
+  let checkedIn;
+  if (dateRange) {
+    const inRange = makeInRange(dateRange);
+    checkedIn = new Set();
+    for (const d of delegates || []) {
+      if (d.id && hasValidCheckin(d) && inRange(d.checkedInDate)) checkedIn.add(d.id);
+    }
+  } else {
+    checkedIn = getCheckedInDelegateIds(delegates || []);
+  }
   const liveRemote = getRemoteOnlyDelegateIds(liveItems, lookup, { datasetLabel: `${datasetLabel}-live` });
   const replayRemote = getRemoteOnlyDelegateIds(replayItems, lookup, { datasetLabel: `${datasetLabel}-replay` });
+
+  // Decoupe des PHYSIQUEMENT presents selon leur consommation distancielle.
+  // liveViewers / replayViewers = tous les viewers live/replay rapproches d'un
+  // delegue (check-in inclus, contrairement a liveRemote/replayRemote qui
+  // excluent les checked-in). On intersecte avec la population physique.
+  //
+  // 3 sous-groupes DISJOINTS (somme == checkedIn) :
+  //   - checkedInReplay : present qui a consulte du replay (avec OU sans live) —
+  //     le replay "capte" le cas mixte (present + live + replay) ;
+  //   - checkedInLive   : present qui a suivi du live MAIS PAS de replay ;
+  //   - checkedInOnly   : present sans aucune consommation distancielle.
+  // Priorite au replay pour que "Sur place + live" ne contienne QUE du live pur.
+  const liveViewers = getMatchedViewerDelegateIds(liveItems, lookup);
+  const replayViewers = getMatchedViewerDelegateIds(replayItems, lookup);
+  const checkedInOnly = new Set();
+  const checkedInLive = new Set();
+  const checkedInReplay = new Set();
+  for (const id of checkedIn) {
+    if (replayViewers.has(id)) checkedInReplay.add(id);
+    else if (liveViewers.has(id)) checkedInLive.add(id);
+    else checkedInOnly.add(id);
+  }
 
   // Decoupe des distanciels (non physiques) en live-only / both / replay-only.
   const both = new Set();
@@ -50,6 +88,9 @@ export function computeParticipation(delegates, liveItems, replayItems, { datase
 
   return {
     checkedIn,
+    checkedInOnly,
+    checkedInLive,
+    checkedInReplay,
     liveRemote,
     replayRemote,
     liveOnly,
@@ -58,6 +99,9 @@ export function computeParticipation(delegates, liveItems, replayItems, { datase
     total,
     counts: {
       checkedIn: checkedIn.size,
+      checkedInOnly: checkedInOnly.size,
+      checkedInLive: checkedInLive.size,
+      checkedInReplay: checkedInReplay.size,
       liveOnly: liveOnly.size,
       both: both.size,
       replayOnly: replayOnly.size,

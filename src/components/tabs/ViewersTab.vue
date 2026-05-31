@@ -50,37 +50,15 @@
           <div class="kpi-value">{{ formatDuration(g.avgViewDurationSec) }}</div>
           <div class="kpi-sub">{{ formatDuration(g.totalDurationSec) }} cumulées</div>
         </div>
+        <div class="kpi-card blue" v-if="stats.origins && stats.origins.length > 0">
+          <div class="kpi-label">Vues par origine</div>
+          <div class="kpi-value" style="font-size: 22px">{{ originSummary.topOrigin }} · {{ originSummary.topPct }}</div>
+          <div class="kpi-sub">{{ originSummary.breakdown }}</div>
+        </div>
       </div>
 
-      <!-- Origine (camembert) gauche / Delegues uniques par jour droite -->
+      <!-- Delegues uniques par jour (gauche) / par chaine (droite, live) -->
       <div class="charts-row">
-        <div class="chart-card" v-if="stats.origins && stats.origins.length > 0">
-          <div class="chart-header">
-            <h3>Vues totales par origine</h3>
-            <CsvButton
-              :filename="`${kind}-par-origine`"
-              :headers="['Origine', 'Vues', 'Délégués uniques']"
-              :rows="stats.origins.map(o => [o.origin, o.views, o.uniqueUsers])"
-            />
-          </div>
-          <div class="origin-pie-wrap">
-            <div class="origin-pie">
-              <DoughnutChart
-                :labels="stats.origins.map(o => o.origin)"
-                :data="stats.origins.map(o => o.views)"
-                :colors="ORIGIN_COLORS"
-              />
-            </div>
-            <div class="origin-legend">
-              <div v-for="(o, i) in stats.origins" :key="o.origin" class="origin-legend-row">
-                <span class="origin-swatch" :style="{ background: ORIGIN_COLORS[i % ORIGIN_COLORS.length] }"></span>
-                <span class="origin-name">{{ o.origin }}</span>
-                <strong>{{ fmt(o.views) }}</strong>
-                <span class="origin-sub">{{ pctOf(o.views, totalOriginViews) }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
         <div class="chart-card">
           <div class="chart-header">
             <h3>{{ L.byDayTitle }}</h3>
@@ -94,6 +72,84 @@
             <Bar :data="byDayChart" :options="byDayOptions" />
           </div>
           <p v-else class="empty-msg">{{ L.byDayEmpty }}</p>
+        </div>
+        <div class="chart-card" v-if="kind === 'live' && byDayChannel.channels.length > 0">
+          <div class="chart-header">
+            <h3>Délégués uniques en live par jour et par chaîne</h3>
+            <CsvButton
+              filename="live-delegues-uniques-par-jour-chaine"
+              :headers="['Jour', ...byDayChannel.channels.map(c => `${c.label} (${c.id})`)]"
+              :rows="byDayChannel.days.map(d => [d, ...byDayChannel.channels.map(c => byDayChannel.byDay[d]?.[c.id] || 0)])"
+            />
+          </div>
+          <div :style="{ position: 'relative', height: '300px' }">
+            <Bar :data="byDayChannelChart" :options="byDayChannelOptions" />
+          </div>
+          <p class="viewers-hint">
+            Une chaîne = un <code>channel_id</code> de diffusion (l'index n'expose pas de libellé,
+            d'où les noms « Chaîne N » triés par volume). Audience unique propre à chaque chaîne :
+            un délégué ayant suivi plusieurs chaînes le même jour compte dans chacune, donc la
+            somme d'un jour peut dépasser le total dédoublonné de gauche.
+          </p>
+        </div>
+        <!-- Replay : l'engagement (sessions consultées par délégué) prend la
+             colonne de droite (pas de chart par chaîne en VOD). -->
+        <div class="chart-card" v-else-if="kind === 'replay'">
+          <div class="chart-header">
+            <h3>{{ L.engagementTitle }}</h3>
+            <CsvButton
+              :filename="`${kind}-engagement`"
+              :headers="['Tranche', 'Délégués']"
+              :rows="Object.entries(stats.sessionsPerUserBuckets).map(([k, v]) => [k, v])"
+            />
+          </div>
+          <div :style="{ position: 'relative', height: '300px' }">
+            <Bar :data="engagementChart" :options="engagementOptions" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Présents physiques qui consultent du replay (replay uniquement) :
+           évolution journalière (délégués uniques + vues) à gauche, cumul des
+           délégués distincts à droite. -->
+      <div class="charts-row" v-if="kind === 'replay'">
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3>Présents physiques ayant consulté du replay — par jour</h3>
+            <span class="viewers-hint" style="margin-left: auto">
+              {{ fmt(physicalReplayTotals.uniqueDelegates) }} délégués · {{ fmt(physicalReplayTotals.views) }} vues
+            </span>
+            <CsvButton
+              filename="replay-presents-physiques-par-jour"
+              :headers="['Jour', 'Délégués uniques (présents physiques)', 'Vues replay']"
+              :rows="physicalReplayDaily.map(d => [d.day, d.uniqueDelegates, d.views])"
+            />
+          </div>
+          <div v-if="physicalReplayDaily.length > 0" :style="{ position: 'relative', height: '300px' }">
+            <Bar :data="physicalReplayChart" :options="physicalReplayOptions" />
+          </div>
+          <p v-else class="empty-msg">Aucun délégué physiquement présent n'a (encore) consulté de replay</p>
+          <p class="viewers-hint">
+            Délégués avec un check-in physique valide qui ont ensuite regardé du replay. Bucketage sur la date de visionnage VOD (heure de Paris).
+          </p>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3>Présents physiques ayant consulté du replay — cumulé</h3>
+            <CsvButton
+              filename="replay-presents-physiques-cumul"
+              :headers="['Jour', 'Délégués cumulés (présents physiques)']"
+              :rows="physicalReplayCumulative.map(d => [d.day, d.count])"
+            />
+          </div>
+          <LineChart
+            v-if="physicalReplayCumulative.length > 0"
+            :labels="physicalReplayCumulativeLabels"
+            :datasets="physicalReplayCumulativeDatasets"
+            :height="300"
+          />
+          <p v-else class="empty-msg">Aucun délégué physiquement présent n'a (encore) consulté de replay</p>
+          <p class="viewers-hint">Chaque délégué est compté une seule fois, le jour de sa 1ʳᵉ consultation replay.</p>
         </div>
       </div>
 
@@ -169,8 +225,10 @@
         />
       </div>
 
-      <!-- Engagement : repartition par nombre de sessions consultees -->
-      <div class="chart-card">
+      <!-- Engagement : repartition par nombre de sessions consultees.
+           Live uniquement en standalone (en replay il est remonte a droite de
+           "Délégués uniques par jour"). -->
+      <div class="chart-card" v-if="kind === 'live'">
         <div class="chart-header">
           <h3>{{ L.engagementTitle }}</h3>
           <CsvButton
@@ -179,7 +237,7 @@
             :rows="Object.entries(stats.sessionsPerUserBuckets).map(([k, v]) => [k, v])"
           />
         </div>
-        <div :style="{ position: 'relative', height: kind === 'live' ? '220px' : '260px' }">
+        <div :style="{ position: 'relative', height: '220px' }">
           <Bar :data="engagementChart" :options="engagementOptions" />
         </div>
       </div>
@@ -244,7 +302,10 @@ import DoughnutChart from "../charts/DoughnutChart.vue";
 import CsvButton from "../CsvButton.vue";
 import { parisDateParts } from "../../utils/parisTime.js";
 import { fmt } from "@/utils/formatters.js";
+import { getTypeColor } from "@/utils/typeColors.js";
 import { debug } from "@/utils/debug.js";
+import LineChart from "../charts/LineChart.vue";
+import { buildPhysicalReplayByDay, buildPhysicalReplayCumulative } from "@/utils/physicalReplay.js";
 
 const props = defineProps({
   // 'live' | 'replay' — pilote labels + variations de template (30min/sessionType pie
@@ -424,6 +485,149 @@ watch(
   { immediate: true },
 );
 
+// Dump console COMPLET des donnees de consultation live (kind === 'live').
+// Demande explicite : voir tout ce qui est recupere/agrege cote Live. Rejoue a
+// chaque chargement / refresh / changement de filtre. Groupe pour rester lisible.
+watch(
+  () => stats.value,
+  (s) => {
+    if (props.kind !== "live" || !s) return;
+    const items = s.items || [];
+    const rawHits = props.viewerApi.hits?.value || [];
+    /* eslint-disable no-console */
+    console.groupCollapsed(
+      `%c[Live] Données de consultation — ${items.length} vues / ${rawHits.length} hits ES bruts`,
+      "color:#1E4E66;font-weight:700",
+    );
+    console.log("KPIs globaux:", s.global);
+    console.log("Hits ES bruts (_source):", rawHits.map((h) => h._source));
+    console.log("Vues normalisées (items):", items);
+    console.table(
+      items.map((it) => ({
+        userId: it.userId,
+        delegateId: it.delegateId,
+        email: it.email,
+        fullName: it.fullName,
+        sessionId: it.sessionId,
+        sessionTitle: it.sessionTitle,
+        sessionType: it.sessionType,
+        sessionStart: it.sessionStart,
+        sessionEnd: it.sessionEnd,
+        origin: it.origin,
+        channelId: it.channelId,
+        timestamp: it.timestamp,
+        durationSec: it.duration,
+      })),
+    );
+    console.log("Top sessions (par délégués uniques):", s.topSessions);
+    console.log("Vues par origine:", s.origins);
+    console.log("Vues par type de session:", s.sessionTypes);
+    console.log("Délégués uniques / jour:", s.uniqueByDay);
+    console.log("Délégués uniques / jour / chaîne:", s.uniqueByDayByChannel);
+    console.log("Délégués uniques / créneau 30 min:", s.uniqueBy30min);
+    console.log("Engagement (sessions consultées / délégué):", s.sessionsPerUserBuckets);
+    console.groupEnd();
+    /* eslint-enable no-console */
+  },
+  { immediate: true },
+);
+
+// --- Présents physiques qui consultent du replay (replay uniquement) ---
+// Funnel "venu sur place PUIS revu en replay". Reutilise delegateLookup (deja
+// construit pour les KPI sans presence physique). Double mesure par jour :
+// delegues uniques (barres) + vues (courbe sur 2e axe).
+const physicalReplayDaily = computed(() =>
+  props.kind === "replay" ? buildPhysicalReplayByDay(stats.value.items, delegateLookup.value) : [],
+);
+const physicalReplayTotals = computed(() => {
+  const ids = new Set();
+  let views = 0;
+  if (props.kind === "replay") {
+    for (const it of stats.value.items || []) {
+      const entry = delegateLookup.value.get(it.userId);
+      if (!entry || !entry.checkedIn) continue;
+      if (entry.delegate?.id) ids.add(entry.delegate.id);
+      views++;
+    }
+  }
+  return { uniqueDelegates: ids.size, views };
+});
+const physicalReplayChart = computed(() => ({
+  labels: physicalReplayDaily.value.map((d) => d.day),
+  datasets: [
+    {
+      type: "bar",
+      label: "Délégués uniques (présents physiques)",
+      data: physicalReplayDaily.value.map((d) => d.uniqueDelegates),
+      backgroundColor: "#1E4E66",
+      borderRadius: 4,
+      yAxisID: "y",
+      order: 2,
+    },
+    {
+      type: "line",
+      label: "Vues replay",
+      data: physicalReplayDaily.value.map((d) => d.views),
+      borderColor: "#6F45FF",
+      backgroundColor: "rgba(111,69,255,0.10)",
+      tension: 0.3,
+      pointRadius: 2,
+      borderWidth: 2.5,
+      yAxisID: "y1",
+      order: 1,
+    },
+  ],
+}));
+const physicalReplayOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  layout: { padding: { top: 18 } },
+  plugins: {
+    legend: { position: "top", labels: { font: { size: 11 }, usePointStyle: true, pointStyle: "rectRounded" } },
+    datalabels: { display: false },
+    tooltip: {
+      callbacks: {
+        label: (ctx) =>
+          ctx.dataset.yAxisID === "y1"
+            ? `${ctx.raw.toLocaleString("fr-FR")} vues`
+            : `${ctx.raw.toLocaleString("fr-FR")} délégués uniques`,
+      },
+    },
+  },
+  scales: {
+    x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+    y: {
+      position: "left", beginAtZero: true,
+      grid: { color: "#f3f4f6" }, ticks: { font: { size: 11 }, precision: 0 },
+      title: { display: true, text: "Délégués uniques", font: { size: 10 } },
+    },
+    y1: {
+      position: "right", beginAtZero: true,
+      grid: { display: false }, ticks: { font: { size: 11 }, precision: 0 },
+      title: { display: true, text: "Vues", font: { size: 10 } },
+    },
+  },
+};
+
+// Variante cumulee : delegues presents physiques distincts ayant deja consulte
+// du replay, jour apres jour (chaque delegue compte 1x au jour de sa 1ere vue).
+const physicalReplayCumulative = computed(() =>
+  props.kind === "replay" ? buildPhysicalReplayCumulative(stats.value.items, delegateLookup.value) : [],
+);
+const physicalReplayCumulativeDatasets = computed(() => [{
+  label: "Délégués cumulés (présents physiques)",
+  data: physicalReplayCumulative.value.map((d) => d.count),
+  borderColor: "#1E4E66",
+  backgroundColor: "rgba(30,78,102,0.10)",
+  fill: true,
+  tension: 0.3,
+  pointRadius: 0,
+  borderWidth: 2.5,
+}]);
+const physicalReplayCumulativeLabels = computed(() =>
+  physicalReplayCumulative.value.map((d) => d.day),
+);
+
 // --- Charts ---
 const byDayChart = computed(() => ({
   labels: stats.value.uniqueByDay.map((d) => d.day),
@@ -435,6 +639,44 @@ const byDayChart = computed(() => ({
     barThickness: Math.max(12, Math.min(40, 500 / (stats.value.uniqueByDay.length || 1))),
   }],
 }));
+
+// Delegues uniques par jour ET par chaine de diffusion (live uniquement).
+// Barres GROUPEES (cote a cote) : 1 dataset par channel_id, couleur
+// deterministe sur l'id. Dedoublonnage par (jour, chaine) -> un delegue qui a
+// suivi plusieurs chaines apparait dans chacune (pas de repartition d'un total,
+// d'ou les barres groupees et non empilees). Les libelles "Chaine N" viennent
+// de computeLiveStats (l'index n'expose pas de nom de chaine lisible).
+const byDayChannel = computed(() => stats.value.uniqueByDayByChannel || { days: [], channels: [], byDay: {} });
+const byDayChannelChart = computed(() => {
+  const { days, channels, byDay } = byDayChannel.value;
+  return {
+    labels: days,
+    datasets: channels.map((ch) => ({
+      label: ch.label,
+      data: days.map((d) => byDay[d]?.[ch.id] || 0),
+      backgroundColor: getTypeColor(ch.id),
+      borderRadius: 3,
+      categoryPercentage: 0.8,
+      barPercentage: 0.9,
+    })),
+  };
+});
+
+const byDayChannelOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: { position: "top", labels: { font: { size: 11 }, usePointStyle: true, pointStyle: "rectRounded" } },
+    datalabels: { display: false },
+    tooltip: {
+      callbacks: { label: (ctx) => `${ctx.dataset.label} : ${ctx.raw.toLocaleString("fr-FR")} délégués uniques` },
+    },
+  },
+  scales: {
+    x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+    y: { grid: { color: "#f3f4f6" }, ticks: { font: { size: 11 } }, beginAtZero: true },
+  },
+};
 
 const byDayOptions = {
   responsive: true,
@@ -536,6 +778,20 @@ const ORIGIN_COLORS = ["#1E4E66", "#30DD92", "#6F45FF", "#FFA600", "#E53935", "#
 const totalOriginViews = computed(() =>
   (stats.value.origins || []).reduce((s, o) => s + o.views, 0),
 );
+
+// Resume des origines reduit a un indicateur (remplace l'ancien camembert) :
+// origine dominante + repartition compacte de toutes les origines en sous-ligne.
+const originSummary = computed(() => {
+  const origins = stats.value.origins || [];
+  const total = totalOriginViews.value;
+  const top = origins[0];
+  return {
+    count: origins.length,
+    topOrigin: top?.origin || "—",
+    topPct: top ? pctOf(top.views, total) : "0%",
+    breakdown: origins.map((o) => `${o.origin} ${pctOf(o.views, total)}`).join(" · "),
+  };
+});
 
 function pctOf(v, total) {
   if (!total) return "0%";

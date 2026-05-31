@@ -6,7 +6,7 @@ import { computeAllStats } from "../utils/computeStats.js";
  * Supporte le multi-select : plusieurs labels par clé (OR intra-clé, AND inter-clés).
  * @param {Function} getDelegates - getter qui retourne le tableau de delegates
  */
-export function useFilteredStats(getDelegates, getMobileAppId = () => null) {
+export function useFilteredStats(getDelegates, getMobileAppId = () => null, getDateRange = () => null) {
   // Map<key, Map<label, filterFn>>
   const filters = ref(new Map());
 
@@ -56,7 +56,9 @@ export function useFilteredStats(getDelegates, getMobileAppId = () => null) {
     return result;
   });
 
-  const filteredStats = computed(() => computeAllStats(filteredDelegates.value, getMobileAppId()));
+  const filteredStats = computed(() =>
+    computeAllStats(filteredDelegates.value, getMobileAppId(), getDateRange()),
+  );
   const hasFilters = computed(() => filters.value.size > 0);
   const filteredCount = computed(() => filteredDelegates.value.length);
 

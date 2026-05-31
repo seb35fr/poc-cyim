@@ -142,13 +142,17 @@ function sectionTotalParticipants(delegates, liveItems, replayItems, label = "md
   out +=
     "_Photo unique de **qui a réellement participé** au congrès, tous canaux confondus. " +
     "Chaque délégué compte **une seule fois** : un présent physique absorbe ses éventuelles vues " +
-    "live/replay ; un délégué non présent compte une fois selon qu'il a vu en live, en replay ou les deux. " +
+    "live/replay (on distingue les présents sur place seul, ceux ayant aussi suivi du live sans replay, " +
+    "et ceux ayant consulté du replay) ; " +
+    "un délégué non présent compte une fois selon qu'il a vu en live, en replay ou les deux. " +
     "Déduplication sur `delegate.id` (Mongo) via la jointure Keycloak. " +
     "C'est l'indicateur d'audience global du congrès._\n\n";
   out += mdTable(
     ["Composante", "Délégués", "% du total participants"],
     [
-      ["Présence physique (check-in)", fmtNum(c.checkedIn), fmtPct(c.checkedIn, c.total)],
+      ["Présence physique — sur place seul", fmtNum(c.checkedInOnly), fmtPct(c.checkedInOnly, c.total)],
+      ["Présence physique — + suivi en live (sans replay)", fmtNum(c.checkedInLive), fmtPct(c.checkedInLive, c.total)],
+      ["Présence physique — + consultation replay", fmtNum(c.checkedInReplay), fmtPct(c.checkedInReplay, c.total)],
       ["Live distanciel uniquement", fmtNum(c.liveOnly), fmtPct(c.liveOnly, c.total)],
       ["Live & Replay distanciel", fmtNum(c.both), fmtPct(c.both, c.total)],
       ["Replay distanciel uniquement", fmtNum(c.replayOnly), fmtPct(c.replayOnly, c.total)],
@@ -644,19 +648,25 @@ function sectionScans(scanStats) {
     ],
   );
   out += mdScalars([
+    ["Vues en salle (présences cumulées / session)", fmtNum(g.audienceUniqueDelegateSessions || 0)],
     ["Sessions distinctes scannées", fmtNum(g.distinctSessions || 0)],
     ["Salles distinctes", fmtNum(g.distinctRooms || 0)],
     ["Zones distinctes", fmtNum(g.distinctZones || 0)],
   ]);
+  out +=
+    "> _« Vues en salle » = somme, sur toutes les sessions, des délégués distincts entrés dans chaque session. " +
+    "Un délégué présent à N sessions compte N fois (multi-passages dans une même session dédupliqués) — c'est l'affluence totale des conférences._\n\n";
 
-  // NB : topSessions/topRooms/topZones ne portent que { label, count }
-  // (cf. computeScanStats.topN) — pas de delegues uniques par ligne, donc pas
-  // de colonne "Délégués uniques" ici (elle vaudrait 0 partout).
+  // topSessions porte desormais { label, count, uniqueDelegates } (cf.
+  // computeScanStats) — on expose les delegues uniques (audience reelle) en plus
+  // du nombre brut de scans.
   if ((scanStats.audience?.topSessions || []).length > 0) {
     out += h(3, "Top 15 sessions par audience scannée");
     out += mdTable(
-      ["Session / Salle", "Scans"],
-      scanStats.audience.topSessions.slice(0, 15).map((s) => [s.label || s.name || "—", fmtNum(s.count || 0)]),
+      ["Session / Salle", "Délégués uniques", "Scans"],
+      scanStats.audience.topSessions.slice(0, 15).map((s) => [
+        s.label || s.name || "—", fmtNum(s.uniqueDelegates || 0), fmtNum(s.count || 0),
+      ]),
     );
   }
 
@@ -839,6 +849,7 @@ export function useExportMarkdown() {
       liveStats = null,
       replayStats = null,
       scanStats = null,
+      compareScanStats = null,
       badgeFilterTypes = [],
     } = opts;
 
@@ -869,15 +880,20 @@ export function useExportMarkdown() {
     md += sectionFooter({ eventName, compareEventName });
 
     if (compareStats && compareEventName) {
+      const hasCompareScans =
+        compareScanStats?.global &&
+        ((compareScanStats.global.totalAudienceScans || 0) > 0 ||
+          (compareScanStats.global.totalCheckinScans || 0) > 0 ||
+          (compareScanStats.global.totalZoneScans || 0) > 0);
       md += "---\n\n";
       md += `# Annexe — Données complètes de l'event comparé : ${compareEventName}\n\n`;
-      md += `> Toutes les sections ci-dessous concernent **${compareEventName}** (l'event de comparaison), avec la même structure que l'event principal pour faciliter la mise en regard. _Les scans QR ne sont pas chargés pour l'event comparé._\n\n`;
+      md += `> Toutes les sections ci-dessous concernent **${compareEventName}** (l'event de comparaison), avec la même structure que l'event principal pour faciliter la mise en regard.${hasCompareScans ? "" : " _Aucun scan QR n'a été chargé/trouvé pour l'event comparé._"}\n\n`;
       md += renderEventBody({
         stats: compareStats,
         delegates: compareDelegates || [],
         liveStats: compareLiveStats,
         replayStats: compareReplayStats,
-        scanStats: null,
+        scanStats: compareScanStats,
         participationLabel: "md-export-compare",
       });
     }

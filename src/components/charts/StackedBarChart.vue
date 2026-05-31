@@ -52,13 +52,13 @@ const chartData = computed(() => {
   return { labels, datasets };
 });
 
-// Plugin : ecrit le total de chaque rangee au bout de la derniere segment
-// (uniquement quand showTotal + horizontal). Pas via datalabels pour eviter
-// les doublons sur les segments intermediaires.
+// Plugin : ecrit le total de chaque rangee au bout de la derniere segment.
+// Pas via datalabels pour eviter les doublons sur les segments intermediaires.
+// Horizontal : a droite de la barre. Vertical : au-dessus de la pile.
 const totalsPlugin = {
   id: "stacked-totals",
   afterDatasetsDraw(chart) {
-    if (!props.showTotal || !props.horizontal) return;
+    if (!props.showTotal) return;
     const { ctx, data, scales } = chart;
     const xScale = scales.x;
     const yScale = scales.y;
@@ -67,15 +67,23 @@ const totalsPlugin = {
     ctx.save();
     ctx.font = "600 11px Poppins, Comfortaa, sans-serif";
     ctx.fillStyle = "#414141";
-    ctx.textAlign = "left";
-    ctx.textBaseline = "middle";
     for (let i = 0; i < labels.length; i++) {
       let total = 0;
       for (const ds of data.datasets) total += ds.data[i] || 0;
       if (total <= 0) continue;
-      const x = xScale.getPixelForValue(total) + 6;
-      const y = yScale.getPixelForValue(labels[i]);
-      ctx.fillText(String(total), x, y);
+      if (props.horizontal) {
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
+        const x = xScale.getPixelForValue(total) + 6;
+        const y = yScale.getPixelForValue(labels[i]);
+        ctx.fillText(String(total), x, y);
+      } else {
+        ctx.textAlign = "center";
+        ctx.textBaseline = "bottom";
+        const x = xScale.getPixelForValue(labels[i]);
+        const y = yScale.getPixelForValue(total) - 4;
+        ctx.fillText(String(total), x, y);
+      }
     }
     ctx.restore();
   },
@@ -85,7 +93,12 @@ const chartOptions = computed(() => ({
   indexAxis: props.horizontal ? "y" : "x",
   responsive: true,
   maintainAspectRatio: false,
-  layout: { padding: { right: props.showTotal && props.horizontal ? 36 : 0 } },
+  layout: {
+    padding: {
+      right: props.showTotal && props.horizontal ? 36 : 0,
+      top: props.showTotal && !props.horizontal ? 18 : 0,
+    },
+  },
   onClick: (event, elements) => {
     if (elements.length > 0) {
       emit("select", props.labels[elements[0].index]);

@@ -92,6 +92,31 @@
         </div>
         <p v-else class="empty-msg">Aucune donnée par jour exploitable sur l'un ou l'autre event</p>
       </div>
+
+      <!-- Cumuls replay comparés : tous les viewers (gauche) vs présents
+           physiques uniquement (droite, funnel « venu sur place puis revu »). -->
+      <div
+        class="charts-row"
+        v-if="kind === 'replay' && (cumulativeChart.labels.length > 0 || physicalReplayCumulativeChart.labels.length > 0)"
+      >
+        <div class="chart-card" v-if="cumulativeChart.labels.length > 0">
+          <div class="chart-header">
+            <h3>Délégués cumulés ayant consulté du replay — comparé</h3>
+            <span class="cmp-axis-hint">J0 = 1er visionnage VOD de chaque event</span>
+          </div>
+          <LineChart :labels="cumulativeChart.labels" :datasets="cumulativeChart.datasets" :height="300" />
+        </div>
+        <div class="chart-card" v-if="physicalReplayCumulativeChart.labels.length > 0">
+          <div class="chart-header">
+            <h3>Présents physiques ayant consulté du replay — cumulé (comparé)</h3>
+            <span class="cmp-axis-hint">J0 = 1er visionnage VOD de chaque event</span>
+          </div>
+          <LineChart :labels="physicalReplayCumulativeChart.labels" :datasets="physicalReplayCumulativeChart.datasets" :height="300" />
+          <p class="cmp-axis-hint" style="margin-top: 6px">
+            Funnel « venu sur place puis revu en replay » : délégués avec check-in physique valide ayant ensuite consulté de la VOD.
+          </p>
+        </div>
+      </div>
     </template>
   </div>
 </template>
@@ -104,7 +129,9 @@ import {
   getRemoteOnlyDelegateIds,
 } from "../../utils/viewerJoin.js";
 import { fmt, shortName } from "@/utils/formatters.js";
+import { buildPhysicalReplayCumulative } from "../../utils/physicalReplay.js";
 import KpiCompareGrid from "../charts/KpiCompareGrid.vue";
+import LineChart from "../charts/LineChart.vue";
 
 const props = defineProps({
   // 'live' | 'replay' — pilote tous les labels affiches a l'utilisateur.
@@ -147,7 +174,7 @@ const apiB = props.compareViewerApi;
 const loading = computed(() => apiA.loading.value || (apiB?.loading.value ?? false));
 const error = computed(() => apiA.error.value || apiB?.error.value || null);
 
-const EMPTY_STATS = { global: {}, items: [], origins: [], uniqueByDay: [] };
+const EMPTY_STATS = { global: {}, items: [], origins: [], uniqueByDay: [], cumulativeUniqueByDay: [] };
 const statsA = computed(() => apiA.stats.value || EMPTY_STATS);
 const statsB = computed(() => apiB?.stats.value || EMPTY_STATS);
 
@@ -329,6 +356,94 @@ const dailyChartOptions = {
     x: { grid: { display: false } },
   },
 };
+
+// --- Cumul de delegues ayant consulte du replay (replay uniquement) ---
+// Courbe croissante comparee A vs B, alignee sur J0 (1er jour de visionnage de
+// chaque event) comme le graphe quotidien. cumulativeUniqueByDay porte deja le
+// cumul (chaque delegue compte une fois, le jour de sa 1ere consultation). Les
+// jours sans nouveau viewer sont reportes a plat (carry-forward) pour eviter une
+// chute artificielle de la courbe.
+const cumulativeChart = computed(() => {
+  if (props.kind !== "replay") return { labels: [], datasets: [] };
+  const a = alignDaysOnJ0(statsA.value.cumulativeUniqueByDay);
+  const b = alignDaysOnJ0(statsB.value.cumulativeUniqueByDay);
+  const maxOffset = Math.max(
+    a.offsets.length > 0 ? a.offsets[a.offsets.length - 1] : -1,
+    b.offsets.length > 0 ? b.offsets[b.offsets.length - 1] : -1,
+  );
+  if (maxOffset < 0) return { labels: [], datasets: [] };
+  const labels = [];
+  const dataA = [];
+  const dataB = [];
+  let lastA = 0;
+  let lastB = 0;
+  for (let i = 0; i <= maxOffset; i++) {
+    labels.push(`J${i}`);
+    if (a.byOffset[i] != null) lastA = a.byOffset[i];
+    if (b.byOffset[i] != null) lastB = b.byOffset[i];
+    dataA.push(lastA);
+    dataB.push(lastB);
+  }
+  return {
+    labels,
+    datasets: [
+      {
+        label: shortName(props.eventName),
+        data: dataA,
+        borderColor: COLORS.current,
+        backgroundColor: "rgba(39,206,113,0.10)",
+        fill: true,
+        tension: 0.3,
+        pointRadius: 0,
+        borderWidth: 2.5,
+      },
+      {
+        label: shortName(props.compareEventName),
+        data: dataB,
+        borderColor: COLORS.compare,
+        backgroundColor: "rgba(156,163,175,0.10)",
+        fill: true,
+        tension: 0.3,
+        pointRadius: 0,
+        borderWidth: 2.5,
+      },
+    ],
+  };
+});
+
+// --- Présents physiques qui consultent du replay (replay uniquement) ---
+// Funnel "venu sur place PUIS revu en replay", compare A vs B.
+// Cumul des presents physiques ayant consulte du replay, A vs B, aligne J0 avec
+// report a plat (carry-forward) comme le cumul replay global.
+const physicalReplayCumulativeChart = computed(() => {
+  if (props.kind !== "replay") return { labels: [], datasets: [] };
+  const a = alignDaysOnJ0(buildPhysicalReplayCumulative(statsA.value.items, lookupA.value));
+  const b = alignDaysOnJ0(buildPhysicalReplayCumulative(statsB.value.items, lookupB.value));
+  const maxOffset = Math.max(
+    a.offsets.length > 0 ? a.offsets[a.offsets.length - 1] : -1,
+    b.offsets.length > 0 ? b.offsets[b.offsets.length - 1] : -1,
+  );
+  if (maxOffset < 0) return { labels: [], datasets: [] };
+  const labels = [];
+  const dataA = [];
+  const dataB = [];
+  let lastA = 0;
+  let lastB = 0;
+  for (let i = 0; i <= maxOffset; i++) {
+    labels.push(`J${i}`);
+    if (a.byOffset[i] != null) lastA = a.byOffset[i];
+    if (b.byOffset[i] != null) lastB = b.byOffset[i];
+    dataA.push(lastA);
+    dataB.push(lastB);
+  }
+  return {
+    labels,
+    datasets: [
+      { label: shortName(props.eventName), data: dataA, borderColor: COLORS.current, backgroundColor: "rgba(39,206,113,0.10)", fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2.5 },
+      { label: shortName(props.compareEventName), data: dataB, borderColor: COLORS.compare, backgroundColor: "rgba(156,163,175,0.10)", fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2.5 },
+    ],
+  };
+});
 </script>
 
 <style scoped>

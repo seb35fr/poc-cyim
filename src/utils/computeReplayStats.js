@@ -1,4 +1,5 @@
 import { parisDateParts } from "./parisTime.js";
+import { makeInRange } from "./dateRange.js";
 
 // Normalise un hit ES de l'index stats_user__vod-view-per-user-per-session-per-origin.
 // Enrichi via sessionMap (sessions GraphQL) pour recuperer titre/type/start/end/duration.
@@ -40,8 +41,14 @@ function normalize(hit, sessionMap) {
   };
 }
 
-export function computeReplayStats(rawHits, sessionMap = null) {
-  const items = (rawHits || []).map((h) => normalize(h, sessionMap));
+export function computeReplayStats(rawHits, sessionMap = null, dateRange = null) {
+  let items = (rawHits || []).map((h) => normalize(h, sessionMap));
+  // Filtre date global : ne garder que les visionnages dont le timestamp tombe
+  // dans la plage (date de consultation de la VOD).
+  if (dateRange) {
+    const inRange = makeInRange(dateRange);
+    items = items.filter((it) => inRange(it.timestamp));
+  }
 
   const uniqueUsers = new Set();
   const sessionsById = new Map();
@@ -126,6 +133,27 @@ export function computeReplayStats(rawHits, sessionMap = null) {
     .map(([day, set]) => ({ day, count: set.size }))
     .sort((a, b) => a.day.localeCompare(b.day));
 
+  // Cumul de delegues UNIQUES ayant consulte du replay : on date chaque user a
+  // son PREMIER jour de visionnage (first-seen), puis on cumule -> courbe
+  // croissante du nombre de delegues distincts ayant deja regarde un replay.
+  // (La somme des uniqueByDay surcompterait les revenants ; ici chaque delegue
+  // n'est compte qu'une fois, le jour de sa 1ere consultation.)
+  const firstDayByUser = new Map(); // userId -> jour le plus ancien
+  for (const it of items) {
+    if (!it.timestamp || !it.userId) continue;
+    const p = parisDateParts(it.timestamp);
+    if (!p) continue;
+    const prev = firstDayByUser.get(it.userId);
+    if (!prev || p.ymd < prev) firstDayByUser.set(it.userId, p.ymd);
+  }
+  const newByDay = new Map(); // jour -> nb de delegues vus pour la 1ere fois
+  for (const day of firstDayByUser.values()) newByDay.set(day, (newByDay.get(day) || 0) + 1);
+  let running = 0;
+  const cumulativeUniqueByDay = uniqueByDay.map(({ day }) => {
+    running += newByDay.get(day) || 0;
+    return { day, count: running };
+  });
+
   return {
     items,
     global: {
@@ -140,5 +168,6 @@ export function computeReplayStats(rawHits, sessionMap = null) {
     sessionsPerUserBuckets,
     origins,
     uniqueByDay,
+    cumulativeUniqueByDay,
   };
 }

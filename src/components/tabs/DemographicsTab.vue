@@ -164,7 +164,7 @@ import { countryCodeToFlag, COUNTRY_CONTINENTS } from "../../utils/countries.js"
 import { useFilteredStats } from "../../composables/useFilteredStats.js";
 import { fmt, pct } from "@/utils/formatters.js";
 
-const props = defineProps({ stats: Object, delegates: Array });
+const props = defineProps({ stats: Object, delegates: Array, dateRange: { type: Object, default: null } });
 
 const {
   filteredStats: fs, activeFilters, activeFilterMap: afm,

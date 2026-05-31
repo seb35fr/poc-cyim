@@ -35,7 +35,7 @@ Sources de données :
 
 ## Architecture
 
-**Data flow:** `api/graphql.js` fetches all delegates via cursor-paginated `searchDelegates` (500/page) + event config via `getEvent` → `utils/computeStats.js` computes statistics lazily (getter par section) → composable `useStatistics` exposes reactive state + auto-refresh every 10 min → tab components render charts with cross-filtering via `useFilteredStats`. Live/Replay/Scans/BadgeFilter sont **liftés** au niveau `StatisticsView` et propagés en prop aux tabs.
+**Data flow:** `api/graphql.js` fetches all delegates via cursor-paginated `searchDelegates` (500/page) + event config via `getEvent` → `utils/computeStats.js` computes statistics lazily (getter par section) → composable `useStatistics` exposes reactive state + auto-refresh every 10 min → tab components render charts with cross-filtering via `useFilteredStats`. Live/Replay/Scans + les **2 filtres globaux** (`badgeFilter` type de badge, `dateFilter` plage de dates) sont **liftés** au niveau `StatisticsView` et propagés en prop aux tabs (cf. section **Filtres globaux**).
 
 **Key layers:**
 
@@ -43,21 +43,23 @@ Sources de données :
 |-------|-------|------|
 | API | `src/api/graphql.js` | Apollo Gateway : `searchDelegates`, `getEvent` (config + mobileAppId), `fetchEventSessions`. Wrapper `gqlFetch` log opName + elapsed + timeout detection. |
 | | `src/api/elasticsearch.js` | ES direct (proxy `/api/es`) : `fetchRoomAudience`, `fetchCongressCheckin`, `fetchZoneAccess`, `fetchLiveViews`, `fetchReplayViews` |
-| Computation | `src/utils/computeStats.js` | **Lazy** `computeAllStats(delegates, mobileAppId)` : retourne un objet à getters, chaque section (`global`, `demographics`, `registrations`, `temporal`, `checkinFlow`, `badges`, `onboarding`, `mobileApp`) calculée uniquement à premier accès et mémoïsée. API publique identique au monolithique précédent. |
-| | `src/utils/computeScanStats.js` | Agrège les 3 index ES de scans onsite |
-| | `src/utils/computeLiveStats.js` | Normalise hits live + enrichit via `sessionMap` (GraphQL) pour récupérer sessionTitle/type/start/end/duration que ES n'expose pas |
-| | `src/utils/computeReplayStats.js` | Idem pour VOD replay |
+| Computation | `src/utils/computeStats.js` | **Lazy** `computeAllStats(delegates, mobileAppId, dateRange?)` : objet à getters par section (`global`, `demographics`, `registrations`, `temporal`, `checkinFlow`, `badges`, `onboarding`, `mobileApp`), calcul mémoïsé au 1er accès. `dateRange` (optionnel) n'est appliqué QU'AU **check-in** (`global.checkedInCount` + `checkinFlow`) — cf. **Filtres globaux**. |
+| | `src/utils/computeScanStats.js` | Agrège les 3 index ES de scans onsite. `computeAllScanStats({audience,checkin,zone}, {dateRange?, badgeTypes?})` : filtre les scans par timestamp (date) et par `badge_type`. Expose `audienceUniqueDelegateSessions` (= « vues en salle » : présences cumulées par session). |
+| | `src/utils/computeLiveStats.js` | Normalise hits live + enrichit via `sessionMap` (GraphQL). `computeLiveStats(hits, sessionMap, dateRange?)` filtre par **`sessionEnd`** (date de diffusion). |
+| | `src/utils/computeReplayStats.js` | Idem pour VOD replay. `computeReplayStats(hits, sessionMap, dateRange?)` filtre par **`timestamp`** de visionnage. |
+| | `src/utils/dateRange.js` | `makeInRange(dateRange)` → prédicat `(date) => bool` partagé (registration + ES) pour le filtre date global. |
 | Composables | `src/composables/useStatistics.js` | Délégués + config, auto-refresh 10 min. `debug.log` (DEV-only) des délégués checkedIn sans badge délivré |
-| | `src/composables/useFilteredStats.js` | Cross-filtering : filtre delegates + recompute stats. Expose `filteredDelegates` (en plus de `filteredStats`) |
-| | `src/composables/useRoomScans.js` | Scans onsite (audience + checkin + zone) en parallèle, auto-refresh 10 min. **Instancié au niveau StatisticsView** depuis Day 1.3 (cleanup `onUnmounted(clearInterval)`). |
-| | `src/composables/useLive.js` | Live views ES + sessions GraphQL en `Promise.all`. **Instancié au niveau StatisticsView**, propagé en prop. Cleanup `onUnmounted`. Plus de cache singleton. |
-| | `src/composables/useReplay.js` | Idem pour VOD replay. Même pattern. |
-| | `src/composables/useBadgeTypeFilter.js` | Filtre badge type **global** (lifté au niveau StatisticsView). Expose `selected` (Set), `allBadgeTypes`, `filteredDelegates`, `filteredCompareDelegates`, `toggle`, `clear`. La sélection persiste cross-tab. |
+| | `src/composables/useFilteredStats.js` | Cross-filtering : filtre delegates + recompute stats. Signature `(getDelegates, getMobileAppId?, getDateRange?)` — `getDateRange` propage le filtre date global (appliqué au check-in). Expose `filteredDelegates`. |
+| | `src/composables/useRoomScans.js` | Scans onsite (audience + checkin + zone) en parallèle. **Lifté StatisticsView**. Options `{ getDateRange, getBadgeTypes }` → filtre date + badge type des scans. Cleanup `onUnmounted(clearInterval)`. |
+| | `src/composables/useLive.js` | Live views ES + sessions GraphQL en `Promise.all`. **Lifté StatisticsView**. Option `{ getDateRange }`. Cleanup `onUnmounted`. |
+| | `src/composables/useReplay.js` | Idem pour VOD replay. Option `{ getDateRange }`. |
+| | `src/composables/useBadgeTypeFilter.js` | Filtre **global** type de badge (lifté StatisticsView). Expose `selected` (Set), `allBadgeTypes`, `filteredDelegates`, `filteredCompareDelegates`, `toggle`, `clear`, `setSelection`. Persiste cross-tab. |
+| | `src/composables/useDateRangeFilter.js` | Filtre **global** plage de dates (lifté StatisticsView). Expose `startYMD`/`endYMD` (computed get/set), `range` ({start,end} ms), `isDefault`, `reset`. Défaut : début = inscription la plus ancienne (des 2 events), fin = aujourd'hui. |
 | | `src/composables/useDiagnostics.js` | Bus de diagnostics UI (`pushDiagnostic`, `dismissDiagnostic`). Affiche des toasts top-right pour les anomalies data actionnables par l'admin. |
 | | `src/composables/useExportPdf.js` | PDF jsPDF, layout maison (KPI compare 3 colonnes A∣Δ∣B, cartes map via html2canvas) |
 | | `src/composables/useExportPptx.js` | PPTX pptxgenjs (chart natifs quand possible, sinon image HD) |
 | | `src/composables/useExportMarkdown.js` | **Export MD destiné au LLM** (Claude/ChatGPT). Dump complet de toutes les données du dashboard (stats + live + replay + scans + comparaison) avec analyse textuelle. Lecture directe des stats objects, pas de DOM walking. |
-| View | `src/views/StatisticsView.vue` | Sidebar hiérarchique. Propriétaire de `liveApi`, `replayApi`, `scansApi`, `badgeFilter` (lifted). Boutons d'export PDF/PPTX/MD. |
+| View | `src/views/StatisticsView.vue` | Sidebar hiérarchique + **toolbar de filtres globaux** (plage de dates + type de badge). Propriétaire (lifted) de `liveApi`/`replayApi`/`scansApi` (+ `compareLiveApi`/`compareReplayApi`/`compareScansApi` si `?compareWith=`), `badgeFilter`, `dateFilter`. Calcule `pageStats`/`pageDelegates` (filtrés) passés aux tabs. Met à jour `document.title` selon l'event (et l'event comparé). Boutons export PDF/PPTX/MD. |
 | Tabs | `src/components/tabs/*.vue` | OverviewTab, DemographicsTab, RegistrationsTab, TemporalTab, BadgesTab, DataTab, ComparisonTab, ScansTab, **ViewersTab** (kind='live'\|'replay'), **ViewersComparisonTab** (générique), ExportsTab |
 | Charts | `src/components/charts/*.vue` | DoughnutChart, HBarChart, LineChart, StackedBarChart (avec `@select` + `activeLabel` + `showTotal`), ChoroplethMap, FrenchRegionMap. **Composants composites** : `RegionalMaps.vue` (monde + FR + DOM), `KpiCompareGrid.vue` (grille KPI 3-col A∣Δ∣B partagée ComparisonTab + ViewersComparisonTab) |
 | Filter UI | `src/components/FilterBanner.vue` | Filtres cross-clic actifs avec boutons d'effacement |
@@ -68,7 +70,8 @@ Sources de données :
 | | `src/utils/debug.js` | Wrapper `debug.log` / `debug.table` no-op en PROD via `import.meta.env.DEV` |
 | | `src/constants.js` | `AUTO_REFRESH_MS`, `COUNTDOWN_TICK_MS`, `DELEGATES_PAGE_SIZE`, `SLOW_QUERY_THRESHOLD_MS`, `ES_BATCH_SIZE` |
 | | `src/utils/viewerJoin.js` | Jointure ES `user_id` (Keycloak ACCOUNT) ↔ délégué Mongo. `buildDelegateLookup`, `getRemoteOnlyDelegateIds`, `getCheckedInDelegateIds`, `hasValidCheckin`, `getKeycloakId`. **Warnings auto** (console + UI banner pour la couverture délégués) si jointure suspecte. |
-| | `src/utils/participation.js` | `computeParticipation(delegates, liveItems, replayItems)` : décomposition **dédoublonnée** "Total participants" (`checkedIn` / `liveOnly` / `both` / `replayOnly` / `total`, Sets + counts). Source unique partagée OverviewTab + export MD. S'appuie sur `viewerJoin.js`. |
+| | `src/utils/participation.js` | `computeParticipation(delegates, liveItems, replayItems, {datasetLabel?, dateRange?})` : décomposition **dédoublonnée** "Total participants". Présents physiques scindés en `checkedInOnly` / `checkedInLive` (live sans replay) / `checkedInReplay` (replay, ± live) ; distanciels en `liveOnly` / `both` / `replayOnly` ; + `total`. Source unique OverviewTab + export MD. `dateRange` filtre le check-in. S'appuie sur `viewerJoin.js`. |
+| | `src/utils/physicalReplay.js` | `buildPhysicalReplayByDay` / `buildPhysicalReplayCumulative(items, lookup)` : funnel « présent physique PUIS revu en replay » (séries journalière + cumulée). Utilisé par ViewersTab + ViewersComparisonTab (replay). |
 | | `src/utils/countries.js` | Country code ↔ continent/flag |
 | | `src/utils/frenchRegions.js` | Mapping département (2 chars du zipCode) → région INSEE + libellés |
 | | `src/utils/parisTime.js` | `parisDateParts(iso)` (UTC→Paris CET/CEST), `parisDay(iso)`, `parisDateTime(iso)` (format CSV "YYYY-MM-DD HH:mm:ss") |
@@ -96,7 +99,18 @@ Le node "Registration" et "Exports" n'apparaissent pas dans les exports PDF/PPTX
 
 **Cross-filtering:** Each tab uses `useFilteredStats(getDelegates, getMobileAppId)` independently. Clicking a chart segment filters delegates and recomputes all stats within that tab. Charts accept `activeLabel` prop to dim non-selected segments. Filter state resets when switching tabs (v-if destroys/recreates components).
 
-**Filtre badge type global** (Overview + BadgesTab + ComparisonTab) : `useBadgeTypeFilter` instancié dans `StatisticsView`, propagé en prop. La sélection **persiste cross-tab** (avant Day 3 : chaque tab avait sa propre instance, état perdu au switch). Logique de match : `delegateBadgeType(d)` = type attendu (1er badge en base ou 1ère registration). Le composant `<BadgeTypeFilter>` ne gère que l'UI ; l'état vit dans le composable.
+### Filtres globaux (toolbar persistante)
+
+Une **toolbar** en haut du contenu (`StatisticsView`, classe `.global-filters`, masquée pendant l'export PDF/PPTX) porte 2 filtres **liftés** et appliqués à la source, **persistants sur tous les onglets/sous-onglets** :
+
+**1. Type de badge** (`useBadgeTypeFilter`) — multi-select. Filtre la **population** de délégués (`delegateBadgeType(d)` = 1er badge en base, sinon 1ère registration). Propagé partout : tous les onglets registration reçoivent `pageDelegates`/`pageCompareDelegates` (déjà badge-filtrés) ; les scans sont filtrés par `badge_type` ; Live/Replay filtrent leur population de jointure. Le composant `<BadgeTypeFilter>` ne gère que l'UI ; l'état vit dans le composable.
+
+**2. Plage de dates** (`useDateRangeFilter`) — début/fin. **Portée volontairement restreinte aux statistiques datées par une activité de présence/consultation** :
+- **Check-in physique** (`checkedInDate`), **Live** (`sessionEnd`), **Replay** (`timestamp` de visionnage), **Scans QR** salle/zone/checkin (`timestamp`).
+- **PAS** appliqué aux inscriptions (`createdAt`), badges délivrés, onboarding, démographie, types/catégories.
+- **Gating** : tant que l'utilisateur n'a pas modifié les bornes (`isDefault`), `effectiveDateRange = null` → **aucun filtrage** (évite de masquer toute la donnée de consultation quand un timestamp ES est absent/hors plage par défaut). Le filtre ne s'active qu'après modification d'une borne.
+
+`StatisticsView` calcule `pageStats`/`pageCompareStats` = `computeAllStats(pageDelegates, mobileAppId, effectiveDateRange)` et passe `:date-range="effectiveDateRange"` aux tabs ; les composables ES reçoivent `getDateRange: () => effectiveDateRange.value`.
 
 **Routing:** Single route `/:eventId` → `StatisticsView.vue`. Root `/` redirects to `/no-event`. Query param `?compareWith=<otherEventId>` active l'onglet Comparatif et précharge un 2ᵉ event.
 
@@ -132,6 +146,9 @@ Delegate fields : `givenName/familyName/email/status/gender/company/occupation/j
 - **Badges & Check-in tab:** Totals (badges delivered %, check-in %) are relative to `registered` count, not total delegates
 - **Mix des présents** (ComparisonTab + BadgesTab) : population `status = registered AND checkedInDate non null/valide`
 - **Décomposition Overview** (Types + Catégories) : **registered uniquement**, segmentée en `physique / live-replay seul / aucune participation`. Somme des 3 = total registered par type/catégorie.
+- **Total participants — 3 grands modes** (OverviewTab) : `Présence physique` (sur place seul + sur place&live + sur place&replay) · `Live distanciel` (live seul + live&replay) · `Replay distanciel` (replay seul). « Sur place + live » = présent ayant suivi du live MAIS PAS de replay (le replay capte le cas mixte présent+live+replay). Barre en 3 zones colorées, longueur proportionnelle au total de chaque event.
+- **Filtre date — portée** : appliqué UNIQUEMENT au check-in (`checkedInDate`) et aux consultations Live (`sessionEnd`) / Replay (`timestamp`) / Scans (`timestamp`). PAS aux inscriptions/badges/onboarding/démographie. Inactif tant que les bornes par défaut ne sont pas modifiées.
+- **Vues en salle** (`audienceUniqueDelegateSessions`) : somme, sur toutes les sessions, des délégués distincts scannés en salle. Un délégué présent à N sessions compte N fois (multi-scans d'une même session dédupliqués). ≠ délégués uniques en salle.
 - **Live/Replay "sans présence physique"** : jointure unique via `contact.emailAddresses[].source.id` (type ACCOUNT) ↔ `user_id` ES. Compte les délégués matched dont `checkedInDate` est invalide. Les viewers ES non liés sont `unknown`, exclus du KPI.
 - **Bucketage Live "par jour"** : `sessionEnd` (jour de diffusion live), fetché via GraphQL puis fallback ES
 - **Bucketage Replay "par jour"** : `timestamp` du visionnage (date où le user a regardé la VOD, possiblement très éloignée de la session originale)
@@ -199,7 +216,9 @@ Fingerprint partagé entre `console.warn` et `pushDiagnostic` évite la duplicat
 - Sequential pagination can be slow for large events (>5000 delegates)
 - Cross-filtering recomputes affected stats sections on each click — laziness limite le coût, mais pas de mémoïsation cross-clic
 - Badge delivery counters depend on backend `badges.deliveredAt` field availability
-- Filter cross-clic state is per-tab and resets on tab switch (badge type filter en revanche est global)
+- Filter cross-clic state is per-tab and resets on tab switch (les 2 filtres globaux — type de badge + plage de dates — sont en revanche persistants cross-tab)
+- **Filtre date Live** : quand actif, repose sur `sessionEnd` car l'index ES live n'expose pas de timestamp de visionnage fiable ; si une session n'a ni `sessionEnd`/`sessionStart` ni timestamp, elle est exclue. C'est pourquoi le filtre date est inactif par défaut (sinon Live tomberait à 0).
+- Cartes choroplèthes (BadgesTab `RegionalMaps`) : badge-filtrées mais PAS date-filtrées (liste brute de délégués). Les KPI/charts calculés via `fs` le sont.
 
 ## Axes d'evolution (si passage en production)
 
@@ -223,8 +242,8 @@ Onglet ajouté pour remplacer le microservice `congress/microservices/xlsx-stats
 |-------|---------|------|
 | API | `src/api/elasticsearch.js` | Client ES REST direct (`POST /{index}/_search` + pagination `search_after`, batches de 2000). 3 exports : `fetchRoomAudience`, `fetchCongressCheckin`, `fetchZoneAccess` |
 | Composable | `src/composables/useRoomScans.js` | Charge les 3 index en parallèle. **Lifté au niveau `StatisticsView`** depuis Day 1.3 — `ScansTab` et `ExportsTab` reçoivent `scansApi` en prop. Cleanup `onUnmounted(clearInterval)`. |
-| Compute | `src/utils/computeScanStats.js` | Pure function `computeAllScanStats({ audience, checkin, zone })` qui normalise les 3 schemas en un objet unifié `{ kind, delegateId, fullName, ..., sessionId, zoneId, direction, timestamp }` et agrège les KPI |
-| Composant | `src/components/tabs/ScansTab.vue` | Reçoit `scansApi` en prop |
+| Compute | `src/utils/computeScanStats.js` | Pure function `computeAllScanStats({ audience, checkin, zone }, {dateRange?, badgeTypes?})` : normalise les 3 schemas, filtre par date/badge, agrège les KPI dont `audienceUniqueDelegateSessions` (vues en salle) et `topSessions[].uniqueDelegates`. |
+| Composant | `src/components/tabs/ScansTab.vue` | Reçoit `scansApi` (+ `compareScansApi`, `eventName`, `compareEventName`). Affiche une grille `<KpiCompareGrid>` A∣Δ∣B quand `?compareWith=`. |
 | Proxy | `vite.config.js` `/api/es` | Forward dev vers `VITE_ES_URL` (defaut `http://192.168.201.176:9200`). Pas équivalent prod. |
 
 ### Sources ES consommées
@@ -322,7 +341,11 @@ Les composables `useLive` et `useReplay` sont liftés au niveau `StatisticsView`
 - KPIs identiques
 - Pas de session_type chart (seul Live l'expose proprement)
 - Délégués uniques par jour : bucké sur `timestamp` du visionnage
+- Engagement (sessions/délégué) remonté à droite de « Délégués uniques par jour »
+- **Funnel « présents physiques ayant consulté du replay »** (`physicalReplay.js`) : par jour (délégués uniques + vues, double axe) + cumulé. Comparatif : 2 courbes cumulées A vs B alignées J0 (côte à côte avec « Délégués cumulés ayant consulté du replay — comparé »)
 - Tableau détail avec colonne Origine en pill
+
+**OverviewTab — charts de synthèse** (en plus des KPI/decomposition) : Participants vs Inscrits (groupé par event), Participants par type de badge (empilé), Audience salle+live+replay (horizontal — « Salle » = `audienceUniqueDelegateSessions`), et « Délégués cumulés ayant consulté du replay — comparé » (remplace le cumul single quand `?compareWith=`).
 
 ### Choix d'implémentation NON optimaux
 
@@ -365,5 +388,5 @@ Filename : `bilan-{eventName}-{date}.md`. Lecture **directe** des stats objects 
 Bouton "MD" couleur accent CYIM dans la sidebar, à côté de PDF / PPTX.
 
 **Limites assumées** :
-- L'event comparé ne charge pas les scans QR (`useRoomScans` n'est pas instancié pour le compare) → l'annexe B n'a pas de section Scans, et le signale.
-- Top sessions/salles/zones des scans n'exposent pas de "délégués uniques" par ligne (`computeScanStats.topN` ne porte que `{ label, count }`) — pas de colonne trompeuse à 0.
+- L'event comparé **charge désormais ses scans QR** (`compareScansApi` instancié quand `?compareWith=`) → l'annexe B inclut la section Scans (sauf si réellement aucun scan).
+- Top sessions audience scans exposent `uniqueDelegates` par ligne (depuis l'enrichissement `topSessions`) ; top salles/zones restent `{ label, count }`.

@@ -1,4 +1,5 @@
 import { parisDateParts } from "./parisTime.js";
+import { makeInRange } from "./dateRange.js";
 
 // Normalisation d'un hit ES vers un format unifie : audience/checkin/zone
 // portent des noms de champs differents (user_id vs delegate_id, badge_type
@@ -110,6 +111,24 @@ function uniqueDelegates(scans) {
   return set.size;
 }
 
+// Delegues scannes PAR session : Map<sessionId, Set<delegateId>>.
+// Regle de comptage de "vues en salle" (somme des cardinalites) :
+//   - un delegue compte 1x POUR CHAQUE session distincte qu'il a suivie
+//     (present a 3 sessions => +3) ;
+//   - en revanche, plusieurs scans de la MEME session (re-entrees, allers-
+//     retours) ne comptent qu'une fois pour cette session.
+// C'est l'affluence totale des conferences, vs le nombre brut de scans qui
+// sur-compte les multi-passages a l'interieur d'une meme session.
+function uniqueDelegatesBySession(scans) {
+  const bySession = new Map();
+  for (const s of scans) {
+    if (!s.sessionId || !isRealDelegateId(s.delegateId)) continue;
+    if (!bySession.has(s.sessionId)) bySession.set(s.sessionId, new Set());
+    bySession.get(s.sessionId).add(s.delegateId);
+  }
+  return bySession;
+}
+
 function countBy(scans, getKey) {
   const map = new Map();
   for (const s of scans) {
@@ -161,6 +180,31 @@ function uniqueDelegatesByDay(scans) {
   return out;
 }
 
+function uniqueDelegatesByDayByBadgeType(scans) {
+  // { day: { badgeType: count } } — delegues uniques par jour, ventiles par
+  // type de badge. Pour que la somme par jour reste egale au total de delegues
+  // uniques du jour (uniqueDelegatesByDay), chaque delegue est rattache a UN
+  // seul type par jour (premier rencontre) : un delegue ne peut pas etre
+  // double-compte meme si ses scans portent 2 types differents (cas rare :
+  // badge_type cote audience vs registration_type cote checkin).
+  const seen = new Map(); // day -> Map<delegateId, badgeType>
+  for (const s of scans) {
+    if (!isRealDelegateId(s.delegateId)) continue;
+    const dh = dayHourFromTimestamp(s.timestamp);
+    if (!dh) continue;
+    if (!seen.has(dh.day)) seen.set(dh.day, new Map());
+    const dayMap = seen.get(dh.day);
+    if (!dayMap.has(s.delegateId)) dayMap.set(s.delegateId, s.badgeType || "Inconnu");
+  }
+  const out = {};
+  for (const [day, dayMap] of seen) {
+    const byType = {};
+    for (const type of dayMap.values()) byType[type] = (byType[type] || 0) + 1;
+    out[day] = byType;
+  }
+  return out;
+}
+
 function sessionLabelMap(audienceScans) {
   // Map session_id -> session_title (premier titre rencontre)
   const map = new Map();
@@ -172,16 +216,43 @@ function sessionLabelMap(audienceScans) {
   return map;
 }
 
-export function computeAllScanStats({ audience = [], checkin = [], zone = [] }) {
-  const audienceScans = audience.map(normalizeAudience);
-  const checkinScans = checkin.map(normalizeCheckin);
-  const zoneScans = zone.map(normalizeZone);
+export function computeAllScanStats({ audience = [], checkin = [], zone = [] }, options = {}) {
+  const { dateRange = null, badgeTypes = null } = options;
+  // Filtre date global : un scan n'est compte que si son timestamp tombe dans
+  // la plage. Filtre badge type global : si un set de types est fourni (non
+  // vide), on ne garde que les scans de ces types de badge.
+  const inRange = makeInRange(dateRange);
+  const hasBadgeFilter = badgeTypes && badgeTypes.size > 0;
+  const keep = (s) =>
+    (!dateRange || inRange(s.timestamp)) &&
+    (!hasBadgeFilter || badgeTypes.has(s.badgeType));
+
+  const audienceScans = audience.map(normalizeAudience).filter(keep);
+  const checkinScans = checkin.map(normalizeCheckin).filter(keep);
+  const zoneScans = zone.map(normalizeZone).filter(keep);
   const allScans = [...audienceScans, ...checkinScans, ...zoneScans];
 
   const audienceBySession = countBy(audienceScans, (s) => s.sessionId);
   const sessionLabels = sessionLabelMap(audienceScans);
 
-  const topSessions = topN(audienceBySession, 20, (id) => sessionLabels.get(id) || id);
+  // Delegues uniques par session + "vues en salle" = somme cumulee par session.
+  const audienceUniqBySession = uniqueDelegatesBySession(audienceScans);
+  const audienceUniqueDelegateSessions = [...audienceUniqBySession.values()].reduce(
+    (sum, set) => sum + set.size,
+    0,
+  );
+
+  // topSessions trie par scans bruts mais enrichi de uniqueDelegates (delegues
+  // distincts ayant scanne cette session) pour les vues comparatives.
+  const topSessions = [...audienceBySession.entries()]
+    .map(([id, count]) => ({
+      key: id,
+      label: sessionLabels.get(id) || id,
+      count,
+      uniqueDelegates: audienceUniqBySession.get(id)?.size || 0,
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 20);
 
   const audienceByRoom = countBy(audienceScans, (s) => s.roomName || s.roomId);
   const topRooms = topN(audienceByRoom, 15);
@@ -202,6 +273,9 @@ export function computeAllScanStats({ audience = [], checkin = [], zone = [] }) 
       uniqueCheckinDelegates: uniqueDelegates(checkinScans),
       uniqueZoneDelegates: uniqueDelegates(zoneScans),
       uniqueDelegatesAll: uniqueDelegates(allScans),
+      // "Vues en salle" : delegues uniques scannes en salle, cumules par session
+      // (audience reelle des conferences, dedoublonnee a l'interieur de chaque session).
+      audienceUniqueDelegateSessions,
       distinctSessions: audienceBySession.size,
       distinctRooms: audienceByRoom.size,
       distinctZones: zoneByName.size,
@@ -229,6 +303,7 @@ export function computeAllScanStats({ audience = [], checkin = [], zone = [] }) 
     combined: {
       byHour: flowByDayHour(allScans),
       uniqueDelegatesByDay: uniqueDelegatesByDay(allScans),
+      uniqueDelegatesByDayByBadgeType: uniqueDelegatesByDayByBadgeType(allScans),
       uniqueDelegatesByDayAudience: uniqueDelegatesByDay(audienceScans),
       uniqueDelegatesByDayCheckin: uniqueDelegatesByDay(checkinScans),
       uniqueDelegatesByDayZone: uniqueDelegatesByDay(zoneScans),

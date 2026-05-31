@@ -140,6 +140,10 @@ const props = defineProps({
   delegates: Array,
   mobileAppId: String,
   eventName: String,
+  // Declare mais inutilise : le filtre date global ne s'applique PAS aux
+  // donnees d'inscription (uniquement Live/Replay/Scans). Absorbe le binding
+  // pour eviter un attribut fall-through sur le DOM.
+  dateRange: { type: Object, default: null },
 });
 
 const searchQuery = ref("");

@@ -286,6 +286,8 @@ const props = defineProps({
   compareProgress: Object,
   // Filtre badge type lifte au niveau StatisticsView (etat partage avec Overview/Badges).
   badgeFilter: { type: Object, required: true },
+  // Plage de dates globale (filtre par activite).
+  dateRange: { type: Object, default: null },
 });
 
 const COLORS = {
@@ -304,14 +306,11 @@ const {
   setSelection: setBadgeTypes,
 } = props.badgeFilter;
 
-// Effective stats : recalcul seulement si filtre actif (sinon on garde les
-// stats deja calculees dans useStatistics, evite computeAllStats sur tout
-// l'event sans raison).
-const effStats = computed(() =>
-  selectedBadgeTypes.value.size === 0 ? props.stats : computeAllStats(effDelegates.value),
-);
+// Effective stats : recalculees avec le filtre badge type (effDelegates) et le
+// filtre date (props.dateRange — applique au CHECK-IN, ex: "Taux de presence").
+const effStats = computed(() => computeAllStats(effDelegates.value, null, props.dateRange));
 const effCompareStats = computed(() =>
-  selectedBadgeTypes.value.size === 0 ? props.compareStats : computeAllStats(effCompareDelegates.value),
+  computeAllStats(effCompareDelegates.value, null, props.dateRange),
 );
 
 // Cle de cache pour les Choropleth quand la selection change.

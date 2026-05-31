@@ -9,7 +9,7 @@ import { debug } from "@/utils/debug.js";
 import { AUTO_REFRESH_MS } from "@/constants.js";
 
 export function useRoomScans(eventId, options = {}) {
-  const { autoRefresh = false } = options;
+  const { autoRefresh = false, getDateRange = null, getBadgeTypes = null } = options;
 
   const loading = ref(true);
   const refreshing = ref(false);
@@ -24,11 +24,17 @@ export function useRoomScans(eventId, options = {}) {
   // identifiant cote Flink : delegate.id Mongo. Donc l'unicite se fait
   // directement sur cet ID, sans translation. Cf. computeScanStats.js.
   const stats = computed(() =>
-    computeAllScanStats({
-      audience: audience.value,
-      checkin: checkin.value,
-      zone: zone.value,
-    }),
+    computeAllScanStats(
+      {
+        audience: audience.value,
+        checkin: checkin.value,
+        zone: zone.value,
+      },
+      {
+        dateRange: getDateRange ? getDateRange() : null,
+        badgeTypes: getBadgeTypes ? getBadgeTypes() : null,
+      },
+    ),
   );
 
   async function load() {

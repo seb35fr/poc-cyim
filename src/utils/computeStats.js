@@ -1,5 +1,6 @@
 import { COUNTRY_CONTINENTS } from "./countries.js";
 import { parisDateParts } from "./parisTime.js";
+import { makeInRange } from "./dateRange.js";
 
 // Calcul de toutes les stats de l'event. Avant ce refactor, computeAllStats
 // retournait un objet "plein" avec ses 8 sections calculees en un seul pass
@@ -33,6 +34,7 @@ function groupBy(arr, keyFn) {
 function getCountryCode(d) {
   return d.primaryAddress?.countryCode || d.primaryAddress?.country?.code || null;
 }
+
 
 // ---------------------------------------------------------------------------
 // SECTIONS — chacune lit `delegates` (et eventuellement `mobileAppId`) et
@@ -236,12 +238,16 @@ function computeTemporal(delegates) {
   };
 }
 
-function computeCheckinFlow(delegates) {
+// inRange (optionnel) = predicat du filtre date global. Le check-in fait partie
+// du perimetre du filtre date (au meme titre que Live/Replay/Scans) : on ne
+// compte un check-in que si checkedInDate tombe dans la plage.
+function computeCheckinFlow(delegates, inRange = () => true) {
   const checkinHourlyMap = {};
   const checkinDayMap = {};
   const checkin15minMap = {};
   for (const d of delegates) {
     if (!d.checkedInDate) continue;
+    if (!inRange(d.checkedInDate)) continue;
     const parts = parisDateParts(d.checkedInDate);
     if (!parts) continue;
     const dayStr = parts.ymd;
@@ -433,7 +439,10 @@ function computeMobileApp(delegates, mobileAppId) {
 // (2 boucles O(n) supplementaires negligeables). Permet a un consommateur qui
 // ne lit que `global` de ne PAS declencher les calculs lourds de badges /
 // mobileApp.
-function computeGlobal(delegates, mobileAppId) {
+// inRange ne s'applique QU'AU check-in (checkedInDate fait partie du perimetre
+// du filtre date). Les autres compteurs (onboarding, gdpr, badges, mobile,
+// total) ne sont PAS filtres par date.
+function computeGlobal(delegates, mobileAppId, inRange = () => true) {
   let checkedInCount = 0;
   let onboardingCount = 0;
   let gdprCount = 0;
@@ -441,7 +450,7 @@ function computeGlobal(delegates, mobileAppId) {
   let pendingCount = 0;
   let totalBadgesDelivered = 0;
   for (const d of delegates) {
-    if (d.checkedInDate) checkedInCount++;
+    if (d.checkedInDate && inRange(d.checkedInDate)) checkedInCount++;
     if (d.firstOnboardingConnection) onboardingCount++;
     if (d.gdpr) gdprCount++;
     if (d.contactId) withAccountCount++;
@@ -489,11 +498,17 @@ function computeGlobal(delegates, mobileAppId) {
 // strictement identique a la version monolithique : `fs.global`,
 // `fs.demographics`, etc. fonctionnent comme avant.
 // ---------------------------------------------------------------------------
-export function computeAllStats(delegates, mobileAppId = null) {
+// `dateRange` (optionnel) = { start, end } ms. Le FILTRE DATE GLOBAL ne touche
+// QUE le check-in (checkedInDate) ici — au meme titre que les stats de
+// consultation Live/Replay/Scans (gerees par les compute* ES). Les autres
+// sections (inscriptions/createdAt, badges/deliveredAt, onboarding, demographie)
+// ne sont PAS filtrees par date.
+export function computeAllStats(delegates, mobileAppId = null, dateRange = null) {
+  const inRange = makeInRange(dateRange);
   let _global, _demographics, _registrations, _temporal, _checkinFlow, _badges, _onboarding, _mobileApp;
   return {
     get global() {
-      if (!_global) _global = computeGlobal(delegates, mobileAppId);
+      if (!_global) _global = computeGlobal(delegates, mobileAppId, inRange);
       return _global;
     },
     get demographics() {
@@ -509,7 +524,7 @@ export function computeAllStats(delegates, mobileAppId = null) {
       return _temporal;
     },
     get checkinFlow() {
-      if (!_checkinFlow) _checkinFlow = computeCheckinFlow(delegates);
+      if (!_checkinFlow) _checkinFlow = computeCheckinFlow(delegates, inRange);
       return _checkinFlow;
     },
     get badges() {

@@ -143,6 +143,23 @@ export function getRemoteOnlyDelegateIds(items, lookup, { datasetLabel = "" } = 
   return set;
 }
 
+// Set<delegate.id Mongo> de TOUS les delegues rapproches d'au moins un hit ES
+// (live OU replay selon `items`), SANS filtre sur le check-in. Sert a croiser
+// la population physiquement presente avec la participation distancielle
+// (ex: "presents qui ont aussi suivi en live"). Pas de warn ici — la couverture
+// est deja diagnostiquee par buildDelegateLookup / getRemoteOnlyDelegateIds.
+export function getMatchedViewerDelegateIds(items, lookup) {
+  const set = new Set();
+  if (!items || !lookup) return set;
+  for (const it of items) {
+    const kcId = it.userId;
+    if (!kcId) continue;
+    const entry = lookup.get(kcId);
+    if (entry?.delegate?.id) set.add(entry.delegate.id);
+  }
+  return set;
+}
+
 // Set<delegate.id Mongo> des delegues physiquement checked-in (date valide).
 export function getCheckedInDelegateIds(delegates) {
   const set = new Set();

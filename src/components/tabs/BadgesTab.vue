@@ -54,16 +54,8 @@
       </div>
     </div>
 
-    <!-- Filtre global page par type de badge — etat partage avec
-         Overview/Comparison (cf. useBadgeTypeFilter dans StatisticsView). -->
-    <BadgeTypeFilter
-      v-if="availableBadgeTypes.length > 0"
-      :types="availableBadgeTypes"
-      :selected="selectedBadgeTypes"
-      @toggle="toggleBadgeType"
-      @clear="clearBadgeTypes"
-      @select="setBadgeTypes"
-    />
+    <!-- Le filtre par type de badge est desormais GLOBAL (toolbar StatisticsView),
+         applique a tous les onglets — plus de filtre local ici. -->
 
     <!-- Progression du check-in (gauche) / Progression par type (droite) -->
     <div class="charts-row">
@@ -108,37 +100,32 @@
       </div>
     </div>
 
-    <!-- Badges imprimés par device (stacked par type de badge) -->
-    <div class="chart-card">
-      <div class="chart-header">
-        <h3>Badges imprimés par device</h3>
-        <CsvButton filename="badges-par-device"
-          :headers="['Device', ...badgeTypeList]"
-          :rows="deviceLabels.map(dev => [dev, ...badgeTypeList.map(t => deviceByType[dev]?.[t] || 0)])" />
-      </div>
-      <template v-if="deviceLabels.length > 0">
-        <div :style="{ position: 'relative', height: deviceChartHeight + 'px' }">
-          <Bar :data="deviceChartData" :options="deviceChartOptions" :plugins="[deviceRowTotalsPlugin]" />
+    <!-- Day charts side-by-side : Check-in (gauche) / Badges (droite) -->
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-header">
+          <h3>Check-in par jour</h3>
+          <CsvButton filename="checkin-par-jour" :headers="['Date', 'Check-in']" :rows="checkinByDay.map(([d, c]) => [d, c])" />
         </div>
-      </template>
-      <p v-else class="empty-msg">Aucune donnée de device</p>
-    </div>
-
-    <!-- Mix des types d'inscriptions (presents confirmes) -->
-    <div class="chart-card" v-if="typesMixChart.datasets.length > 0">
-      <div class="chart-header">
-        <h3>Mix des types d'inscriptions (présents confirmés)</h3>
-        <div style="display: flex; align-items: center; gap: 6px;">
-          <span class="chart-hint" style="margin: 0;">
-            Population : <code>status = registered</code> ET <code>checkedInDate</code> renseignée
-          </span>
-          <CsvButton filename="mix-types-presents"
-            :headers="['Type', '%', 'Nb']"
-            :rows="typesMixChart.datasets.map(ds => [ds.label, ds.data[0], typesMixCounts[ds.label] || 0])" />
-        </div>
+        <template v-if="checkinDayLabels.length > 0">
+          <div :style="{ position: 'relative', height: '280px' }">
+            <Bar :data="checkinDayChartData" :options="checkinDayByTypeOptions" :plugins="[checkinDayTotalsPlugin]" />
+          </div>
+        </template>
+        <p v-else class="empty-msg">Aucun check-in enregistré</p>
       </div>
-      <div :style="{ position: 'relative', height: typesMixHeight + 'px' }">
-        <Bar :data="typesMixChart" :options="typesMixOptions" />
+      <div class="chart-card">
+        <div class="chart-header">
+          <h3>Badges délivrés par jour</h3>
+          <CsvButton filename="badges-par-jour" :headers="['Date', 'Badges']" :rows="(stats.badges.byDay || []).map(d => [d.date, d.count])" />
+        </div>
+        <template v-if="badgesDayLabels.length > 0">
+          <div :style="{ position: 'relative', height: '280px' }">
+            <Bar :data="badgesDayChartData" :options="badgesDayOptions" :plugins="[checkinDayTotalsPlugin]" />
+          </div>
+          <p class="chart-hint">Cliquez sur un ou plusieurs jours pour filtrer la page.</p>
+        </template>
+        <p v-else class="empty-msg">Aucun badge délivré</p>
       </div>
     </div>
 
@@ -199,32 +186,37 @@
       </div>
     </div>
 
-    <!-- Day charts side-by-side : Check-in (gauche) / Badges (droite) -->
-    <div class="charts-row">
-      <div class="chart-card">
-        <div class="chart-header">
-          <h3>Check-in par jour</h3>
-          <CsvButton filename="checkin-par-jour" :headers="['Date', 'Check-in']" :rows="checkinByDay.map(([d, c]) => [d, c])" />
-        </div>
-        <template v-if="checkinDayLabels.length > 0">
-          <div :style="{ position: 'relative', height: '260px' }">
-            <Bar :data="checkinDayChartData" :options="barOptions" />
-          </div>
-        </template>
-        <p v-else class="empty-msg">Aucun check-in enregistré</p>
+    <!-- Badges imprimés par device (stacked par type de badge) -->
+    <div class="chart-card">
+      <div class="chart-header">
+        <h3>Badges imprimés par device</h3>
+        <CsvButton filename="badges-par-device"
+          :headers="['Device', ...badgeTypeList]"
+          :rows="deviceLabels.map(dev => [dev, ...badgeTypeList.map(t => deviceByType[dev]?.[t] || 0)])" />
       </div>
-      <div class="chart-card">
-        <div class="chart-header">
-          <h3>Badges délivrés par jour</h3>
-          <CsvButton filename="badges-par-jour" :headers="['Date', 'Badges']" :rows="(stats.badges.byDay || []).map(d => [d.date, d.count])" />
+      <template v-if="deviceLabels.length > 0">
+        <div :style="{ position: 'relative', height: deviceChartHeight + 'px' }">
+          <Bar :data="deviceChartData" :options="deviceChartOptions" :plugins="[deviceRowTotalsPlugin]" />
         </div>
-        <template v-if="badgesDayLabels.length > 0">
-          <div :style="{ position: 'relative', height: '260px' }">
-            <Bar :data="badgesDayChartData" :options="badgesDayOptions" />
-          </div>
-          <p class="chart-hint">Cliquez sur un ou plusieurs jours pour filtrer la page.</p>
-        </template>
-        <p v-else class="empty-msg">Aucun badge délivré</p>
+      </template>
+      <p v-else class="empty-msg">Aucune donnée de device</p>
+    </div>
+
+    <!-- Mix des types d'inscriptions (presents confirmes) -->
+    <div class="chart-card" v-if="typesMixChart.datasets.length > 0">
+      <div class="chart-header">
+        <h3>Mix des types d'inscriptions (présents confirmés)</h3>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span class="chart-hint" style="margin: 0;">
+            Population : <code>status = registered</code> ET <code>checkedInDate</code> renseignée
+          </span>
+          <CsvButton filename="mix-types-presents"
+            :headers="['Type', '%', 'Nb']"
+            :rows="typesMixChart.datasets.map(ds => [ds.label, ds.data[0], typesMixCounts[ds.label] || 0])" />
+        </div>
+      </div>
+      <div :style="{ position: 'relative', height: typesMixHeight + 'px' }">
+        <Bar :data="typesMixChart" :options="typesMixOptions" />
       </div>
     </div>
 
@@ -275,11 +267,11 @@ import HBarChart from "../charts/HBarChart.vue";
 import LineChart from "../charts/LineChart.vue";
 import FilterBanner from "../FilterBanner.vue";
 import CsvButton from "../CsvButton.vue";
-import BadgeTypeFilter from "../BadgeTypeFilter.vue";
 import { useFilteredStats } from "../../composables/useFilteredStats.js";
 import { makeDateLabeler } from "../../utils/formatDateLabel.js";
 import { parisDay, parisDateTime } from "../../utils/parisTime.js";
 import { buildBurndownAbsolute } from "../../utils/burndown.js";
+import { makeInRange } from "../../utils/dateRange.js";
 import { getTypeColor } from "../../utils/typeColors.js";
 import { fmt, pct } from "@/utils/formatters.js";
 import {
@@ -295,6 +287,8 @@ const props = defineProps({
   delegates: Array,
   // Filtre badge type lifte au niveau StatisticsView (etat partage avec Overview/Comparison).
   badgeFilter: { type: Object, required: true },
+  // Plage de dates globale (filtre par activite) — propagee a useFilteredStats.
+  dateRange: { type: Object, default: null },
 });
 
 // --- Filtre global badge type : etat partage avec Overview/Comparison ---
@@ -315,7 +309,19 @@ const badgeFilterKey = computed(() => {
 const {
   filteredDelegates, filteredStats: fs, activeFilters, activeFilterMap: afm,
   hasFilters, filteredCount, toggleFilter, removeFilter, clearFilters,
-} = useFilteredStats(() => pageFilteredDelegates.value);
+} = useFilteredStats(() => pageFilteredDelegates.value, () => null, () => props.dateRange);
+
+// Liste avec check-in MASQUE hors plage de dates globale : un check-in dont la
+// date sort de la plage est traite comme absent (checkedInDate = null). Sert aux
+// calculs check-in "bruts" (check-in par type, mix des presents) pour qu'ils
+// respectent le filtre date au meme titre que fs.checkinFlow.
+const checkinScopedDelegates = computed(() => {
+  if (!props.dateRange) return filteredDelegates.value || [];
+  const inRange = makeInRange(props.dateRange);
+  return (filteredDelegates.value || []).map((d) =>
+    d.checkedInDate && !inRange(d.checkedInDate) ? { ...d, checkedInDate: null } : d,
+  );
+});
 
 // --- Export CSV des badges imprimes (KPI "Badges imprimes") ---
 // Source = filteredDelegates pour coller au compteur affiche (respecte le
@@ -388,7 +394,14 @@ const badgesDayLabels = computed(() => {
   const labelFor = makeDateLabeler(dates);
   return dates.map(labelFor);
 });
+// Badges delivres par jour STACKED par type de badge (legende + tooltip par
+// type + total par jour). Bucketage par parisDay(b.deliveredAt) sur chaque
+// badge delivre (meme decompte que badges.byDay) -> la somme empilee d'un jour
+// egale le total du jour. Source non filtree (props.delegates) pour garder tous
+// les jours visibles pendant la multi-selection. Conserve le clic-pour-filtrer
+// et l'estompage des jours non selectionnes.
 const badgesDayChartData = computed(() => {
+  const dates = badgesDaySource.value.map((d) => d.date);
   const labels = badgesDayLabels.value;
   const active = afm.value?.badgeDay;
   const isActive = (label) => {
@@ -396,18 +409,42 @@ const badgesDayChartData = computed(() => {
     if (Array.isArray(active)) return active.includes(label);
     return label === active;
   };
-  return {
-    labels,
-    datasets: [{
-      label: "Badges délivrés",
-      data: badgesDaySource.value.map((d) => d.count),
-      backgroundColor: labels.map((l) =>
-        active && !isActive(l) ? "rgba(30,78,102,0.25)" : "#1E4E66"
-      ),
-      borderRadius: 4,
-      barThickness: Math.max(8, Math.min(32, 600 / (labels.length || 1))),
-    }],
-  };
+  const byDayType = {}; // date -> { type: count }
+  const typeTotals = {};
+  for (const d of props.delegates || []) {
+    for (const b of d.badges || []) {
+      if (!b.deliveredAt) continue;
+      const day = parisDay(b.deliveredAt);
+      if (!day) continue;
+      const type = b.type || "Inconnu";
+      if (!byDayType[day]) byDayType[day] = {};
+      byDayType[day][type] = (byDayType[day][type] || 0) + 1;
+      typeTotals[type] = (typeTotals[type] || 0) + 1;
+    }
+  }
+  const MAX_TYPES = 10;
+  const sortedTypes = Object.keys(typeTotals).sort((a, b) => typeTotals[b] - typeTotals[a]);
+  const top = sortedTypes.slice(0, MAX_TYPES);
+  const rest = sortedTypes.slice(MAX_TYPES);
+  const barThickness = Math.max(8, Math.min(32, 600 / (dates.length || 1)));
+  const mkDataset = (type, getCount, baseColor) => ({
+    label: type,
+    data: dates.map((dt) => getCount(dt)),
+    // Couleur par jour : estompee quand un autre jour est selectionne.
+    backgroundColor: labels.map((l) => (active && !isActive(l) ? dimColor(baseColor, 0.18) : baseColor)),
+    borderRadius: 3,
+    barThickness,
+    stack: "badges",
+  });
+  const datasets = top.map((type) =>
+    mkDataset(type, (dt) => byDayType[dt]?.[type] || 0, type === "Inconnu" ? "#9CA3AF" : getTypeColor(type)),
+  );
+  if (rest.length > 0) {
+    datasets.push(
+      mkDataset("Autres", (dt) => rest.reduce((s, t) => s + (byDayType[dt]?.[t] || 0), 0), "#9CA3AF"),
+    );
+  }
+  return { labels, datasets };
 });
 
 const badgesDayOptions = computed(() => ({
@@ -422,20 +459,24 @@ const badgesDayOptions = computed(() => ({
   },
   layout: { padding: { top: 18 } },
   plugins: {
-    legend: { display: false },
-    datalabels: {
-      display: true,
-      anchor: "end",
-      align: "end",
-      offset: 2,
-      clip: false,
-      color: "#414141",
-      font: { weight: 600, size: 11 },
+    legend: { position: "top", labels: { font: { size: 11 }, usePointStyle: true, pointStyle: "rectRounded" } },
+    datalabels: { display: false },
+    tooltip: {
+      callbacks: {
+        label: (ctx) => `${ctx.dataset.label} : ${ctx.raw.toLocaleString("fr-FR")}`,
+        footer: (items) => {
+          const i = items[0]?.dataIndex;
+          if (i == null) return "";
+          let total = 0;
+          for (const ds of items[0].chart.data.datasets) total += ds.data[i] || 0;
+          return total > 0 ? `Total : ${total.toLocaleString("fr-FR")}` : "";
+        },
+      },
     },
   },
   scales: {
-    x: { grid: { display: false }, ticks: { font: { size: 11 } } },
-    y: { grid: { color: "#f3f4f6" }, ticks: { font: { size: 11 } }, beginAtZero: true },
+    x: { stacked: true, grid: { display: false }, ticks: { font: { size: 11 } } },
+    y: { stacked: true, grid: { color: "#f3f4f6" }, ticks: { font: { size: 11 } }, beginAtZero: true },
   },
 }));
 
@@ -816,7 +857,7 @@ const burndown = computed(() =>
 
 // Progression du check-in par type de badge (bar horizontale stacked).
 // Helper partage avec ComparisonTab.
-const checkinByType = computed(() => buildCheckinByType(filteredDelegates.value));
+const checkinByType = computed(() => buildCheckinByType(checkinScopedDelegates.value));
 
 // --- Mix des types d'inscriptions (presents confirmes) ---
 // Meme regle que sur le comparatif : status === "registered" ET checkedInDate
@@ -827,9 +868,10 @@ const MIX_OTHER_COLOR = "#9CA3AF";
 const typesMixData = computed(() => {
   const counts = new Map();
   let total = 0;
+  const inRange = makeInRange(props.dateRange);
   for (const d of props.delegates || []) {
     if (d.status?.toLowerCase() !== "registered") continue;
-    if (!d.checkedInDate) continue;
+    if (!d.checkedInDate || !inRange(d.checkedInDate)) continue;
     for (const r of d.registrations || []) {
       const type = r.type || "Non renseigne";
       counts.set(type, (counts.get(type) || 0) + 1);
@@ -928,38 +970,100 @@ const checkinDayLabels = computed(() => {
   const labelFor = makeDateLabeler(dates);
   return dates.map(labelFor);
 });
-const checkinDayChartData = computed(() => ({
-  labels: checkinDayLabels.value,
-  datasets: [{
-    label: "Check-in",
-    data: checkinByDay.value.map(([, c]) => c),
-    backgroundColor: "#30DD92",
-    borderRadius: 4,
-    barThickness: Math.max(8, Math.min(32, 600 / (checkinDayLabels.value.length || 1))),
-  }],
-}));
+// Check-in par jour STACKED par type de badge (legende + tooltip par type).
+// Meme population et meme bucketage (parisDay sur checkedInDate) que
+// checkinByDay -> la somme empilee d'un jour egale le total du jour. Top 10
+// types + "Autres", couleur deterministe partagee avec le reste de l'onglet.
+const checkinDayChartData = computed(() => {
+  const dates = checkinByDay.value.map(([d]) => d);
+  const byDayType = {}; // date -> { type: count }
+  const typeTotals = {};
+  for (const d of checkinScopedDelegates.value || []) {
+    if (!d.checkedInDate) continue;
+    const day = parisDay(d.checkedInDate);
+    if (!day) continue;
+    const type = delegateBadgeType(d);
+    if (!byDayType[day]) byDayType[day] = {};
+    byDayType[day][type] = (byDayType[day][type] || 0) + 1;
+    typeTotals[type] = (typeTotals[type] || 0) + 1;
+  }
+  const MAX_TYPES = 10;
+  const sortedTypes = Object.keys(typeTotals).sort((a, b) => typeTotals[b] - typeTotals[a]);
+  const top = sortedTypes.slice(0, MAX_TYPES);
+  const rest = sortedTypes.slice(MAX_TYPES);
+  const barThickness = Math.max(8, Math.min(32, 600 / (dates.length || 1)));
+  const datasets = top.map((type) => ({
+    label: type,
+    data: dates.map((dt) => byDayType[dt]?.[type] || 0),
+    backgroundColor: type === "Inconnu" ? "#9CA3AF" : getTypeColor(type),
+    borderRadius: 3,
+    barThickness,
+    stack: "checkin",
+  }));
+  if (rest.length > 0) {
+    datasets.push({
+      label: "Autres",
+      data: dates.map((dt) => rest.reduce((s, t) => s + (byDayType[dt]?.[t] || 0), 0)),
+      backgroundColor: "#9CA3AF",
+      borderRadius: 3,
+      barThickness,
+      stack: "checkin",
+    });
+  }
+  return { labels: checkinDayLabels.value, datasets };
+});
 
-const barOptions = {
+// Options dediees : stacked + legende visible + total au-dessus de chaque pile.
+const checkinDayByTypeOptions = {
   responsive: true,
   maintainAspectRatio: false,
   layout: { padding: { top: 18 } },
   plugins: {
-    legend: { display: false },
-    datalabels: {
-      display: true,
-      anchor: "end",
-      align: "end",
-      offset: 2,
-      clip: false,
-      color: "#414141",
-      font: { weight: 600, size: 11 },
+    legend: { position: "top", labels: { font: { size: 11 }, usePointStyle: true, pointStyle: "rectRounded" } },
+    datalabels: { display: false },
+    tooltip: {
+      callbacks: {
+        label: (ctx) => `${ctx.dataset.label} : ${ctx.raw.toLocaleString("fr-FR")}`,
+        footer: (items) => {
+          const i = items[0]?.dataIndex;
+          if (i == null) return "";
+          let total = 0;
+          for (const ds of items[0].chart.data.datasets) total += ds.data[i] || 0;
+          return total > 0 ? `Total : ${total.toLocaleString("fr-FR")}` : "";
+        },
+      },
     },
   },
   scales: {
-    x: { grid: { display: false }, ticks: { font: { size: 11 } } },
-    y: { grid: { color: "#f3f4f6" }, ticks: { font: { size: 11 } }, beginAtZero: true },
+    x: { stacked: true, grid: { display: false }, ticks: { font: { size: 11 } } },
+    y: { stacked: true, grid: { color: "#f3f4f6" }, ticks: { font: { size: 11 } }, beginAtZero: true },
   },
 };
+
+// Plugin : total de check-in au-dessus de chaque pile (la legende cachant les
+// datalabels par segment, on garde un repere de volume par jour).
+const checkinDayTotalsPlugin = {
+  id: "checkinDayTotals",
+  afterDatasetsDraw(chart) {
+    const { ctx, data, scales } = chart;
+    if (!scales.x || !scales.y || !data.labels.length) return;
+    ctx.save();
+    ctx.font = "600 11px Poppins, sans-serif";
+    ctx.fillStyle = "#414141";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "bottom";
+    for (let i = 0; i < data.labels.length; i++) {
+      let total = 0;
+      for (const ds of data.datasets) total += ds.data[i] || 0;
+      if (total <= 0) continue;
+      const x = scales.x.getPixelForValue(i);
+      const y = scales.y.getPixelForValue(total) - 4;
+      ctx.fillText(String(total), x, y);
+    }
+    ctx.restore();
+  },
+};
+
 </script>
 
 <style scoped>

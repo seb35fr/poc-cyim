@@ -10,7 +10,7 @@ import { AUTO_REFRESH_MS } from "@/constants.js";
 // useLive — instancie une fois au niveau StatisticsView, propage en prop aux
 // tabs consommateurs. setInterval clean via onUnmounted.
 export function useReplay(eventId, options = {}) {
-  const { autoRefresh = false } = options;
+  const { autoRefresh = false, getDateRange = null } = options;
 
   const loading = ref(true);
   const refreshing = ref(false);
@@ -26,7 +26,9 @@ export function useReplay(eventId, options = {}) {
     for (const s of sessions.value) if (s?.id) map.set(s.id, s);
     return map;
   });
-  const stats = computed(() => computeReplayStats(hits.value, sessionMap.value));
+  const stats = computed(() =>
+    computeReplayStats(hits.value, sessionMap.value, getDateRange ? getDateRange() : null),
+  );
 
   async function load() {
     const isRefresh = hits.value.length > 0;

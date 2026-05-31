@@ -12,7 +12,7 @@ import { AUTO_REFRESH_MS } from "@/constants.js";
 // cache singleton (etait source d'accumulation de timers en HMR / appels en
 // boucle si le composable etait monte plusieurs fois).
 export function useLive(eventId, options = {}) {
-  const { autoRefresh = false } = options;
+  const { autoRefresh = false, getDateRange = null } = options;
 
   const loading = ref(true);
   const refreshing = ref(false);
@@ -29,7 +29,10 @@ export function useLive(eventId, options = {}) {
     for (const s of sessions.value) if (s?.id) map.set(s.id, s);
     return map;
   });
-  const stats = computed(() => computeLiveStats(hits.value, sessionMap.value));
+  // Filtre date global (optionnel) propage en prop depuis StatisticsView.
+  const stats = computed(() =>
+    computeLiveStats(hits.value, sessionMap.value, getDateRange ? getDateRange() : null),
+  );
 
   async function load() {
     const isRefresh = hits.value.length > 0;

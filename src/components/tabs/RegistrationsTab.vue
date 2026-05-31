@@ -154,7 +154,7 @@ import { useFilteredStats } from "../../composables/useFilteredStats.js";
 import { getTypeColors } from "../../utils/typeColors.js";
 import { fmt } from "@/utils/formatters.js";
 
-const props = defineProps({ stats: Object, delegates: Array });
+const props = defineProps({ stats: Object, delegates: Array, dateRange: { type: Object, default: null } });
 
 const {
   filteredStats: fs, activeFilters, activeFilterMap: afm,
