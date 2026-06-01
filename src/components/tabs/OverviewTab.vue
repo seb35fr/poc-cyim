@@ -62,6 +62,17 @@
       <div class="chart-header">
         <h3>Comment se decompose le "Total participants"</h3>
       </div>
+      <div class="mode-filter">
+        <span class="mode-filter-label">Mode de consultation</span>
+        <button
+          v-for="m in ['PHYSIQUE', 'LIVE', 'REPLAY']"
+          :key="m"
+          type="button"
+          class="mode-pill"
+          :class="{ on: isModeOn(m) }"
+          @click="toggleMode(m)"
+        >{{ m }}</button>
+      </div>
 
       <!-- 3 grands modes de participation : Physique / Live distanciel /
            Replay distanciel. Chaque carte montre le total du mode + son detail. -->
@@ -76,6 +87,7 @@
           <div class="mode-subs">
             <div class="mode-sub"><span class="sub-swatch seg-checkin-only"></span><span class="sub-label">Sur place seul</span><span class="sub-value">{{ fmt(checkedInOnlyCount) }}</span></div>
             <div class="mode-sub"><span class="sub-swatch seg-checkin-live"></span><span class="sub-label">Sur place + live</span><span class="sub-value">{{ fmt(checkedInLiveCount) }}</span></div>
+            <div class="mode-sub"><span class="sub-swatch seg-checkin-livereplay"></span><span class="sub-label">Sur place + live & replay</span><span class="sub-value">{{ fmt(checkedInLiveReplayCount) }}</span></div>
             <div class="mode-sub"><span class="sub-swatch seg-checkin-replay"></span><span class="sub-label">Sur place + replay</span><span class="sub-value">{{ fmt(checkedInReplayCount) }}</span></div>
           </div>
         </div>
@@ -113,53 +125,64 @@
       </div>
 
       <!-- Barre A : 3 zones (modes) separees par un espace, chacune subdivisee
-           en sous-segments. Largeur totale proportionnelle au total (barScaleA). -->
-      <div v-if="hasCompare && totalParticipants > 0" class="participation-bar-label">{{ eventName }} · {{ fmt(totalParticipants) }} participants</div>
-      <div class="participation-bar" v-if="totalParticipants > 0" :style="{ width: barScaleA + '%' }">
-        <div
-          v-for="zone in zonesA"
-          :key="zone.key"
-          v-show="zone.total > 0"
-          class="bar-zone"
-          :style="{ width: pctNum(zone.total, totalParticipants) + '%' }"
-          :title="`${zone.label} : ${fmt(zone.total)} (${pct(zone.total, totalParticipants)})`"
-        >
-          <div
-            v-for="seg in zone.segments"
-            :key="seg.cls"
-            class="bar-segment"
-            :class="seg.cls"
-            :style="{ width: pctNum(seg.count, zone.total) + '%' }"
-            :title="`${seg.label} : ${fmt(seg.count)} (${pct(seg.count, totalParticipants)})`"
-          >
-            <span v-if="seg.count / totalParticipants > 0.05">{{ fmt(seg.count) }}</span>
+           en sous-segments. Largeur proportionnelle au total (barScaleA) dans
+           une track ; le total absolu est affiche a droite. -->
+      <div v-if="hasCompare && totalParticipants > 0" class="participation-bar-label">{{ eventName }}</div>
+      <div class="participation-bar-row" v-if="totalParticipants > 0">
+        <div class="participation-bar-track">
+          <div class="participation-bar" :style="{ width: barScaleA + '%' }">
+            <div
+              v-for="zone in zonesA"
+              :key="zone.key"
+              v-show="zone.total > 0"
+              class="bar-zone"
+              :style="{ width: pctNum(zone.total, totalParticipants) + '%' }"
+              :title="`${zone.label} : ${fmt(zone.total)} (${pct(zone.total, totalParticipants)})`"
+            >
+              <div
+                v-for="seg in zone.segments"
+                :key="seg.cls"
+                class="bar-segment"
+                :class="seg.cls"
+                :style="{ width: pctNum(seg.count, zone.total) + '%' }"
+                :title="`${seg.label} : ${fmt(seg.count)} (${pct(seg.count, totalParticipants)})`"
+              >
+                <span v-if="seg.count / totalParticipants > 0.05">{{ fmt(seg.count) }}</span>
+              </div>
+            </div>
           </div>
         </div>
+        <span class="participation-bar-total">{{ fmt(totalParticipants) }}</span>
       </div>
 
       <!-- Barre B (event compare) : meme structure en zones. -->
       <template v-if="hasCompare">
-        <div class="participation-bar-label">{{ compareEventName || "Event comparé" }} · {{ fmt(totalParticipantsB) }} participants</div>
-        <div class="participation-bar participation-bar-compare" v-if="totalParticipantsB > 0" :style="{ width: barScaleB + '%' }">
-          <div
-            v-for="zone in zonesB"
-            :key="zone.key"
-            v-show="zone.total > 0"
-            class="bar-zone"
-            :style="{ width: pctNum(zone.total, totalParticipantsB) + '%' }"
-            :title="`${zone.label} : ${fmt(zone.total)} (${pct(zone.total, totalParticipantsB)})`"
-          >
-            <div
-              v-for="seg in zone.segments"
-              :key="seg.cls"
-              class="bar-segment"
-              :class="seg.cls"
-              :style="{ width: pctNum(seg.count, zone.total) + '%' }"
-              :title="`${seg.label} : ${fmt(seg.count)} (${pct(seg.count, totalParticipantsB)})`"
-            >
-              <span v-if="seg.count / totalParticipantsB > 0.05">{{ fmt(seg.count) }}</span>
+        <div class="participation-bar-label">{{ compareEventName || "Event comparé" }}</div>
+        <div class="participation-bar-row" v-if="totalParticipantsB > 0">
+          <div class="participation-bar-track">
+            <div class="participation-bar participation-bar-compare" :style="{ width: barScaleB + '%' }">
+              <div
+                v-for="zone in zonesB"
+                :key="zone.key"
+                v-show="zone.total > 0"
+                class="bar-zone"
+                :style="{ width: pctNum(zone.total, totalParticipantsB) + '%' }"
+                :title="`${zone.label} : ${fmt(zone.total)} (${pct(zone.total, totalParticipantsB)})`"
+              >
+                <div
+                  v-for="seg in zone.segments"
+                  :key="seg.cls"
+                  class="bar-segment"
+                  :class="seg.cls"
+                  :style="{ width: pctNum(seg.count, zone.total) + '%' }"
+                  :title="`${seg.label} : ${fmt(seg.count)} (${pct(seg.count, totalParticipantsB)})`"
+                >
+                  <span v-if="seg.count / totalParticipantsB > 0.05">{{ fmt(seg.count) }}</span>
+                </div>
+              </div>
             </div>
           </div>
+          <span class="participation-bar-total">{{ fmt(totalParticipantsB) }}</span>
         </div>
         <p v-else class="participation-note" style="margin-bottom: 12px">Aucun participant détecté pour {{ compareEventName || "l'event comparé" }}.</p>
       </template>
@@ -167,8 +190,8 @@
       <!-- Legende groupee par grand mode -->
       <div class="participation-legend">
         <div class="legend-mode">
-          <span class="legend-mode-head"><span class="swatch-pair"><i class="swatch seg-checkin-only"></i><i class="swatch seg-checkin-live"></i><i class="swatch seg-checkin-replay"></i></span> Présence physique <strong>· {{ pct(physiqueCount, totalParticipants) }}</strong></span>
-          <span class="legend-mode-subs">sur place seul {{ fmt(checkedInOnlyCount) }} · + live {{ fmt(checkedInLiveCount) }} · + replay {{ fmt(checkedInReplayCount) }}</span>
+          <span class="legend-mode-head"><span class="swatch-pair"><i class="swatch seg-checkin-only"></i><i class="swatch seg-checkin-live"></i><i class="swatch seg-checkin-livereplay"></i><i class="swatch seg-checkin-replay"></i></span> Présence physique <strong>· {{ pct(physiqueCount, totalParticipants) }}</strong></span>
+          <span class="legend-mode-subs">sur place seul {{ fmt(checkedInOnlyCount) }} · + live {{ fmt(checkedInLiveCount) }} · + live & replay {{ fmt(checkedInLiveReplayCount) }} · + replay {{ fmt(checkedInReplayCount) }}</span>
         </div>
         <div class="legend-mode">
           <span class="legend-mode-head"><span class="swatch-pair"><i class="swatch seg-live-only"></i><i class="swatch seg-both"></i></span> Live distanciel <strong>· {{ pct(liveModeCount, totalParticipants) }}</strong></span>
@@ -280,46 +303,15 @@
       </div>
     </div>
 
-    <div class="charts-row" v-if="replayUniqueByDay.length > 0">
-      <div class="chart-card">
-        <div class="chart-header">
-          <h3>Délégués uniques en replay par jour</h3>
-          <CsvButton filename="replay-uniques-par-jour" :headers="['Jour', 'Délégués uniques']" :rows="replayUniqueByDay.map(d => [d.day, d.count])" />
-        </div>
-        <div :style="{ position: 'relative', height: '260px' }">
-          <Bar :data="replayByDayChartData" :options="replayByDayOptions" />
-        </div>
+    <!-- Cumul replay (single event, hors comparaison). Les graphes "uniques par
+         jour" et "cumulés — comparé" ont été retirés de la vue d'ensemble. -->
+    <div class="chart-card" v-if="!hasCompare && replayCumulativeByDay.length > 0">
+      <div class="chart-header">
+        <h3>Délégués cumulés ayant consulté du replay</h3>
+        <CsvButton filename="replay-cumul-delegues" :headers="['Jour', 'Délégués cumulés']" :rows="replayCumulativeByDay.map(d => [d.day, d.count])" />
       </div>
-      <!-- Cumul replay : comparatif A vs B (aligné J0) si compareWith actif,
-           sinon cumul single-event. Le comparatif remplace le single. -->
-      <div class="chart-card">
-        <template v-if="hasCompare">
-          <div class="chart-header">
-            <h3>Délégués cumulés ayant consulté du replay — comparé</h3>
-            <CsvButton
-              filename="replay-cumul-compare"
-              :headers="['Jour (J0 = 1er visionnage)', shortName(eventName), shortName(compareEventName)]"
-              :rows="replayCumulativeCompare.labels.map((l, i) => [l, replayCumulativeCompare.datasets[0].data[i], replayCumulativeCompare.datasets[1].data[i]])"
-            />
-          </div>
-          <LineChart
-            v-if="replayCumulativeCompare.labels.length > 0"
-            :labels="replayCumulativeCompare.labels"
-            :datasets="replayCumulativeCompare.datasets"
-            :height="260"
-          />
-          <p v-else class="empty-msg">Aucune donnée replay exploitable sur l'un ou l'autre event</p>
-          <p class="chart-hint">Axe X : décalage en jours depuis le 1er visionnage VOD de chaque event (J0).</p>
-        </template>
-        <template v-else>
-          <div class="chart-header">
-            <h3>Délégués cumulés ayant consulté du replay</h3>
-            <CsvButton filename="replay-cumul-delegues" :headers="['Jour', 'Délégués cumulés']" :rows="replayCumulativeByDay.map(d => [d.day, d.count])" />
-          </div>
-          <LineChart :labels="replayDayLabels" :datasets="replayCumulativeDatasets" :height="260" />
-          <p class="chart-hint">Chaque délégué est compté une seule fois, le jour de sa 1ʳᵉ consultation replay.</p>
-        </template>
-      </div>
+      <LineChart :labels="replayDayLabels" :datasets="replayCumulativeDatasets" :height="260" />
+      <p class="chart-hint">Chaque délégué est compté une seule fois, le jour de sa 1ʳᵉ consultation replay.</p>
     </div>
 
     <div class="charts-row" >
@@ -379,7 +371,7 @@ import { makeDateLabeler } from "../../utils/formatDateLabel.js";
 import { getTypeColor, getTypeColors } from "../../utils/typeColors.js";
 import { delegateBadgeType } from "@/utils/checkinByType.js";
 import { computeParticipation } from "@/utils/participation.js";
-import { fmt, pct, shortName } from "@/utils/formatters.js";
+import { fmt, pct } from "@/utils/formatters.js";
 
 const props = defineProps({
   stats: Object,
@@ -442,19 +434,66 @@ const participation = computed(() =>
   ),
 );
 // Sets reutilises par buildParticipationBreakdown (decomposition par type/categorie).
+// NB : non affectes par le filtre "mode de consultation" (qui ne pilote que le
+// bloc "Total participants").
 const physicallyCheckedInSet = computed(() => participation.value.checkedIn);
 const liveRemoteSet = computed(() => participation.value.liveRemote);
 const replayRemoteSet = computed(() => participation.value.replayRemote);
-// Counts pour la decomposition visuelle (chips + barre + legende).
-const physicallyCheckedInCount = computed(() => participation.value.counts.checkedIn);
-// Scission du check-in physique : present seul (sans live) vs present + live.
-const checkedInOnlyCount = computed(() => participation.value.counts.checkedInOnly);
-const checkedInLiveCount = computed(() => participation.value.counts.checkedInLive);
-const checkedInReplayCount = computed(() => participation.value.counts.checkedInReplay);
-const liveOnlyRemoteCount = computed(() => participation.value.counts.liveOnly);
-const bothRemoteCount = computed(() => participation.value.counts.both);
-const replayOnlyRemoteCount = computed(() => participation.value.counts.replayOnly);
-const totalParticipants = computed(() => participation.value.counts.total);
+
+// --- Filtre "Mode de consultation" (PHYSIQUE / LIVE / REPLAY) ---
+// Multi-select, tout coche par defaut. Une sous-categorie de la decomposition
+// reste comptee si elle implique AU MOINS UN mode selectionne. Les 7 categories
+// etant DISJOINTES, le total se recalcule par simple somme des categories visibles.
+const ALL_MODES = ["PHYSIQUE", "LIVE", "REPLAY"];
+const selectedModes = ref(new Set(ALL_MODES));
+function toggleMode(m) {
+  const next = new Set(selectedModes.value);
+  if (next.has(m)) next.delete(m);
+  else next.add(m);
+  // Jamais tout decocher (bloc vide) -> on retombe sur "tout".
+  selectedModes.value = next.size === 0 ? new Set(ALL_MODES) : next;
+}
+const isModeOn = (m) => selectedModes.value.has(m);
+const CATEGORY_MODES = {
+  checkedInOnly: ["PHYSIQUE"],
+  checkedInLive: ["PHYSIQUE", "LIVE"],
+  checkedInReplay: ["PHYSIQUE", "REPLAY"],
+  checkedInLiveReplay: ["PHYSIQUE", "LIVE", "REPLAY"],
+  liveOnly: ["LIVE"],
+  both: ["LIVE", "REPLAY"],
+  replayOnly: ["REPLAY"],
+};
+function applyModeFilter(counts) {
+  const v = (cat) =>
+    CATEGORY_MODES[cat].some((m) => selectedModes.value.has(m)) ? counts[cat] || 0 : 0;
+  const checkedInOnly = v("checkedInOnly");
+  const checkedInLive = v("checkedInLive");
+  const checkedInReplay = v("checkedInReplay");
+  const checkedInLiveReplay = v("checkedInLiveReplay");
+  const liveOnly = v("liveOnly");
+  const both = v("both");
+  const replayOnly = v("replayOnly");
+  const checkedIn = checkedInOnly + checkedInLive + checkedInReplay + checkedInLiveReplay;
+  return {
+    checkedIn, checkedInOnly, checkedInLive, checkedInReplay, checkedInLiveReplay,
+    liveOnly, both, replayOnly,
+    total: checkedIn + liveOnly + both + replayOnly,
+  };
+}
+// Counts FILTRES par mode (source unique du bloc "Total participants" : cards,
+// barre, legende, deltas, scale).
+const fc = computed(() => applyModeFilter(participation.value.counts));
+
+// Counts pour la decomposition visuelle (chips + barre + legende) — lus depuis fc.
+const physicallyCheckedInCount = computed(() => fc.value.checkedIn);
+const checkedInOnlyCount = computed(() => fc.value.checkedInOnly);
+const checkedInLiveCount = computed(() => fc.value.checkedInLive);
+const checkedInReplayCount = computed(() => fc.value.checkedInReplay);
+const checkedInLiveReplayCount = computed(() => fc.value.checkedInLiveReplay);
+const liveOnlyRemoteCount = computed(() => fc.value.liveOnly);
+const bothRemoteCount = computed(() => fc.value.both);
+const replayOnlyRemoteCount = computed(() => fc.value.replayOnly);
+const totalParticipants = computed(() => fc.value.total);
 
 // --- Side B : meme decomposition pour le compareEventId (si present).
 // Permet d'afficher un delta % sur chaque chip de la decomposition.
@@ -466,16 +505,19 @@ const participationB = computed(() =>
         replayB?.stats.value?.items,
         { datasetLabel: "overview-compare", dateRange: props.dateRange },
       )
-    : { counts: { checkedIn: 0, checkedInOnly: 0, checkedInLive: 0, checkedInReplay: 0, liveOnly: 0, both: 0, replayOnly: 0, total: 0 } },
+    : { counts: { checkedIn: 0, checkedInOnly: 0, checkedInLive: 0, checkedInReplay: 0, checkedInLiveReplay: 0, liveOnly: 0, both: 0, replayOnly: 0, total: 0 } },
 );
-const checkedInBCount = computed(() => participationB.value.counts.checkedIn);
-const checkedInOnlyBCount = computed(() => participationB.value.counts.checkedInOnly);
-const checkedInLiveBCount = computed(() => participationB.value.counts.checkedInLive);
-const checkedInReplayBCount = computed(() => participationB.value.counts.checkedInReplay);
-const liveOnlyRemoteBCount = computed(() => participationB.value.counts.liveOnly);
-const bothRemoteBCount = computed(() => participationB.value.counts.both);
-const replayOnlyRemoteBCount = computed(() => participationB.value.counts.replayOnly);
-const totalParticipantsB = computed(() => participationB.value.counts.total);
+// Counts B filtres par le meme mode de consultation (coherence des deltas).
+const fcB = computed(() => applyModeFilter(participationB.value.counts));
+const checkedInBCount = computed(() => fcB.value.checkedIn);
+const checkedInOnlyBCount = computed(() => fcB.value.checkedInOnly);
+const checkedInLiveBCount = computed(() => fcB.value.checkedInLive);
+const checkedInReplayBCount = computed(() => fcB.value.checkedInReplay);
+const checkedInLiveReplayBCount = computed(() => fcB.value.checkedInLiveReplay);
+const liveOnlyRemoteBCount = computed(() => fcB.value.liveOnly);
+const bothRemoteBCount = computed(() => fcB.value.both);
+const replayOnlyRemoteBCount = computed(() => fcB.value.replayOnly);
+const totalParticipantsB = computed(() => fcB.value.total);
 
 // Calcule un delta % (a vs b). Si b == 0 et a > 0 : "Nouveau" (vert).
 // Si a == 0 et b > 0 : "-100%" (rouge). Sinon : signe + pct + classe.
@@ -570,10 +612,11 @@ function buildZones(c) {
     {
       key: "physique",
       label: "Présence physique",
-      total: c.checkedInOnly + c.checkedInLive + c.checkedInReplay,
+      total: c.checkedInOnly + c.checkedInLive + c.checkedInReplay + c.checkedInLiveReplay,
       segments: [
         { cls: "seg-checkin-only", label: "Sur place seul", count: c.checkedInOnly },
         { cls: "seg-checkin-live", label: "Sur place + live", count: c.checkedInLive },
+        { cls: "seg-checkin-livereplay", label: "Sur place + live & replay", count: c.checkedInLiveReplay },
         { cls: "seg-checkin-replay", label: "Sur place + replay", count: c.checkedInReplay },
       ],
     },
@@ -596,8 +639,8 @@ function buildZones(c) {
     },
   ];
 }
-const zonesA = computed(() => buildZones(participation.value.counts));
-const zonesB = computed(() => buildZones(participationB.value.counts));
+const zonesA = computed(() => buildZones(fc.value));
+const zonesB = computed(() => buildZones(fcB.value));
 
 const registeredCount = computed(() =>
   pageFilteredDelegates.value.filter((d) => d.status?.toLowerCase() === "registered").length
@@ -898,33 +941,6 @@ const replayDayLabels = computed(() => {
   const labelFor = makeDateLabeler(dates);
   return dates.map(labelFor);
 });
-const replayByDayChartData = computed(() => ({
-  labels: replayDayLabels.value,
-  datasets: [{
-    label: "Délégués uniques (replay)",
-    data: replayUniqueByDay.value.map((d) => d.count),
-    backgroundColor: "#6F45FF",
-    borderRadius: 4,
-    barThickness: Math.max(8, Math.min(40, 600 / (replayUniqueByDay.value.length || 1))),
-  }],
-}));
-const replayByDayOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  layout: { padding: { top: 18 } },
-  plugins: {
-    legend: { display: false },
-    datalabels: {
-      display: true, anchor: "end", align: "end", offset: 2, clip: false,
-      color: "#414141", font: { weight: 600, size: 11 },
-    },
-    tooltip: { callbacks: { label: (ctx) => `${ctx.raw.toLocaleString("fr-FR")} délégués uniques` } },
-  },
-  scales: {
-    x: { grid: { display: false }, ticks: { font: { size: 11 } } },
-    y: { grid: { color: "#f3f4f6" }, ticks: { font: { size: 11 } }, beginAtZero: true },
-  },
-};
 const replayCumulativeDatasets = computed(() => [{
   label: "Délégués cumulés (replay)",
   data: replayCumulativeByDay.value.map((d) => d.count),
@@ -936,75 +952,6 @@ const replayCumulativeDatasets = computed(() => [{
   borderWidth: 2.5,
 }]);
 
-// --- Replay cumulé COMPARÉ (A vs B), aligné sur J0 ---
-// Repris a l'identique de ViewersComparisonTab (Replay > Comparatif) : on aligne
-// chaque event sur son propre J0 (1er jour de visionnage VOD), avec un cumul en
-// carry-forward (les jours sans nouveau viewer restent a plat). Couleurs alignees
-// sur le comparatif (vert event courant / gris event compare).
-const COMPARE_COLORS = { current: "#27CE71", compare: "#9CA3AF" };
-
-function alignDaysOnJ0(uniqueByDay) {
-  const days = (uniqueByDay || []).filter((d) => d.count > 0).sort((a, b) => a.day.localeCompare(b.day));
-  if (days.length === 0) return { offsets: [], byOffset: {} };
-  const day0 = days[0].day;
-  const t0 = new Date(day0 + "T00:00:00Z").getTime();
-  const byOffset = {};
-  for (const d of days) {
-    const t = new Date(d.day + "T00:00:00Z").getTime();
-    const offset = Math.round((t - t0) / (24 * 3600 * 1000));
-    byOffset[offset] = d.count;
-  }
-  const offsets = Object.keys(byOffset).map(Number).sort((a, b) => a - b);
-  return { offsets, byOffset };
-}
-
-const replayCumulativeCompare = computed(() => {
-  if (!hasCompare) return { labels: [], datasets: [] };
-  const a = alignDaysOnJ0(replayStats.value?.cumulativeUniqueByDay);
-  const b = alignDaysOnJ0(replayB?.stats.value?.cumulativeUniqueByDay);
-  const maxOffset = Math.max(
-    a.offsets.length > 0 ? a.offsets[a.offsets.length - 1] : -1,
-    b.offsets.length > 0 ? b.offsets[b.offsets.length - 1] : -1,
-  );
-  if (maxOffset < 0) return { labels: [], datasets: [] };
-  const labels = [];
-  const dataA = [];
-  const dataB = [];
-  let lastA = 0;
-  let lastB = 0;
-  for (let i = 0; i <= maxOffset; i++) {
-    labels.push(`J${i}`);
-    if (a.byOffset[i] != null) lastA = a.byOffset[i];
-    if (b.byOffset[i] != null) lastB = b.byOffset[i];
-    dataA.push(lastA);
-    dataB.push(lastB);
-  }
-  return {
-    labels,
-    datasets: [
-      {
-        label: shortName(props.eventName),
-        data: dataA,
-        borderColor: COMPARE_COLORS.current,
-        backgroundColor: "rgba(39,206,113,0.10)",
-        fill: true,
-        tension: 0.3,
-        pointRadius: 0,
-        borderWidth: 2.5,
-      },
-      {
-        label: shortName(props.compareEventName),
-        data: dataB,
-        borderColor: COMPARE_COLORS.compare,
-        backgroundColor: "rgba(156,163,175,0.10)",
-        fill: true,
-        tension: 0.3,
-        pointRadius: 0,
-        borderWidth: 2.5,
-      },
-    ],
-  };
-});
 </script>
 
 <style scoped>
@@ -1026,6 +973,23 @@ const replayCumulativeCompare = computed(() => {
 
 /* Decomposition "Total participants" */
 .participation-card { margin-top: 16px; }
+
+/* Filtre "Mode de consultation" (pills PHYSIQUE / LIVE / REPLAY) */
+.mode-filter { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 2px 0 14px; }
+.mode-filter-label {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
+  color: var(--text-muted); margin-right: 2px;
+}
+.mode-pill {
+  font: inherit; font-size: 10px; font-weight: 700; letter-spacing: .3px;
+  padding: 4px 10px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--border); background: #fff; color: var(--text-muted);
+  transition: all .12s;
+}
+.mode-pill:hover { border-color: var(--primary); color: var(--primary); }
+.mode-pill.on {
+  background: var(--primary); border-color: var(--primary); color: #fff;
+}
 /* 3 grands modes : cartes regroupant les sous-categories */
 .participation-modes {
   display: flex;
@@ -1081,6 +1045,7 @@ const replayCumulativeCompare = computed(() => {
 .sub-swatch.seg-checkin-only { background: #30DD92; }
 .sub-swatch.seg-checkin-live { background: #16a36a; }
 .sub-swatch.seg-checkin-replay { background: #0b6b48; }
+.sub-swatch.seg-checkin-livereplay { background: #094f37; }
 .sub-swatch.seg-live-only   { background: #1E4E66; }
 .sub-swatch.seg-both        { background: #2A6A8A; }
 .sub-swatch.seg-replay-only { background: #6F45FF; }
@@ -1105,6 +1070,23 @@ const replayCumulativeCompare = computed(() => {
   color: var(--text-muted, #999);
 }
 
+/* Ligne = track (barre mise a l'echelle) + total absolu a droite. */
+.participation-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.participation-bar-track { flex: 1; min-width: 0; }
+.participation-bar-total {
+  flex-shrink: 0;
+  min-width: 44px;
+  text-align: right;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text, #414141);
+  font-variant-numeric: tabular-nums;
+}
 .participation-bar {
   display: flex;
   width: 100%;
@@ -1112,7 +1094,6 @@ const replayCumulativeCompare = computed(() => {
   border-radius: 8px;
   overflow: hidden;
   background: #f0f0f0;
-  margin-bottom: 14px;
   gap: 4px; /* separe visuellement les 3 zones (modes) */
 }
 .participation-bar-label {
@@ -1123,7 +1104,6 @@ const replayCumulativeCompare = computed(() => {
   text-transform: uppercase;
   letter-spacing: .3px;
 }
-.participation-bar-compare { margin-bottom: 14px; }
 /* Zone = 1 grand mode (physique / live / replay), subdivisee en sous-segments. */
 .bar-zone {
   display: flex;
@@ -1146,6 +1126,7 @@ const replayCumulativeCompare = computed(() => {
 .bar-segment.seg-checkin-only { background: #30DD92; color: #0c3a23; }
 .bar-segment.seg-checkin-live { background: #16a36a; }
 .bar-segment.seg-checkin-replay { background: #0b6b48; }
+.bar-segment.seg-checkin-livereplay { background: #094f37; }
 .bar-segment.seg-live-only   { background: #1E4E66; }
 .bar-segment.seg-both        { background: #2A6A8A; }
 .bar-segment.seg-replay-only { background: #6F45FF; }
@@ -1168,6 +1149,7 @@ const replayCumulativeCompare = computed(() => {
 .swatch.seg-checkin-only { background: #30DD92; }
 .swatch.seg-checkin-live { background: #16a36a; }
 .swatch.seg-checkin-replay { background: #0b6b48; }
+.swatch.seg-checkin-livereplay { background: #094f37; }
 .swatch.seg-live-only   { background: #1E4E66; }
 .swatch.seg-both        { background: #2A6A8A; }
 .swatch.seg-replay-only { background: #6F45FF; }

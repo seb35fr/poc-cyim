@@ -51,20 +51,23 @@ export function computeParticipation(delegates, liveItems, replayItems, { datase
   // delegue (check-in inclus, contrairement a liveRemote/replayRemote qui
   // excluent les checked-in). On intersecte avec la population physique.
   //
-  // 3 sous-groupes DISJOINTS (somme == checkedIn) :
-  //   - checkedInReplay : present qui a consulte du replay (avec OU sans live) —
-  //     le replay "capte" le cas mixte (present + live + replay) ;
-  //   - checkedInLive   : present qui a suivi du live MAIS PAS de replay ;
-  //   - checkedInOnly   : present sans aucune consommation distancielle.
-  // Priorite au replay pour que "Sur place + live" ne contienne QUE du live pur.
+  // 4 sous-groupes DISJOINTS (somme == checkedIn) :
+  //   - checkedInOnly       : present, aucune consommation distancielle ;
+  //   - checkedInLive       : present + live SEUL (pas de replay) ;
+  //   - checkedInReplay     : present + replay SEUL (pas de live) ;
+  //   - checkedInLiveReplay : present + live ET replay (cas mixte).
   const liveViewers = getMatchedViewerDelegateIds(liveItems, lookup);
   const replayViewers = getMatchedViewerDelegateIds(replayItems, lookup);
   const checkedInOnly = new Set();
   const checkedInLive = new Set();
   const checkedInReplay = new Set();
+  const checkedInLiveReplay = new Set();
   for (const id of checkedIn) {
-    if (replayViewers.has(id)) checkedInReplay.add(id);
-    else if (liveViewers.has(id)) checkedInLive.add(id);
+    const sawLive = liveViewers.has(id);
+    const sawReplay = replayViewers.has(id);
+    if (sawLive && sawReplay) checkedInLiveReplay.add(id);
+    else if (sawReplay) checkedInReplay.add(id);
+    else if (sawLive) checkedInLive.add(id);
     else checkedInOnly.add(id);
   }
 
@@ -91,6 +94,7 @@ export function computeParticipation(delegates, liveItems, replayItems, { datase
     checkedInOnly,
     checkedInLive,
     checkedInReplay,
+    checkedInLiveReplay,
     liveRemote,
     replayRemote,
     liveOnly,
@@ -102,6 +106,7 @@ export function computeParticipation(delegates, liveItems, replayItems, { datase
       checkedInOnly: checkedInOnly.size,
       checkedInLive: checkedInLive.size,
       checkedInReplay: checkedInReplay.size,
+      checkedInLiveReplay: checkedInLiveReplay.size,
       liveOnly: liveOnly.size,
       both: both.size,
       replayOnly: replayOnly.size,

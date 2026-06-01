@@ -142,8 +142,7 @@ function sectionTotalParticipants(delegates, liveItems, replayItems, label = "md
   out +=
     "_Photo unique de **qui a réellement participé** au congrès, tous canaux confondus. " +
     "Chaque délégué compte **une seule fois** : un présent physique absorbe ses éventuelles vues " +
-    "live/replay (on distingue les présents sur place seul, ceux ayant aussi suivi du live sans replay, " +
-    "et ceux ayant consulté du replay) ; " +
+    "live/replay (on distingue les présents sur place seul, + live seul, + replay seul, et + live & replay) ; " +
     "un délégué non présent compte une fois selon qu'il a vu en live, en replay ou les deux. " +
     "Déduplication sur `delegate.id` (Mongo) via la jointure Keycloak. " +
     "C'est l'indicateur d'audience global du congrès._\n\n";
@@ -151,8 +150,9 @@ function sectionTotalParticipants(delegates, liveItems, replayItems, label = "md
     ["Composante", "Délégués", "% du total participants"],
     [
       ["Présence physique — sur place seul", fmtNum(c.checkedInOnly), fmtPct(c.checkedInOnly, c.total)],
-      ["Présence physique — + suivi en live (sans replay)", fmtNum(c.checkedInLive), fmtPct(c.checkedInLive, c.total)],
-      ["Présence physique — + consultation replay", fmtNum(c.checkedInReplay), fmtPct(c.checkedInReplay, c.total)],
+      ["Présence physique — + live seul", fmtNum(c.checkedInLive), fmtPct(c.checkedInLive, c.total)],
+      ["Présence physique — + live & replay", fmtNum(c.checkedInLiveReplay), fmtPct(c.checkedInLiveReplay, c.total)],
+      ["Présence physique — + replay seul", fmtNum(c.checkedInReplay), fmtPct(c.checkedInReplay, c.total)],
       ["Live distanciel uniquement", fmtNum(c.liveOnly), fmtPct(c.liveOnly, c.total)],
       ["Live & Replay distanciel", fmtNum(c.both), fmtPct(c.both, c.total)],
       ["Replay distanciel uniquement", fmtNum(c.replayOnly), fmtPct(c.replayOnly, c.total)],
