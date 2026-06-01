@@ -160,7 +160,7 @@
                 :event-name="eventName"
                 :compare-event-name="compareEventName"
               />
-              <ViewersTab v-if="tab.id === 'live'" kind="live" :delegates="pageDelegates" :viewer-api="liveApi" />
+              <ViewersTab v-if="tab.id === 'live'" kind="live" :delegates="pageDelegates" :viewer-api="liveApi" :badge-filter-active="selectedBadgeTypes.size > 0" />
               <ViewersComparisonTab
                 v-if="tab.id === 'liveCompare'"
                 kind="live"
@@ -228,7 +228,7 @@
               :event-name="eventName"
               :compare-event-name="compareEventName"
             />
-            <ViewersTab v-if="activeTab === 'live'" kind="live" :delegates="pageDelegates" :viewer-api="liveApi" />
+            <ViewersTab v-if="activeTab === 'live'" kind="live" :delegates="pageDelegates" :viewer-api="liveApi" :badge-filter-active="selectedBadgeTypes.size > 0" />
             <ViewersComparisonTab
               v-if="activeTab === 'liveCompare'"
               kind="live"

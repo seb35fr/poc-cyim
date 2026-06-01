@@ -154,6 +154,24 @@ export function computeReplayStats(rawHits, sessionMap = null, dateRange = null)
     return { day, count: running };
   });
 
+  // Nombre de VUES par jour (toutes vues, pas dedoublonne par user) + cumul.
+  // Bucketage sur it.timestamp comme uniqueByDay.
+  const viewsCountByDay = new Map();
+  for (const it of items) {
+    if (!it.timestamp) continue;
+    const p = parisDateParts(it.timestamp);
+    if (!p) continue;
+    viewsCountByDay.set(p.ymd, (viewsCountByDay.get(p.ymd) || 0) + 1);
+  }
+  const viewsByDay = [...viewsCountByDay.entries()]
+    .map(([day, count]) => ({ day, count }))
+    .sort((a, b) => a.day.localeCompare(b.day));
+  let runningViews = 0;
+  const cumulativeViewsByDay = viewsByDay.map(({ day, count }) => {
+    runningViews += count;
+    return { day, count: runningViews };
+  });
+
   return {
     items,
     global: {
@@ -169,5 +187,7 @@ export function computeReplayStats(rawHits, sessionMap = null, dateRange = null)
     origins,
     uniqueByDay,
     cumulativeUniqueByDay,
+    viewsByDay,
+    cumulativeViewsByDay,
   };
 }

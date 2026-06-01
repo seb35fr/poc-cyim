@@ -81,8 +81,8 @@
         </div>
       </div>
 
-      <!-- Délégués uniques par jour : grouped bars J0/J1/J2... -->
-      <div class="chart-card">
+      <!-- Live : Délégués uniques par jour en standalone. -->
+      <div v-if="kind !== 'replay'" class="chart-card">
         <div class="chart-header">
           <h3>{{ L.dailyChartTitle }}</h3>
           <span class="cmp-axis-hint">Axe X : {{ L.dailyChartAxisHint }}</span>
@@ -93,30 +93,55 @@
         <p v-else class="empty-msg">Aucune donnée par jour exploitable sur l'un ou l'autre event</p>
       </div>
 
-      <!-- Cumuls replay comparés : tous les viewers (gauche) vs présents
-           physiques uniquement (droite, funnel « venu sur place puis revu »). -->
-      <div
-        class="charts-row"
-        v-if="kind === 'replay' && (cumulativeChart.labels.length > 0 || physicalReplayCumulativeChart.labels.length > 0)"
-      >
-        <div class="chart-card" v-if="cumulativeChart.labels.length > 0">
-          <div class="chart-header">
-            <h3>Délégués cumulés ayant consulté du replay — comparé</h3>
-            <span class="cmp-axis-hint">J0 = 1er visionnage VOD de chaque event</span>
+      <template v-else>
+        <!-- Rangée 1 : Délégués uniques/jour (+ cumul) | Vues/jour (histo + cumul) -->
+        <div class="charts-row">
+          <div class="chart-card">
+            <div class="chart-header">
+              <h3>{{ L.dailyChartTitle }}</h3>
+              <span class="cmp-axis-hint">Axe X : {{ L.dailyChartAxisHint }}</span>
+            </div>
+            <div v-if="dailyChart.labels.length > 0" :style="{ position: 'relative', height: '300px' }">
+              <Bar :data="dailyChart" :options="dailyChartOptions" />
+            </div>
+            <p v-else class="empty-msg">Aucune donnée par jour exploitable sur l'un ou l'autre event</p>
           </div>
-          <LineChart :labels="cumulativeChart.labels" :datasets="cumulativeChart.datasets" :height="300" />
-        </div>
-        <div class="chart-card" v-if="physicalReplayCumulativeChart.labels.length > 0">
-          <div class="chart-header">
-            <h3>Présents physiques ayant consulté du replay — cumulé (comparé)</h3>
-            <span class="cmp-axis-hint">J0 = 1er visionnage VOD de chaque event</span>
+          <div class="chart-card">
+            <div class="chart-header">
+              <h3>Vues en replay par jour — comparé</h3>
+              <span class="cmp-axis-hint">J0 = 1er visionnage VOD de chaque event</span>
+            </div>
+            <div v-if="viewsByDayCompareChart.labels.length > 0" :style="{ position: 'relative', height: '300px' }">
+              <Bar :data="viewsByDayCompareChart" :options="viewsByDayCompareOptions" />
+            </div>
+            <p v-else class="empty-msg">Aucune vue replay exploitable</p>
           </div>
-          <LineChart :labels="physicalReplayCumulativeChart.labels" :datasets="physicalReplayCumulativeChart.datasets" :height="300" />
-          <p class="cmp-axis-hint" style="margin-top: 6px">
-            Funnel « venu sur place puis revu en replay » : délégués avec check-in physique valide ayant ensuite consulté de la VOD.
-          </p>
         </div>
-      </div>
+
+        <!-- Rangée 2 : présents physiques — délégués uniques/jour | vues/jour -->
+        <div class="charts-row">
+          <div class="chart-card">
+            <div class="chart-header">
+              <h3>Délégués uniques physiquement présents en replay par jour — comparé</h3>
+              <span class="cmp-axis-hint">J0 = 1er visionnage VOD de chaque event</span>
+            </div>
+            <div v-if="physicalReplayUniqueCompareChart.labels.length > 0" :style="{ position: 'relative', height: '300px' }">
+              <Bar :data="physicalReplayUniqueCompareChart" :options="physicalReplayUniqueCompareOptions" />
+            </div>
+            <p v-else class="empty-msg">Aucun présent physique n'a consulté de replay</p>
+          </div>
+          <div class="chart-card">
+            <div class="chart-header">
+              <h3>Vues en replay par jour des physiquement présents — comparé</h3>
+              <span class="cmp-axis-hint">J0 = 1er visionnage VOD de chaque event</span>
+            </div>
+            <div v-if="physicalReplayViewsCompareChart.labels.length > 0" :style="{ position: 'relative', height: '300px' }">
+              <Bar :data="physicalReplayViewsCompareChart" :options="physicalReplayViewsCompareOptions" />
+            </div>
+            <p v-else class="empty-msg">Aucune vue replay de présent physique</p>
+          </div>
+        </div>
+      </template>
     </template>
   </div>
 </template>
@@ -129,9 +154,8 @@ import {
   getRemoteOnlyDelegateIds,
 } from "../../utils/viewerJoin.js";
 import { fmt, shortName } from "@/utils/formatters.js";
-import { buildPhysicalReplayCumulative } from "../../utils/physicalReplay.js";
+import { buildPhysicalReplayByDay, buildPhysicalReplayCumulative } from "../../utils/physicalReplay.js";
 import KpiCompareGrid from "../charts/KpiCompareGrid.vue";
-import LineChart from "../charts/LineChart.vue";
 
 const props = defineProps({
   // 'live' | 'replay' — pilote tous les labels affiches a l'utilisateur.
@@ -318,132 +342,179 @@ function alignDaysOnJ0(uniqueByDay) {
 const dailyChart = computed(() => {
   const a = alignDaysOnJ0(statsA.value.uniqueByDay);
   const b = alignDaysOnJ0(statsB.value.uniqueByDay);
-  const maxOffset = Math.max(
-    a.offsets.length > 0 ? a.offsets[a.offsets.length - 1] : -1,
-    b.offsets.length > 0 ? b.offsets[b.offsets.length - 1] : -1,
-  );
+  // Replay : on superpose les courbes de delegues CUMULES (A/B) sur 2e axe
+  // (carry-forward, alignees sur le meme J0 que les barres quotidiennes).
+  const isReplay = props.kind === "replay";
+  const ca = isReplay ? alignDaysOnJ0(statsA.value.cumulativeUniqueByDay) : { offsets: [], byOffset: {} };
+  const cb = isReplay ? alignDaysOnJ0(statsB.value.cumulativeUniqueByDay) : { offsets: [], byOffset: {} };
+  const lastOffset = (x) => (x.offsets.length > 0 ? x.offsets[x.offsets.length - 1] : -1);
+  const maxOffset = Math.max(lastOffset(a), lastOffset(b), lastOffset(ca), lastOffset(cb));
   if (maxOffset < 0) return { labels: [], datasets: [] };
   const labels = [];
   const dataA = [];
   const dataB = [];
+  const cumA = [];
+  const cumB = [];
+  let lastCa = 0;
+  let lastCb = 0;
   for (let i = 0; i <= maxOffset; i++) {
     labels.push(`J${i}`);
     dataA.push(a.byOffset[i] || 0);
     dataB.push(b.byOffset[i] || 0);
+    if (ca.byOffset[i] != null) lastCa = ca.byOffset[i];
+    if (cb.byOffset[i] != null) lastCb = cb.byOffset[i];
+    cumA.push(lastCa);
+    cumB.push(lastCb);
   }
-  return {
-    labels,
-    datasets: [
-      { label: shortName(props.eventName), data: dataA, backgroundColor: COLORS.current, borderRadius: 6 },
-      { label: shortName(props.compareEventName), data: dataB, backgroundColor: COLORS.compare, borderRadius: 6 },
-    ],
-  };
+  const datasets = [
+    { type: "bar", label: shortName(props.eventName), data: dataA, backgroundColor: COLORS.current, borderRadius: 6, yAxisID: "y", order: 3 },
+    { type: "bar", label: shortName(props.compareEventName), data: dataB, backgroundColor: COLORS.compare, borderRadius: 6, yAxisID: "y", order: 3 },
+  ];
+  if (isReplay) {
+    datasets.push(
+      { type: "line", label: `${shortName(props.eventName)} — cumulés`, data: cumA, borderColor: COLORS.current, backgroundColor: "rgba(39,206,113,0.10)", fill: false, tension: 0.3, pointRadius: 2, borderWidth: 2.5, yAxisID: "y1", order: 1 },
+      { type: "line", label: `${shortName(props.compareEventName)} — cumulés`, data: cumB, borderColor: COLORS.compare, backgroundColor: "rgba(156,163,175,0.10)", fill: false, tension: 0.3, pointRadius: 2, borderWidth: 2.5, borderDash: [5, 4], yAxisID: "y1", order: 2 },
+    );
+  }
+  return { labels, datasets };
 });
 
-const dailyChartOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: { position: "top" },
-    tooltip: {
-      callbacks: {
-        label: (ctx) => `${ctx.dataset.label} · ${fmt(ctx.parsed.y)} délégués`,
+const dailyChartOptions = computed(() => {
+  const isReplay = props.kind === "replay";
+  const opts = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { position: "top" },
+      tooltip: {
+        callbacks: {
+          label: (ctx) =>
+            ctx.dataset.yAxisID === "y1"
+              ? `${ctx.dataset.label} · ${fmt(ctx.parsed.y)} délégués cumulés`
+              : `${ctx.dataset.label} · ${fmt(ctx.parsed.y)} délégués/jour`,
+        },
       },
     },
-  },
-  scales: {
-    y: { beginAtZero: true, ticks: { precision: 0 } },
-    x: { grid: { display: false } },
-  },
-};
-
-// --- Cumul de delegues ayant consulte du replay (replay uniquement) ---
-// Courbe croissante comparee A vs B, alignee sur J0 (1er jour de visionnage de
-// chaque event) comme le graphe quotidien. cumulativeUniqueByDay porte deja le
-// cumul (chaque delegue compte une fois, le jour de sa 1ere consultation). Les
-// jours sans nouveau viewer sont reportes a plat (carry-forward) pour eviter une
-// chute artificielle de la courbe.
-const cumulativeChart = computed(() => {
-  if (props.kind !== "replay") return { labels: [], datasets: [] };
-  const a = alignDaysOnJ0(statsA.value.cumulativeUniqueByDay);
-  const b = alignDaysOnJ0(statsB.value.cumulativeUniqueByDay);
-  const maxOffset = Math.max(
-    a.offsets.length > 0 ? a.offsets[a.offsets.length - 1] : -1,
-    b.offsets.length > 0 ? b.offsets[b.offsets.length - 1] : -1,
-  );
-  if (maxOffset < 0) return { labels: [], datasets: [] };
-  const labels = [];
-  const dataA = [];
-  const dataB = [];
-  let lastA = 0;
-  let lastB = 0;
-  for (let i = 0; i <= maxOffset; i++) {
-    labels.push(`J${i}`);
-    if (a.byOffset[i] != null) lastA = a.byOffset[i];
-    if (b.byOffset[i] != null) lastB = b.byOffset[i];
-    dataA.push(lastA);
-    dataB.push(lastB);
-  }
-  return {
-    labels,
-    datasets: [
-      {
-        label: shortName(props.eventName),
-        data: dataA,
-        borderColor: COLORS.current,
-        backgroundColor: "rgba(39,206,113,0.10)",
-        fill: true,
-        tension: 0.3,
-        pointRadius: 0,
-        borderWidth: 2.5,
-      },
-      {
-        label: shortName(props.compareEventName),
-        data: dataB,
-        borderColor: COLORS.compare,
-        backgroundColor: "rgba(156,163,175,0.10)",
-        fill: true,
-        tension: 0.3,
-        pointRadius: 0,
-        borderWidth: 2.5,
-      },
-    ],
+    scales: {
+      y: { beginAtZero: true, ticks: { precision: 0 }, title: isReplay ? { display: true, text: "Uniques / jour", font: { size: 10 } } : { display: false } },
+      x: { grid: { display: false } },
+    },
   };
+  if (isReplay) {
+    opts.scales.y1 = {
+      position: "right", beginAtZero: true,
+      grid: { display: false }, ticks: { precision: 0 },
+      title: { display: true, text: "Cumulés", font: { size: 10 } },
+    };
+  }
+  return opts;
 });
 
 // --- Présents physiques qui consultent du replay (replay uniquement) ---
-// Funnel "venu sur place PUIS revu en replay", compare A vs B.
-// Cumul des presents physiques ayant consulte du replay, A vs B, aligne J0 avec
-// report a plat (carry-forward) comme le cumul replay global.
-const physicalReplayCumulativeChart = computed(() => {
-  if (props.kind !== "replay") return { labels: [], datasets: [] };
-  const a = alignDaysOnJ0(buildPhysicalReplayCumulative(statsA.value.items, lookupA.value));
-  const b = alignDaysOnJ0(buildPhysicalReplayCumulative(statsB.value.items, lookupB.value));
-  const maxOffset = Math.max(
-    a.offsets.length > 0 ? a.offsets[a.offsets.length - 1] : -1,
-    b.offsets.length > 0 ? b.offsets[b.offsets.length - 1] : -1,
-  );
+// Funnel "venu sur place PUIS revu en replay", compare A vs B (par jour).
+
+// Chart mixte comparé : barres groupees par jour (A/B, axe y) + courbes cumulees
+// (A/B, axe y1), alignees J0. `cumA`/`cumB` (optionnels) = series cumulees
+// DEDIEES (ex: cumul de delegues DISTINCTS) reportees a plat (carry-forward) ;
+// sinon la cumulee est la somme courante des valeurs journalieres (ok pour des
+// vues additives).
+function buildCompareDailyMixed(dailyA, dailyB, cumA = null, cumB = null) {
+  const a = alignDaysOnJ0(dailyA || []);
+  const b = alignDaysOnJ0(dailyB || []);
+  const ca = cumA ? alignDaysOnJ0(cumA) : null;
+  const cb = cumB ? alignDaysOnJ0(cumB) : null;
+  const last = (x) => (x && x.offsets.length > 0 ? x.offsets[x.offsets.length - 1] : -1);
+  const maxOffset = Math.max(last(a), last(b), last(ca), last(cb));
   if (maxOffset < 0) return { labels: [], datasets: [] };
   const labels = [];
-  const dataA = [];
-  const dataB = [];
-  let lastA = 0;
-  let lastB = 0;
+  const dA = [];
+  const dB = [];
+  const cumAArr = [];
+  const cumBArr = [];
+  let sa = 0;
+  let sb = 0;
+  let lastCa = 0;
+  let lastCb = 0;
   for (let i = 0; i <= maxOffset; i++) {
     labels.push(`J${i}`);
-    if (a.byOffset[i] != null) lastA = a.byOffset[i];
-    if (b.byOffset[i] != null) lastB = b.byOffset[i];
-    dataA.push(lastA);
-    dataB.push(lastB);
+    const va = a.byOffset[i] || 0;
+    const vb = b.byOffset[i] || 0;
+    dA.push(va);
+    dB.push(vb);
+    if (ca) {
+      if (ca.byOffset[i] != null) lastCa = ca.byOffset[i];
+      cumAArr.push(lastCa);
+    } else {
+      sa += va;
+      cumAArr.push(sa);
+    }
+    if (cb) {
+      if (cb.byOffset[i] != null) lastCb = cb.byOffset[i];
+      cumBArr.push(lastCb);
+    } else {
+      sb += vb;
+      cumBArr.push(sb);
+    }
   }
   return {
     labels,
     datasets: [
-      { label: shortName(props.eventName), data: dataA, borderColor: COLORS.current, backgroundColor: "rgba(39,206,113,0.10)", fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2.5 },
-      { label: shortName(props.compareEventName), data: dataB, borderColor: COLORS.compare, backgroundColor: "rgba(156,163,175,0.10)", fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2.5 },
+      { type: "bar", label: shortName(props.eventName), data: dA, backgroundColor: COLORS.current, borderRadius: 5, yAxisID: "y", order: 3 },
+      { type: "bar", label: shortName(props.compareEventName), data: dB, backgroundColor: COLORS.compare, borderRadius: 5, yAxisID: "y", order: 3 },
+      { type: "line", label: `${shortName(props.eventName)} — cumulé`, data: cumAArr, borderColor: COLORS.current, backgroundColor: "rgba(39,206,113,0.10)", fill: false, tension: 0.3, pointRadius: 2, borderWidth: 2.5, yAxisID: "y1", order: 1 },
+      { type: "line", label: `${shortName(props.compareEventName)} — cumulé`, data: cumBArr, borderColor: COLORS.compare, backgroundColor: "rgba(156,163,175,0.10)", fill: false, tension: 0.3, pointRadius: 2, borderWidth: 2.5, borderDash: [5, 4], yAxisID: "y1", order: 2 },
     ],
   };
+}
+function mixedCompareOptions(perDayTitle, unit) {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { position: "top", labels: { font: { size: 10 }, usePointStyle: true, pointStyle: "rectRounded" } },
+      tooltip: {
+        callbacks: {
+          label: (ctx) =>
+            ctx.dataset.yAxisID === "y1"
+              ? `${ctx.dataset.label} · ${fmt(ctx.parsed.y)} ${unit} cumulé(e)s`
+              : `${ctx.dataset.label} · ${fmt(ctx.parsed.y)} ${unit}/jour`,
+        },
+      },
+    },
+    scales: {
+      x: { grid: { display: false } },
+      y: { position: "left", beginAtZero: true, ticks: { precision: 0 }, title: { display: true, text: perDayTitle, font: { size: 10 } } },
+      y1: { position: "right", beginAtZero: true, grid: { display: false }, ticks: { precision: 0 }, title: { display: true, text: "Cumulé", font: { size: 10 } } },
+    },
+  };
+}
+
+// Vues en replay par jour — comparé (tous viewers) : barres/jour + cumul (somme).
+const viewsByDayCompareChart = computed(() =>
+  props.kind === "replay" ? buildCompareDailyMixed(statsA.value.viewsByDay, statsB.value.viewsByDay) : { labels: [], datasets: [] },
+);
+const viewsByDayCompareOptions = mixedCompareOptions("Vues / jour", "vues");
+
+// Vues en replay par jour des PRESENTS PHYSIQUES — comparé : barres/jour + cumul (somme).
+const physicalReplayViewsCompareChart = computed(() => {
+  if (props.kind !== "replay") return { labels: [], datasets: [] };
+  const aD = buildPhysicalReplayByDay(statsA.value.items, lookupA.value).map((d) => ({ day: d.day, count: d.views }));
+  const bD = buildPhysicalReplayByDay(statsB.value.items, lookupB.value).map((d) => ({ day: d.day, count: d.views }));
+  return buildCompareDailyMixed(aD, bD);
 });
+const physicalReplayViewsCompareOptions = mixedCompareOptions("Vues / jour", "vues");
+
+// Délégués uniques PHYSIQUEMENT PRESENTS — comparé : barres/jour + cumul DISTINCT
+// (un délégué compté 1x, au jour de sa 1ère vue replay).
+const physicalReplayUniqueCompareChart = computed(() => {
+  if (props.kind !== "replay") return { labels: [], datasets: [] };
+  const aD = buildPhysicalReplayByDay(statsA.value.items, lookupA.value).map((d) => ({ day: d.day, count: d.uniqueDelegates }));
+  const bD = buildPhysicalReplayByDay(statsB.value.items, lookupB.value).map((d) => ({ day: d.day, count: d.uniqueDelegates }));
+  const aC = buildPhysicalReplayCumulative(statsA.value.items, lookupA.value);
+  const bC = buildPhysicalReplayCumulative(statsB.value.items, lookupB.value);
+  return buildCompareDailyMixed(aD, bD, aC, bC);
+});
+const physicalReplayUniqueCompareOptions = mixedCompareOptions("Délégués / jour", "délégués");
 </script>
 
 <style scoped>

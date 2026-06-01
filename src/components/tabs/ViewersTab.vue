@@ -64,11 +64,23 @@
             <h3>{{ L.byDayTitle }}</h3>
             <CsvButton
               :filename="`${kind}-delegues-uniques-par-jour`"
-              :headers="['Jour', 'Delegues uniques']"
-              :rows="stats.uniqueByDay.map(d => [d.day, d.count])"
+              :headers="kind === 'replay'
+                ? ['Jour', 'Délégués uniques', 'Délégués cumulés']
+                : ['Jour', 'Délégués uniques', ...byDayByBadgeType.types]"
+              :rows="kind === 'replay'
+                ? stats.uniqueByDay.map((d, i) => [d.day, d.count, stats.cumulativeUniqueByDay[i]?.count ?? ''])
+                : byDayByBadgeType.labels.map((day, i) => [day, byDayByBadgeType.types.reduce((s, t) => s + (byDayByBadgeType.perDayType[i][t] || 0), 0), ...byDayByBadgeType.types.map(t => byDayByBadgeType.perDayType[i][t] || 0)])"
             />
           </div>
-          <div v-if="stats.uniqueByDay.length > 0" :style="{ position: 'relative', height: '300px' }">
+          <!-- Live : empile par type de badge (legende). Replay : uniques + cumul. -->
+          <StackedBarChart
+            v-if="kind === 'live' && byDayByBadgeType.labels.length > 0"
+            :labels="byDayByBadgeType.labels"
+            :datasets="byDayByBadgeType.datasets"
+            :show-total="true"
+            :height="300"
+          />
+          <div v-else-if="stats.uniqueByDay.length > 0" :style="{ position: 'relative', height: '300px' }">
             <Bar :data="byDayChart" :options="byDayOptions" />
           </div>
           <p v-else class="empty-msg">{{ L.byDayEmpty }}</p>
@@ -92,20 +104,21 @@
             somme d'un jour peut dépasser le total dédoublonné de gauche.
           </p>
         </div>
-        <!-- Replay : l'engagement (sessions consultées par délégué) prend la
-             colonne de droite (pas de chart par chaîne en VOD). -->
+        <!-- Replay : vues par jour (barres) + vues cumulées (courbe) a droite
+             des delegues uniques par jour. -->
         <div class="chart-card" v-else-if="kind === 'replay'">
           <div class="chart-header">
-            <h3>{{ L.engagementTitle }}</h3>
+            <h3>Vues en replay par jour</h3>
             <CsvButton
-              :filename="`${kind}-engagement`"
-              :headers="['Tranche', 'Délégués']"
-              :rows="Object.entries(stats.sessionsPerUserBuckets).map(([k, v]) => [k, v])"
+              filename="replay-vues-par-jour"
+              :headers="['Jour', 'Vues', 'Vues cumulées']"
+              :rows="replayViewsByDay.map((d, i) => [d.day, d.count, stats.cumulativeViewsByDay[i]?.count ?? ''])"
             />
           </div>
-          <div :style="{ position: 'relative', height: '300px' }">
-            <Bar :data="engagementChart" :options="engagementOptions" />
+          <div v-if="replayViewsByDay.length > 0" :style="{ position: 'relative', height: '300px' }">
+            <Bar :data="replayViewsByDayChart" :options="replayViewsByDayOptions" />
           </div>
+          <p v-else class="empty-msg">Aucune vue replay horodatée</p>
         </div>
       </div>
 
@@ -121,8 +134,8 @@
             </span>
             <CsvButton
               filename="replay-presents-physiques-par-jour"
-              :headers="['Jour', 'Délégués uniques (présents physiques)', 'Vues replay']"
-              :rows="physicalReplayDaily.map(d => [d.day, d.uniqueDelegates, d.views])"
+              :headers="['Jour', 'Délégués uniques (présents physiques)', 'Vues replay', 'Vues replay cumulées']"
+              :rows="physicalReplayDaily.map((d, i, arr) => [d.day, d.uniqueDelegates, d.views, arr.slice(0, i + 1).reduce((s, x) => s + x.views, 0)])"
             />
           </div>
           <div v-if="physicalReplayDaily.length > 0" :style="{ position: 'relative', height: '300px' }">
@@ -133,23 +146,21 @@
             Délégués avec un check-in physique valide qui ont ensuite regardé du replay. Bucketage sur la date de visionnage VOD (heure de Paris).
           </p>
         </div>
+        <!-- Vues en replay par jour pour les PRESENTS PHYSIQUES (barres) +
+             vues cumulees (courbe), a droite des presents physiques par jour. -->
         <div class="chart-card">
           <div class="chart-header">
-            <h3>Présents physiques ayant consulté du replay — cumulé</h3>
+            <h3>Vues en replay par jour — présents physiques</h3>
             <CsvButton
-              filename="replay-presents-physiques-cumul"
-              :headers="['Jour', 'Délégués cumulés (présents physiques)']"
-              :rows="physicalReplayCumulative.map(d => [d.day, d.count])"
+              filename="replay-vues-par-jour-presents-physiques"
+              :headers="['Jour', 'Vues (présents physiques)', 'Vues cumulées']"
+              :rows="physicalReplayDaily.map((d, i, arr) => [d.day, d.views, arr.slice(0, i + 1).reduce((s, x) => s + x.views, 0)])"
             />
           </div>
-          <LineChart
-            v-if="physicalReplayCumulative.length > 0"
-            :labels="physicalReplayCumulativeLabels"
-            :datasets="physicalReplayCumulativeDatasets"
-            :height="300"
-          />
-          <p v-else class="empty-msg">Aucun délégué physiquement présent n'a (encore) consulté de replay</p>
-          <p class="viewers-hint">Chaque délégué est compté une seule fois, le jour de sa 1ʳᵉ consultation replay.</p>
+          <div v-if="physicalReplayDaily.length > 0" :style="{ position: 'relative', height: '300px' }">
+            <Bar :data="physicalReplayViewsChart" :options="replayViewsByDayOptions" />
+          </div>
+          <p v-else class="empty-msg">Aucune vue replay de présent physique</p>
         </div>
       </div>
 
@@ -225,10 +236,9 @@
         />
       </div>
 
-      <!-- Engagement : repartition par nombre de sessions consultees.
-           Live uniquement en standalone (en replay il est remonte a droite de
-           "Délégués uniques par jour"). -->
-      <div class="chart-card" v-if="kind === 'live'">
+      <!-- Engagement : standalone (live ET replay) — en replay la colonne droite
+           des "présents physiques par jour" porte désormais les vues par jour. -->
+      <div class="chart-card">
         <div class="chart-header">
           <h3>{{ L.engagementTitle }}</h3>
           <CsvButton
@@ -299,13 +309,15 @@ import { computed, ref, watch } from "vue";
 import { Bar } from "vue-chartjs";
 import HBarChart from "../charts/HBarChart.vue";
 import DoughnutChart from "../charts/DoughnutChart.vue";
+import StackedBarChart from "../charts/StackedBarChart.vue";
 import CsvButton from "../CsvButton.vue";
 import { parisDateParts } from "../../utils/parisTime.js";
 import { fmt } from "@/utils/formatters.js";
 import { getTypeColor } from "@/utils/typeColors.js";
+import { delegateBadgeType } from "@/utils/checkinByType.js";
+import { buildDelegateLookup } from "@/utils/viewerJoin.js";
 import { debug } from "@/utils/debug.js";
-import LineChart from "../charts/LineChart.vue";
-import { buildPhysicalReplayByDay, buildPhysicalReplayCumulative } from "@/utils/physicalReplay.js";
+import { buildPhysicalReplayByDay } from "@/utils/physicalReplay.js";
 
 const props = defineProps({
   // 'live' | 'replay' — pilote labels + variations de template (30min/sessionType pie
@@ -315,6 +327,10 @@ const props = defineProps({
   delegates: { type: Array, default: () => [] },
   // Instance composable proprietee par StatisticsView (useLive ou useReplay).
   viewerApi: { type: Object, required: true },
+  // true quand le filtre global type de badge est actif : on masque alors le
+  // segment "Inscrit non reconnu" du chart "Délégués uniques par jour" (on ne
+  // veut voir que le(s) type(s) sélectionné(s)).
+  badgeFilterActive: { type: Boolean, default: false },
 });
 
 // Labels affiches. Centralises ici, jamais en dur dans le template.
@@ -377,40 +393,14 @@ const totalSessionTypeViews = computed(() =>
 );
 
 // --- Jointure ES viewer (user_id = keycloak id) <-> delegate Mongo ---
-// Le user_id ES correspond a un account Keycloak (vu via contact.emailAddresses
-// .source.id avec source.type === ACCOUNT). Source la plus fiable d'apres
-// l'inspection cote service contacts. (Avant : 5 cles candidates testees a la
-// chaine — fragile et peu performant.)
-function hasValidCheckin(d) {
-  if (!d?.checkedInDate) return false;
-  return Number.isFinite(Date.parse(d.checkedInDate));
-}
-function getKeycloakId(d) {
-  const emails = d?.contact?.emailAddresses;
-  if (!Array.isArray(emails)) return null;
-  return emails.find((e) => e?.source?.type === "ACCOUNT")?.source?.id || null;
-}
-
-const delegateLookup = computed(() => {
-  const map = new Map(); // keycloakId -> { checkedIn, delegate }
-  for (const d of props.delegates || []) {
-    const kcId = getKeycloakId(d);
-    if (!kcId) continue;
-    const checkedIn = hasValidCheckin(d);
-    if (map.has(kcId)) {
-      const prev = map.get(kcId);
-      if (prev.checkedIn !== checkedIn) {
-        console.warn(
-          `${L.value.debugTag} Collision keycloakId ${kcId} entre 2 delegues avec checkedIn different`,
-          { prev: prev.delegate?.email, current: d.email },
-        );
-      }
-      continue;
-    }
-    map.set(kcId, { checkedIn, delegate: d });
-  }
-  return map;
-});
+// Mutualise via viewerJoin.buildDelegateLookup : indexe chaque delegue sous
+// CHACUN de ses comptes Keycloak (contact.emailAddresses[].source.id type
+// ACCOUNT — un contact peut avoir plusieurs emails/comptes). Map<kcId,
+// {checkedIn, delegate}>. (Avant : logique inline qui ne prenait que le 1er
+// compte, d'ou des "Inscrit non reconnu" pour les delegues multi-comptes.)
+const delegateLookup = computed(() =>
+  buildDelegateLookup(props.delegates || [], { datasetLabel: props.kind }),
+);
 
 // Classifie chaque hit en : checked-in / no-checkin / unknown (pas de delegate matchant).
 const joinStats = computed(() => {
@@ -527,6 +517,52 @@ watch(
     console.log("Délégués uniques / créneau 30 min:", s.uniqueBy30min);
     console.log("Engagement (sessions consultées / délégué):", s.sessionsPerUserBuckets);
     console.groupEnd();
+
+    // --- Dump dedie des viewers classes "Inconnu" (segment du chart par jour) ---
+    // Un viewer tombe en "Inconnu" si son user_id (Keycloak) n'est rapproche
+    // d'AUCUN delegue, OU s'il est matche mais que le delegue n'a ni badge ni
+    // registration (delegateBadgeType -> "Inconnu").
+    const lookup = delegateLookup.value;
+    const inconnu = new Map(); // userId -> ligne diagnostic
+    for (const it of items) {
+      if (!it.userId) continue;
+      const entry = lookup.get(it.userId);
+      const type = entry?.delegate ? delegateBadgeType(entry.delegate) : "Inconnu";
+      if (type !== "Inconnu") continue;
+      if (inconnu.has(it.userId)) {
+        inconnu.get(it.userId).vues++;
+        continue;
+      }
+      const matched = !!entry?.delegate;
+      inconnu.set(it.userId, {
+        userId: it.userId,
+        cause: matched ? "matché SANS badge ni registration" : "NON rapproché (user_id Keycloak introuvable côté délégués)",
+        matched,
+        email: entry?.delegate?.email || it.email || "—",
+        fullName: it.fullName || "—",
+        delegateId: entry?.delegate?.id || "—",
+        nbBadges: entry?.delegate?.badges?.length ?? "—",
+        nbRegistrations: entry?.delegate?.registrations?.length ?? "—",
+        exempleSession: it.sessionTitle || it.sessionId || "—",
+        vues: 1,
+      });
+    }
+    const rows = [...inconnu.values()];
+    const nonMatched = rows.filter((r) => !r.matched).length;
+    const matchedNoType = rows.filter((r) => r.matched).length;
+    const totalUsers = new Set(items.map((i) => i.userId).filter(Boolean)).size;
+    console.groupCollapsed(
+      `%c[Live] Segment "Inscrit non reconnu" — ${rows.length}/${totalUsers} viewers uniques ` +
+        `(${nonMatched} non rapprochés · ${matchedNoType} matchés sans type)`,
+      "color:#b91c1c;font-weight:700",
+    );
+    console.table(rows);
+    console.log(
+      `Couverture jointure : ${totalUsers - nonMatched}/${totalUsers} viewers rapprochés à un délégué ` +
+        `(${totalUsers > 0 ? (((totalUsers - nonMatched) / totalUsers) * 100).toFixed(1) : 0}%).`,
+    );
+    console.log("Lookup délégués (taille) :", lookup.size, "délégués avec user_id Keycloak");
+    console.groupEnd();
     /* eslint-enable no-console */
   },
   { immediate: true },
@@ -566,10 +602,15 @@ const physicalReplayChart = computed(() => ({
     },
     {
       type: "line",
-      label: "Vues replay",
-      data: physicalReplayDaily.value.map((d) => d.views),
+      label: "Vues replay cumulées",
+      // Cumul des vues replay de ces presents physiques, jour apres jour.
+      data: (() => {
+        let c = 0;
+        return physicalReplayDaily.value.map((d) => (c += d.views));
+      })(),
       borderColor: "#6F45FF",
       backgroundColor: "rgba(111,69,255,0.10)",
+      fill: false,
       tension: 0.3,
       pointRadius: 2,
       borderWidth: 2.5,
@@ -589,7 +630,7 @@ const physicalReplayOptions = {
       callbacks: {
         label: (ctx) =>
           ctx.dataset.yAxisID === "y1"
-            ? `${ctx.raw.toLocaleString("fr-FR")} vues`
+            ? `${ctx.raw.toLocaleString("fr-FR")} vues cumulées`
             : `${ctx.raw.toLocaleString("fr-FR")} délégués uniques`,
       },
     },
@@ -604,41 +645,136 @@ const physicalReplayOptions = {
     y1: {
       position: "right", beginAtZero: true,
       grid: { display: false }, ticks: { font: { size: 11 }, precision: 0 },
-      title: { display: true, text: "Vues", font: { size: 10 } },
+      title: { display: true, text: "Vues cumulées", font: { size: 10 } },
     },
   },
 };
 
-// Variante cumulee : delegues presents physiques distincts ayant deja consulte
-// du replay, jour apres jour (chaque delegue compte 1x au jour de sa 1ere vue).
-const physicalReplayCumulative = computed(() =>
-  props.kind === "replay" ? buildPhysicalReplayCumulative(stats.value.items, delegateLookup.value) : [],
-);
-const physicalReplayCumulativeDatasets = computed(() => [{
-  label: "Délégués cumulés (présents physiques)",
-  data: physicalReplayCumulative.value.map((d) => d.count),
-  borderColor: "#1E4E66",
-  backgroundColor: "rgba(30,78,102,0.10)",
-  fill: true,
-  tension: 0.3,
-  pointRadius: 0,
-  borderWidth: 2.5,
-}]);
-const physicalReplayCumulativeLabels = computed(() =>
-  physicalReplayCumulative.value.map((d) => d.day),
-);
+// Vues en replay par jour POUR LES PRESENTS PHYSIQUES : barres (vues/jour) +
+// courbe (vues cumulees), restreint aux delegues avec check-in valide ayant
+// consulte du replay (physicalReplayDaily). Reutilise replayViewsByDayOptions.
+const physicalReplayViewsChart = computed(() => ({
+  labels: physicalReplayDaily.value.map((d) => d.day),
+  datasets: [
+    {
+      type: "bar",
+      label: "Vues / jour (présents physiques)",
+      data: physicalReplayDaily.value.map((d) => d.views),
+      backgroundColor: "#6F45FF",
+      borderRadius: 4,
+      barThickness: Math.max(12, Math.min(40, 500 / (physicalReplayDaily.value.length || 1))),
+      yAxisID: "y",
+      order: 2,
+    },
+    {
+      type: "line",
+      label: "Vues cumulées",
+      data: (() => {
+        let c = 0;
+        return physicalReplayDaily.value.map((d) => (c += d.views));
+      })(),
+      borderColor: "#1E4E66",
+      backgroundColor: "rgba(30,78,102,0.10)",
+      fill: false,
+      tension: 0.3,
+      pointRadius: 3,
+      pointHoverRadius: 5,
+      pointBackgroundColor: "#1E4E66",
+      borderWidth: 2.5,
+      yAxisID: "y1",
+      order: 1,
+      datalabels: { display: false },
+    },
+  ],
+}));
+
 
 // --- Charts ---
-const byDayChart = computed(() => ({
-  labels: stats.value.uniqueByDay.map((d) => d.day),
-  datasets: [{
+const byDayChart = computed(() => {
+  const labels = stats.value.uniqueByDay.map((d) => d.day);
+  const datasets = [{
+    type: "bar",
     label: "Délégués uniques",
     data: stats.value.uniqueByDay.map((d) => d.count),
     backgroundColor: L.value.byDayColor,
     borderRadius: 4,
     barThickness: Math.max(12, Math.min(40, 500 / (stats.value.uniqueByDay.length || 1))),
-  }],
-}));
+    yAxisID: "y",
+    order: 2,
+  }];
+  // Replay : courbe de delegues uniques CUMULES (chaque delegue compte 1x au
+  // jour de sa 1ere consultation). 2e axe car la courbe croit jusqu'au total.
+  if (props.kind === "replay" && (stats.value.cumulativeUniqueByDay || []).length > 0) {
+    datasets.push({
+      type: "line",
+      label: "Délégués cumulés",
+      data: stats.value.cumulativeUniqueByDay.map((d) => d.count),
+      borderColor: "#1E4E66",
+      backgroundColor: "rgba(30,78,102,0.10)",
+      fill: false,
+      tension: 0.3,
+      pointRadius: 3,
+      pointHoverRadius: 5,
+      pointBackgroundColor: "#1E4E66",
+      borderWidth: 2.5,
+      yAxisID: "y1",
+      order: 1,
+      datalabels: { display: false },
+    });
+  }
+  return { labels, datasets };
+});
+
+// Live : delegues uniques par jour EMPILES PAR TYPE DE BADGE. Le type vient du
+// delegue rapproche (lookup user_id keycloak -> delegate -> delegateBadgeType).
+// Dedoublonnage par (jour, user) : un delegue compte 1x par jour, dans son type.
+// Les viewers non rapproches d'un delegue tombent dans "Inconnu". La somme d'un
+// jour egale uniqueByDay. Bucketage sur sessionEnd (comme uniqueByDay live).
+const byDayByBadgeType = computed(() => {
+  if (props.kind !== "live") return { labels: [], datasets: [], types: [] };
+  const lookup = delegateLookup.value;
+  const seen = new Map(); // day -> Map<userId, badgeType>
+  for (const it of stats.value.items) {
+    if (!it.userId) continue;
+    const ref = it.sessionEnd || it.sessionStart || it.timestamp;
+    if (!ref) continue;
+    const p = parisDateParts(ref);
+    if (!p) continue;
+    if (!seen.has(p.ymd)) seen.set(p.ymd, new Map());
+    const dayMap = seen.get(p.ymd);
+    if (!dayMap.has(it.userId)) {
+      const entry = lookup.get(it.userId);
+      // Viewer non rapproche d'un delegue (ou delegue sans type) => "Inscrit non
+      // reconnu" : il a regarde du live donc il EST inscrit, mais la jointure
+      // Keycloak <-> delegue echoue. Anomalie a corriger (cf. couverture ACCOUNT).
+      const t = entry?.delegate ? delegateBadgeType(entry.delegate) : "Inconnu";
+      const label = t === "Inconnu" ? "Inscrit non reconnu" : t;
+      // Filtre badge type actif : on masque les "Inscrit non reconnu" (viewers
+      // non rapprochés / hors du/des type(s) sélectionné(s)).
+      if (props.badgeFilterActive && label === "Inscrit non reconnu") continue;
+      dayMap.set(it.userId, label);
+    }
+  }
+  const days = [...seen.keys()].sort();
+  // Types tries par volume total decroissant (legende + ordre des segments).
+  const typeTotals = {};
+  for (const dayMap of seen.values()) {
+    for (const t of dayMap.values()) typeTotals[t] = (typeTotals[t] || 0) + 1;
+  }
+  const types = Object.keys(typeTotals).sort((a, b) => typeTotals[b] - typeTotals[a]);
+  const perDayType = days.map((d) => {
+    const byType = {};
+    for (const t of seen.get(d).values()) byType[t] = (byType[t] || 0) + 1;
+    return byType;
+  });
+  const datasets = types.map((type) => ({
+    label: type,
+    data: perDayType.map((bt) => bt[type] || 0),
+    backgroundColor: type === "Inscrit non reconnu" ? "#9CA3AF" : getTypeColor(type),
+    borderRadius: 3,
+  }));
+  return { labels: days, datasets, types, perDayType };
+});
 
 // Delegues uniques par jour ET par chaine de diffusion (live uniquement).
 // Barres GROUPEES (cote a cote) : 1 dataset par channel_id, couleur
@@ -678,23 +814,108 @@ const byDayChannelOptions = {
   },
 };
 
-const byDayOptions = {
+const byDayOptions = computed(() => {
+  const isReplay = props.kind === "replay";
+  const opts = {
+    responsive: true,
+    maintainAspectRatio: false,
+    layout: { padding: { top: 18 } },
+    plugins: {
+      legend: isReplay
+        ? { position: "top", labels: { font: { size: 11 }, usePointStyle: true, pointStyle: "rectRounded" } }
+        : { display: false },
+      datalabels: {
+        display: true, anchor: "end", align: "end", offset: 2, clip: false,
+        color: "#414141", font: { weight: 600, size: 11 },
+      },
+      tooltip: {
+        callbacks: {
+          label: (ctx) =>
+            ctx.dataset.yAxisID === "y1"
+              ? `${ctx.raw.toLocaleString("fr-FR")} délégués cumulés`
+              : `${ctx.raw.toLocaleString("fr-FR")} délégués uniques`,
+        },
+      },
+    },
+    scales: {
+      x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+      y: { grid: { color: "#f3f4f6" }, ticks: { font: { size: 11 } }, beginAtZero: true },
+    },
+  };
+  if (isReplay) {
+    opts.scales.y1 = {
+      position: "right", beginAtZero: true,
+      grid: { display: false }, ticks: { font: { size: 11 }, precision: 0 },
+      title: { display: true, text: "Cumulés", font: { size: 10 } },
+    };
+  }
+  return opts;
+});
+
+// --- Replay : Vues par jour (barres) + vues cumulees (courbe), double axe ---
+const replayViewsByDay = computed(() => stats.value.viewsByDay || []);
+const replayViewsByDayChart = computed(() => ({
+  labels: replayViewsByDay.value.map((d) => d.day),
+  datasets: [
+    {
+      type: "bar",
+      label: "Vues / jour",
+      data: replayViewsByDay.value.map((d) => d.count),
+      backgroundColor: "#6F45FF",
+      borderRadius: 4,
+      barThickness: Math.max(12, Math.min(40, 500 / (replayViewsByDay.value.length || 1))),
+      yAxisID: "y",
+      order: 2,
+    },
+    {
+      type: "line",
+      label: "Vues cumulées",
+      data: (stats.value.cumulativeViewsByDay || []).map((d) => d.count),
+      borderColor: "#1E4E66",
+      backgroundColor: "rgba(30,78,102,0.10)",
+      fill: false,
+      tension: 0.3,
+      pointRadius: 3,
+      pointHoverRadius: 5,
+      pointBackgroundColor: "#1E4E66",
+      borderWidth: 2.5,
+      yAxisID: "y1",
+      order: 1,
+      datalabels: { display: false },
+    },
+  ],
+}));
+const replayViewsByDayOptions = {
   responsive: true,
   maintainAspectRatio: false,
   layout: { padding: { top: 18 } },
   plugins: {
-    legend: { display: false },
+    legend: { position: "top", labels: { font: { size: 11 }, usePointStyle: true, pointStyle: "rectRounded" } },
     datalabels: {
       display: true, anchor: "end", align: "end", offset: 2, clip: false,
       color: "#414141", font: { weight: 600, size: 11 },
     },
     tooltip: {
-      callbacks: { label: (ctx) => `${ctx.raw.toLocaleString("fr-FR")} délégués uniques` },
+      callbacks: {
+        label: (ctx) =>
+          ctx.dataset.yAxisID === "y1"
+            ? `${ctx.raw.toLocaleString("fr-FR")} vues cumulées`
+            : `${ctx.raw.toLocaleString("fr-FR")} vues`,
+      },
     },
   },
   scales: {
     x: { grid: { display: false }, ticks: { font: { size: 11 } } },
-    y: { grid: { color: "#f3f4f6" }, ticks: { font: { size: 11 } }, beginAtZero: true },
+    y: {
+      position: "left", beginAtZero: true,
+      grid: { color: "#f3f4f6" }, ticks: { font: { size: 11 }, precision: 0 },
+      title: { display: true, text: "Vues / jour", font: { size: 10 } },
+    },
+    y1: {
+      position: "right", beginAtZero: true,
+      grid: { display: false }, ticks: { font: { size: 11 }, precision: 0 },
+      title: { display: true, text: "Cumulées", font: { size: 10 } },
+    },
   },
 };
 

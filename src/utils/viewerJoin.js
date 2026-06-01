@@ -23,11 +23,25 @@ const _warnedFingerprints = new Set();
 const COVERAGE_WARN_THRESHOLD = 0.5;
 const MIN_DATASET_SIZE = 50; // pas de warn sur les petits datasets / etat initial vide
 
-export function getKeycloakId(delegate) {
+// TOUS les identifiants Keycloak d'un delegue : un contact peut avoir PLUSIEURS
+// emailAddresses, chacune potentiellement liee a un compte Keycloak distinct
+// (source.type === "ACCOUNT"). On collecte donc tous les source.id ACCOUNT
+// (dedupes) — un viewer connecte avec n'importe lequel de ses comptes doit etre
+// rapproche du delegue. (Avant : seul le 1er etait pris via .find(), d'ou des
+// "Inscrit non reconnu" pour les delegues multi-comptes.)
+export function getKeycloakIds(delegate) {
   const emails = delegate?.contact?.emailAddresses;
-  if (!Array.isArray(emails)) return null;
-  const accountEmail = emails.find((e) => e?.source?.type === "ACCOUNT");
-  return accountEmail?.source?.id || null;
+  if (!Array.isArray(emails)) return [];
+  const ids = new Set();
+  for (const e of emails) {
+    if (e?.source?.type === "ACCOUNT" && e.source.id) ids.add(e.source.id);
+  }
+  return [...ids];
+}
+
+// Compat : 1er identifiant Keycloak (cf. getKeycloakIds pour la liste complete).
+export function getKeycloakId(delegate) {
+  return getKeycloakIds(delegate)[0] || null;
 }
 
 export function hasValidCheckin(delegate) {
@@ -37,6 +51,8 @@ export function hasValidCheckin(delegate) {
 }
 
 // Map<keycloakId, { checkedIn: boolean, delegate }>
+// Un delegue est indexe sous CHACUN de ses identifiants Keycloak (cf.
+// getKeycloakIds — un contact multi-emails peut avoir plusieurs comptes).
 // First-write-wins en cas de collision (anomalie data : 2 delegues partagent
 // le meme compte Keycloak).
 //
@@ -49,11 +65,14 @@ export function buildDelegateLookup(delegates, { datasetLabel = "" } = {}) {
   const total = (delegates || []).length;
 
   for (const d of delegates || []) {
-    const kcId = getKeycloakId(d);
-    if (!kcId) continue;
+    const kcIds = getKeycloakIds(d);
+    if (kcIds.length === 0) continue;
     withKeycloakId++;
-    if (map.has(kcId)) continue;
-    map.set(kcId, { checkedIn: hasValidCheckin(d), delegate: d });
+    const checkedIn = hasValidCheckin(d);
+    for (const kcId of kcIds) {
+      if (map.has(kcId)) continue;
+      map.set(kcId, { checkedIn, delegate: d });
+    }
   }
 
   // Warn si la couverture Keycloak est anormalement basse : la jointure
