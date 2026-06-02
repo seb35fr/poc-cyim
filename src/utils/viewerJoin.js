@@ -1,7 +1,12 @@
 // Jointure ES (Live / Replay) <-> delegates de la registration.
-// Le user_id ES est un IDENTIFIANT KEYCLOAK. Cote delegate, on le retrouve
-// dans contact.emailAddresses[].source.id quand source.type === "ACCOUNT"
-// (lien email <-> compte Keycloak cote service contacts).
+// Le user_id ES est un IDENTIFIANT KEYCLOAK. Cote delegate, on le retrouve via
+// DEUX sources (memes que la query contactByAccountId cote service contacts) :
+//   1) contact.emailAddresses[].source.id  quand source.type === "ACCOUNT"
+//      (lien email <-> compte Keycloak)
+//   2) contact.externalIds[].value         quand type === "/kc"
+//      (second rattachement Keycloak = branche fallback de contactByAccountId).
+// La source 2 capte les delegues dont le compte Keycloak n'est PAS materialise
+// dans emailAddresses : sans elle, la jointure les manque (couverture basse).
 //
 // Diagnostics : 2 warnings distincts.
 // - Couverture Keycloak basse cote delegues (buildDelegateLookup) : remonte
@@ -14,6 +19,10 @@
 // Dedupe par fingerprint pour ne pas spammer.
 
 import { pushDiagnostic } from "@/composables/useDiagnostics.js";
+import { debug } from "@/utils/debug.js";
+
+// Type d'externalId Keycloak cote service contacts (cf. getByExternalId({ type: "/kc" })).
+const KC_EXTERNAL_ID_TYPE = "/kc";
 
 // Module-level set des fingerprints deja warned (evite spam quand un meme
 // computed se recalcule sur le meme dataset).
@@ -23,20 +32,38 @@ const _warnedFingerprints = new Set();
 const COVERAGE_WARN_THRESHOLD = 0.5;
 const MIN_DATASET_SIZE = 50; // pas de warn sur les petits datasets / etat initial vide
 
-// TOUS les identifiants Keycloak d'un delegue : un contact peut avoir PLUSIEURS
-// emailAddresses, chacune potentiellement liee a un compte Keycloak distinct
-// (source.type === "ACCOUNT"). On collecte donc tous les source.id ACCOUNT
-// (dedupes) — un viewer connecte avec n'importe lequel de ses comptes doit etre
-// rapproche du delegue. (Avant : seul le 1er etait pris via .find(), d'ou des
-// "Inscrit non reconnu" pour les delegues multi-comptes.)
-export function getKeycloakIds(delegate) {
+// Source 1 : emailAddresses[].source.id (type ACCOUNT). Un contact peut avoir
+// PLUSIEURS emailAddresses, chacune liee a un compte Keycloak distinct -> on
+// collecte tous les ids (un viewer connecte avec n'importe lequel de ses comptes
+// doit etre rapproche). Avant : seul le 1er via .find(), d'ou des "Inscrit non
+// reconnu" pour les delegues multi-comptes.
+function kcIdsFromEmails(delegate) {
   const emails = delegate?.contact?.emailAddresses;
   if (!Array.isArray(emails)) return [];
-  const ids = new Set();
+  const ids = [];
   for (const e of emails) {
-    if (e?.source?.type === "ACCOUNT" && e.source.id) ids.add(e.source.id);
+    if (e?.source?.type === "ACCOUNT" && e.source.id) ids.push(e.source.id);
   }
-  return [...ids];
+  return ids;
+}
+
+// Source 2 : externalIds[].value (type "/kc"). Replique en memoire la branche
+// fallback de contactByAccountId (getByExternalId type "/kc") sans requete
+// reseau — la donnee externalIds est deja fetchee (cf. RPPS). Capte les comptes
+// Keycloak non materialises dans emailAddresses.
+function kcIdsFromExternalIds(delegate) {
+  const externalIds = delegate?.contact?.externalIds;
+  if (!Array.isArray(externalIds)) return [];
+  const ids = [];
+  for (const x of externalIds) {
+    if (x?.value && String(x.type).toLowerCase() === KC_EXTERNAL_ID_TYPE) ids.push(x.value);
+  }
+  return ids;
+}
+
+// TOUS les identifiants Keycloak d'un delegue, dedupes, depuis les 2 sources.
+export function getKeycloakIds(delegate) {
+  return [...new Set([...kcIdsFromEmails(delegate), ...kcIdsFromExternalIds(delegate)])];
 }
 
 // Compat : 1er identifiant Keycloak (cf. getKeycloakIds pour la liste complete).
@@ -62,16 +89,36 @@ export function hasValidCheckin(delegate) {
 export function buildDelegateLookup(delegates, { datasetLabel = "" } = {}) {
   const map = new Map();
   let withKeycloakId = 0;
+  let onlyViaExternalKc = 0; // rattaches via externalIds "/kc" MAIS pas via emailAddresses
   const total = (delegates || []).length;
 
   for (const d of delegates || []) {
-    const kcIds = getKeycloakIds(d);
+    const emailKc = kcIdsFromEmails(d);
+    const externalKc = kcIdsFromExternalIds(d);
+    const kcIds = [...new Set([...emailKc, ...externalKc])];
     if (kcIds.length === 0) continue;
     withKeycloakId++;
+    if (emailKc.length === 0 && externalKc.length > 0) onlyViaExternalKc++;
     const checkedIn = hasValidCheckin(d);
     for (const kcId of kcIds) {
       if (map.has(kcId)) continue;
       map.set(kcId, { checkedIn, delegate: d });
+    }
+  }
+
+  // Mesure (DEV-only) du gain de couverture apporte par la source externalIds
+  // "/kc" : combien de delegues seraient manques si on ne regardait QUE
+  // emailAddresses.source.id. Dedupe par fingerprint.
+  if (onlyViaExternalKc > 0) {
+    const fp = `kcgain:${datasetLabel}:${total}:${onlyViaExternalKc}`;
+    if (!_warnedFingerprints.has(fp)) {
+      _warnedFingerprints.add(fp);
+      const label = datasetLabel ? ` (${datasetLabel})` : "";
+      debug.log(
+        `[viewerJoin] Couverture Keycloak${label} : ${withKeycloakId}/${total} délégués rattachés, ` +
+          `dont ${onlyViaExternalKc} via externalIds "/kc" UNIQUEMENT ` +
+          `(gain vs emailAddresses.source.id seul).`,
+      );
     }
   }
 

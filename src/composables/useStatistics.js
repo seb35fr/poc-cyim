@@ -12,6 +12,7 @@ export function useStatistics(eventId, options = {}) {
   const progress = ref({ loaded: 0, total: 0, page: 0 });
   const stats = ref(null);
   const eventName = ref("");
+  const eventLogo = ref("");
   const mobileAppId = ref(null);
   const delegates = ref([]);
 
@@ -34,6 +35,7 @@ export function useStatistics(eventId, options = {}) {
       ]);
 
       eventName.value = config?.branding?.name || eventId;
+      eventLogo.value = config?.branding?.logoURL || "";
       mobileAppId.value = config?.mobileAppId || null;
       delegates.value = delegateResult.items;
       stats.value = computeAllStats(delegateResult.items, mobileAppId.value);
@@ -106,6 +108,7 @@ export function useStatistics(eventId, options = {}) {
     progress: readonly(progress),
     stats: readonly(stats),
     eventName: readonly(eventName),
+    eventLogo: readonly(eventLogo),
     delegates: readonly(delegates),
     mobileAppId: readonly(mobileAppId),
     nextRefreshAt: readonly(nextRefreshAt),

@@ -64,14 +64,14 @@
         <div class="progress-bar-container">
           <div class="progress-bar-fill-checkin" :style="{ width: checkinPct }"></div>
         </div>
-        <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-secondary); margin-top: 4px;">
+        <div style="display: flex; justify-content: space-between; font-size: 13px; color: var(--text-secondary); margin-top: 4px;">
           <span>{{ fmt(fs.global.checkedInCount) }} checked-in ({{ checkinPct }})</span>
           <span>{{ fmt(registeredCount) }} attendus (registered)</span>
         </div>
 
         <div v-if="burndown.labels.length > 0" style="margin-top: 16px;">
           <div class="chart-header" style="margin-bottom: 6px;">
-            <h4 style="margin: 0; font-size: 13px; color: var(--text-secondary); font-weight: 600;">
+            <h4 style="margin: 0; font-size: 15px; color: var(--text-secondary); font-weight: 600;">
               Restants à check-in (créneaux de 30 min)
             </h4>
             <CsvButton filename="burndown-checkin"
@@ -133,7 +133,7 @@
     <div class="charts-row">
       <div class="chart-card">
         <div class="chart-header">
-          <h3>Performance de check-in (creneaux de 15 min)</h3>
+          <h3>Performance de check-in (créneaux de 15 min)</h3>
           <div style="display: flex; align-items: center; gap: 6px;">
             <CsvButton filename="perf-checkin-15min" :headers="['Date', 'Heure', 'Check-in']" :rows="filteredCheckin15min.map(s => [s.date, s.time, s.count])" />
             <div v-if="availableCheckinDays.length > 1" class="period-selector">
@@ -160,7 +160,7 @@
 
       <div class="chart-card">
         <div class="chart-header">
-          <h3>Performance de distribution (creneaux de 15 min)</h3>
+          <h3>Performance de distribution (créneaux de 15 min)</h3>
           <div style="display: flex; align-items: center; gap: 6px;">
             <CsvButton filename="perf-15min" :headers="['Date', 'Heure', 'Badges']" :rows="filtered15min.map(s => [s.date, s.time, s.count])" />
             <div v-if="availableDays.length > 1" class="period-selector">
@@ -459,7 +459,7 @@ const badgesDayOptions = computed(() => ({
   },
   layout: { padding: { top: 18 } },
   plugins: {
-    legend: { position: "top", labels: { font: { size: 11 }, usePointStyle: true, pointStyle: "rectRounded" } },
+    legend: { position: "bottom", labels: { font: { size: 13 }, usePointStyle: true, pointStyle: "rectRounded" } },
     datalabels: { display: false },
     tooltip: {
       callbacks: {
@@ -475,8 +475,8 @@ const badgesDayOptions = computed(() => ({
     },
   },
   scales: {
-    x: { stacked: true, grid: { display: false }, ticks: { font: { size: 11 } } },
-    y: { stacked: true, grid: { color: "#f3f4f6" }, ticks: { font: { size: 11 } }, beginAtZero: true },
+    x: { stacked: true, grid: { display: false }, ticks: { font: { size: 13 } } },
+    y: { stacked: true, grid: { color: "#f3f4f6" }, ticks: { font: { size: 13 } }, beginAtZero: true },
   },
 }));
 
@@ -543,8 +543,8 @@ const perf15Options = {
     },
   },
   scales: {
-    x: { grid: { display: false }, ticks: { font: { size: 9 }, maxRotation: 45, autoSkip: true, maxTicksLimit: 24 } },
-    y: { grid: { color: "#f3f4f6" }, ticks: { font: { size: 11 } }, beginAtZero: true },
+    x: { grid: { display: false }, ticks: { font: { size: 10 }, maxRotation: 45, autoSkip: true, maxTicksLimit: 24 } },
+    y: { grid: { color: "#f3f4f6" }, ticks: { font: { size: 13 } }, beginAtZero: true },
   },
 };
 
@@ -611,8 +611,8 @@ const perfCheckin15Options = {
     },
   },
   scales: {
-    x: { grid: { display: false }, ticks: { font: { size: 9 }, maxRotation: 45, autoSkip: true, maxTicksLimit: 24 } },
-    y: { grid: { color: "#f3f4f6" }, ticks: { font: { size: 11 } }, beginAtZero: true },
+    x: { grid: { display: false }, ticks: { font: { size: 10 }, maxRotation: 45, autoSkip: true, maxTicksLimit: 24 } },
+    y: { grid: { color: "#f3f4f6" }, ticks: { font: { size: 13 } }, beginAtZero: true },
   },
 };
 
@@ -744,7 +744,7 @@ const deviceChartOptions = computed(() => ({
   plugins: {
     legend: {
       position: "bottom",
-      labels: { font: { size: 11 }, usePointStyle: true, pointStyle: "rect", padding: 10, boxWidth: 12 },
+      labels: { font: { size: 13 }, usePointStyle: true, pointStyle: "rect", padding: 10, boxWidth: 12 },
     },
     // Pas de datalabels ici : un plugin custom (deviceRowTotalsPlugin) dessine
     // le total en bout de barre directement sur le canvas. Plus fiable que
@@ -760,8 +760,8 @@ const deviceChartOptions = computed(() => ({
   // Marge a droite pour laisser de la place au total en bout de barre.
   layout: { padding: { right: 56, top: 4, bottom: 4 } },
   scales: {
-    x: { stacked: true, grid: { color: "#f3f4f6" }, ticks: { font: { size: 11 } }, beginAtZero: true },
-    y: { stacked: true, grid: { display: false }, ticks: { font: { size: 11 } } },
+    x: { stacked: true, grid: { color: "#f3f4f6" }, ticks: { font: { size: 13 } }, beginAtZero: true },
+    y: { stacked: true, grid: { display: false }, ticks: { font: { size: 13 } } },
   },
 }));
 
@@ -924,12 +924,12 @@ const typesMixOptions = {
   plugins: {
     legend: {
       position: "bottom",
-      labels: { font: { size: 11 }, usePointStyle: true, pointStyle: "rect", padding: 10, boxWidth: 12 },
+      labels: { font: { size: 13 }, usePointStyle: true, pointStyle: "rect", padding: 10, boxWidth: 12 },
     },
     datalabels: {
       display: (ctx) => ctx.dataset.data[ctx.dataIndex] >= 6,
       color: "#fff",
-      font: { weight: 600, size: 10 },
+      font: { weight: 600, size: 12 },
       formatter: (v) => v + "%",
     },
     tooltip: {
@@ -942,8 +942,8 @@ const typesMixOptions = {
     },
   },
   scales: {
-    x: { stacked: true, max: 100, ticks: { callback: (v) => v + "%", font: { size: 10 } }, grid: { color: "#f3f4f6" } },
-    y: { stacked: true, grid: { display: false }, ticks: { font: { size: 11 } } },
+    x: { stacked: true, max: 100, ticks: { callback: (v) => v + "%", font: { size: 12 } }, grid: { color: "#f3f4f6" } },
+    y: { stacked: true, grid: { display: false }, ticks: { font: { size: 13 } } },
   },
 };
 const burndownDatasets = computed(() => [
@@ -1019,7 +1019,7 @@ const checkinDayByTypeOptions = {
   maintainAspectRatio: false,
   layout: { padding: { top: 18 } },
   plugins: {
-    legend: { position: "top", labels: { font: { size: 11 }, usePointStyle: true, pointStyle: "rectRounded" } },
+    legend: { position: "bottom", labels: { font: { size: 13 }, usePointStyle: true, pointStyle: "rectRounded" } },
     datalabels: { display: false },
     tooltip: {
       callbacks: {
@@ -1035,8 +1035,8 @@ const checkinDayByTypeOptions = {
     },
   },
   scales: {
-    x: { stacked: true, grid: { display: false }, ticks: { font: { size: 11 } } },
-    y: { stacked: true, grid: { color: "#f3f4f6" }, ticks: { font: { size: 11 } }, beginAtZero: true },
+    x: { stacked: true, grid: { display: false }, ticks: { font: { size: 13 } } },
+    y: { stacked: true, grid: { color: "#f3f4f6" }, ticks: { font: { size: 13 } }, beginAtZero: true },
   },
 };
 
@@ -1076,12 +1076,12 @@ const checkinDayTotalsPlugin = {
 }
 .perf-summary {
   display: flex; gap: 24px; margin-top: 12px; padding: 10px 16px;
-  background: #f9fafb; border-radius: 8px; font-size: 13px; color: #414141;
+  background: #f9fafb; border-radius: 8px; font-size: 15px; color: #414141;
 }
 .period-selector { display: flex; gap: 4px; flex-wrap: wrap; }
 .period-btn {
   padding: 4px 10px; border: 1px solid #d1d5db; background: #fff;
-  border-radius: 4px; font-size: 11px; cursor: pointer; color: #646464;
+  border-radius: 4px; font-size: 13px; cursor: pointer; color: #646464;
 }
 .period-btn.active { background: #1E4E66; color: #fff; border-color: #1E4E66; }
 .progress-bar-container {
@@ -1092,7 +1092,7 @@ const checkinDayTotalsPlugin = {
   height: 100%; border-radius: 8px; transition: width .5s ease;
   min-width: 2px;
 }
-.empty-msg { text-align: center; color: #9ca3af; padding: 20px; font-size: 13px; }
-.chart-hint { text-align: right; color: #9ca3af; font-size: 11px; margin: 6px 4px 0; font-style: italic; }
+.empty-msg { text-align: center; color: #9ca3af; padding: 20px; font-size: 15px; }
+.chart-hint { text-align: right; color: #9ca3af; font-size: 13px; margin: 6px 4px 0; font-style: italic; }
 
 </style>

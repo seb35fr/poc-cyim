@@ -15,13 +15,13 @@
         <div class="cmp-event">
           <span class="cmp-event-dot" :style="{ background: COLORS.current }"></span>
           <strong>{{ shortName(eventName) }}</strong>
-          <span class="cmp-event-meta">{{ fmt(statsA.global.totalViews) }} vues · {{ fmt(statsA.global.uniqueUsers) }} delegues</span>
+          <span class="cmp-event-meta">{{ fmt(statsA.global.totalViews) }} vues · {{ fmt(statsA.global.uniqueUsers) }} délégués</span>
         </div>
         <span class="cmp-vs">vs</span>
         <div class="cmp-event">
           <span class="cmp-event-dot" :style="{ background: COLORS.compare }"></span>
           <strong>{{ shortName(compareEventName) }}</strong>
-          <span class="cmp-event-meta">{{ fmt(statsB.global.totalViews) }} vues · {{ fmt(statsB.global.uniqueUsers) }} delegues</span>
+          <span class="cmp-event-meta">{{ fmt(statsB.global.totalViews) }} vues · {{ fmt(statsB.global.uniqueUsers) }} délégués</span>
         </div>
       </div>
 
@@ -396,7 +396,7 @@ const dailyChartOptions = computed(() => {
       },
     },
     scales: {
-      y: { beginAtZero: true, ticks: { precision: 0 }, title: isReplay ? { display: true, text: "Uniques / jour", font: { size: 10 } } : { display: false } },
+      y: { beginAtZero: true, ticks: { precision: 0 }, title: isReplay ? { display: true, text: "Uniques / jour", font: { size: 12 } } : { display: false } },
       x: { grid: { display: false } },
     },
   };
@@ -404,7 +404,7 @@ const dailyChartOptions = computed(() => {
     opts.scales.y1 = {
       position: "right", beginAtZero: true,
       grid: { display: false }, ticks: { precision: 0 },
-      title: { display: true, text: "Cumulés", font: { size: 10 } },
+      title: { display: true, text: "Cumulés", font: { size: 12 } },
     };
   }
   return opts;
@@ -471,7 +471,7 @@ function mixedCompareOptions(perDayTitle, unit) {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { position: "top", labels: { font: { size: 10 }, usePointStyle: true, pointStyle: "rectRounded" } },
+      legend: { position: "top", labels: { font: { size: 12 }, usePointStyle: true, pointStyle: "rectRounded" } },
       tooltip: {
         callbacks: {
           label: (ctx) =>
@@ -483,8 +483,8 @@ function mixedCompareOptions(perDayTitle, unit) {
     },
     scales: {
       x: { grid: { display: false } },
-      y: { position: "left", beginAtZero: true, ticks: { precision: 0 }, title: { display: true, text: perDayTitle, font: { size: 10 } } },
-      y1: { position: "right", beginAtZero: true, grid: { display: false }, ticks: { precision: 0 }, title: { display: true, text: "Cumulé", font: { size: 10 } } },
+      y: { position: "left", beginAtZero: true, ticks: { precision: 0 }, title: { display: true, text: perDayTitle, font: { size: 12 } } },
+      y1: { position: "right", beginAtZero: true, grid: { display: false }, ticks: { precision: 0 }, title: { display: true, text: "Cumulé", font: { size: 12 } } },
     },
   };
 }
@@ -520,12 +520,12 @@ const physicalReplayUniqueCompareOptions = mixedCompareOptions("Délégués / jo
 <style scoped>
 .cmp-event-row {
   display: flex; align-items: center; gap: 16px;
-  margin-bottom: 14px; font-size: 13px;
+  margin-bottom: 14px; font-size: 15px;
   flex-wrap: wrap;
 }
 .cmp-event { display: flex; align-items: center; gap: 8px; }
 .cmp-event-dot { width: 10px; height: 10px; border-radius: 50%; }
-.cmp-event-meta { color: var(--text-muted); font-size: 11px; }
+.cmp-event-meta { color: var(--text-muted); font-size: 13px; }
 .cmp-vs { font-weight: 700; color: var(--text-muted); }
 
 /* Stacked 100% rows */
@@ -538,35 +538,35 @@ const physicalReplayUniqueCompareOptions = mixedCompareOptions("Délégués / jo
 }
 .origin-event-label {
   display: flex; align-items: center; gap: 8px;
-  font-size: 13px; color: var(--text);
+  font-size: 15px; color: var(--text);
 }
 .origin-event-label > span:nth-child(2) { font-weight: 600; }
 .event-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.origin-volume { color: var(--text-muted); font-size: 11px; }
+.origin-volume { color: var(--text-muted); font-size: 13px; }
 .origin-stack-bar {
   display: flex; width: 100%; height: 36px;
   border-radius: 6px; overflow: hidden; background: #f0f0f0;
 }
 .origin-segment {
   display: flex; align-items: center; justify-content: center;
-  color: white; font-size: 11px; font-weight: 600;
+  color: white; font-size: 13px; font-weight: 600;
   overflow: hidden; white-space: nowrap;
   transition: width 0.4s ease;
 }
 .origin-legend {
   display: flex; flex-wrap: wrap; gap: 12px 18px;
-  font-size: 12px; color: var(--text); margin-top: 12px;
+  font-size: 14px; color: var(--text); margin-top: 12px;
 }
 .origin-legend .legend-item { display: inline-flex; align-items: center; gap: 6px; }
 .origin-legend .swatch { width: 11px; height: 11px; border-radius: 3px; }
 
-.cmp-axis-hint { font-size: 10px; color: var(--text-muted); font-style: italic; }
+.cmp-axis-hint { font-size: 12px; color: var(--text-muted); font-style: italic; }
 .cmp-loading, .cmp-error {
   background: var(--card); border-radius: 10px; padding: 32px 16px;
   box-shadow: var(--shadow); text-align: center;
 }
 .cmp-error { color: var(--danger); }
-.empty-msg { text-align: center; color: #9ca3af; padding: 20px; font-size: 13px; }
+.empty-msg { text-align: center; color: #9ca3af; padding: 20px; font-size: 15px; }
 .spinner { display: inline-block; width: 24px; height: 24px; border: 3px solid #e5e7eb; border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .loading-label { margin-top: 12px; color: var(--text-muted); }

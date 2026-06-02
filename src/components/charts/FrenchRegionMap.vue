@@ -186,10 +186,10 @@ watch(() => [props.regions, props.regionCodes, props.globalMax], render, { deep:
 </script>
 
 <style scoped>
-.map-fallback p { text-align: center; color: var(--text-muted); font-size: 12px; }
+.map-fallback p { text-align: center; color: var(--text-muted); font-size: 14px; }
 .map-legend {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 4px 12px; margin-top: 10px; font-size: 12px;
+  gap: 4px 12px; margin-top: 10px; font-size: 14px;
 }
 .legend-row { display: flex; align-items: center; gap: 6px; }
 .legend-swatch { width: 12px; height: 12px; border-radius: 2px; border: 1px solid #d1d5db; flex-shrink: 0; }

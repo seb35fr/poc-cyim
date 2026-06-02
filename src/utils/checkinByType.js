@@ -140,7 +140,7 @@ export const checkinByTypeOptions = {
   },
   layout: { padding: { right: 76, top: 4, bottom: 4 } },
   scales: {
-    x: { stacked: true, grid: { color: "#f3f4f6" }, ticks: { font: { size: 11 } }, beginAtZero: true },
-    y: { stacked: true, grid: { display: false }, ticks: { font: { size: 11 } } },
+    x: { stacked: true, grid: { color: "#f3f4f6" }, ticks: { font: { size: 13 } }, beginAtZero: true },
+    y: { stacked: true, grid: { display: false }, ticks: { font: { size: 13 } } },
   },
 };

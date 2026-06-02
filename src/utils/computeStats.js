@@ -448,6 +448,7 @@ function computeGlobal(delegates, mobileAppId, inRange = () => true) {
   let gdprCount = 0;
   let withAccountCount = 0;
   let pendingCount = 0;
+  let registeredCount = 0;
   let totalBadgesDelivered = 0;
   for (const d of delegates) {
     if (d.checkedInDate && inRange(d.checkedInDate)) checkedInCount++;
@@ -455,6 +456,7 @@ function computeGlobal(delegates, mobileAppId, inRange = () => true) {
     if (d.gdpr) gdprCount++;
     if (d.contactId) withAccountCount++;
     if (d.status?.toLowerCase() === "pending") pendingCount++;
+    if (d.status?.toLowerCase() === "registered") registeredCount++;
     if (d.badges) {
       for (const b of d.badges) if (b.deliveredAt) totalBadgesDelivered++;
     }
@@ -487,6 +489,7 @@ function computeGlobal(delegates, mobileAppId, inRange = () => true) {
     gdprSignedCount: gdprCount,
     accountsCount: withAccountCount,
     pendingCount,
+    registeredCount,
     totalBadgesDelivered,
     mobileAppCount,
   };

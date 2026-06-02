@@ -16,21 +16,25 @@
         <div class="kpi-label">Total inscrits</div>
         <div class="kpi-value">{{ fmt(registeredCount) }}</div>
         <div class="kpi-sub">au statut registered</div>
+        <span v-if="deltaRegisteredKpi" class="formula-delta" :class="deltaRegisteredKpi.cls" :title="tipRegisteredKpi">{{ deltaRegisteredKpi.arrow }} {{ deltaRegisteredKpi.text }}</span>
       </div>
       <div class="kpi-card green">
         <div class="kpi-label">Check-in</div>
         <div class="kpi-value">{{ fmt(fs.global.checkedInCount) }}</div>
         <div class="kpi-sub">{{ pct(fs.global.checkedInCount, registeredCount) }} des registered</div>
+        <span v-if="deltaCheckinKpi" class="formula-delta" :class="deltaCheckinKpi.cls" :title="tipCheckinKpi">{{ deltaCheckinKpi.arrow }} {{ deltaCheckinKpi.text }}</span>
       </div>
       <div class="kpi-card orange">
         <div class="kpi-label">Onboarding</div>
         <div class="kpi-value">{{ fmt(fs.global.onboardingCount) }}</div>
         <div class="kpi-sub">{{ pct(fs.global.onboardingCount, registeredCount) }} des registered</div>
+        <span v-if="deltaOnboardingKpi" class="formula-delta" :class="deltaOnboardingKpi.cls" :title="tipOnboardingKpi">{{ deltaOnboardingKpi.arrow }} {{ deltaOnboardingKpi.text }}</span>
       </div>
       <div v-if="props.mobileAppId" class="kpi-card purple">
         <div class="kpi-label">App mobile</div>
         <div class="kpi-value">{{ fmt(fs.global.mobileAppCount) }}</div>
         <div class="kpi-sub">{{ pct(fs.global.mobileAppCount, registeredCount) }} des registered (&lt; 3 mois)</div>
+        <span v-if="deltaMobileKpi" class="formula-delta" :class="deltaMobileKpi.cls" :title="tipMobileKpi">{{ deltaMobileKpi.arrow }} {{ deltaMobileKpi.text }}</span>
       </div>
       <div class="kpi-card blue">
         <div class="kpi-label">Live</div>
@@ -42,6 +46,7 @@
           <template v-if="!liveLoading">{{ pct(liveUniqueUsers, registeredCount) }} des registered</template>
           <template v-else>chargement…</template>
         </div>
+        <span v-if="!liveLoading && deltaLiveKpi" class="formula-delta" :class="deltaLiveKpi.cls" :title="tipLiveKpi">{{ deltaLiveKpi.arrow }} {{ deltaLiveKpi.text }}</span>
       </div>
       <div class="kpi-card purple">
         <div class="kpi-label">Replay</div>
@@ -53,6 +58,7 @@
           <template v-if="!replayLoading">{{ pct(replayUniqueUsers, registeredCount) }} des registered</template>
           <template v-else>chargement…</template>
         </div>
+        <span v-if="!replayLoading && deltaReplayKpi" class="formula-delta" :class="deltaReplayKpi.cls" :title="tipReplayKpi">{{ deltaReplayKpi.arrow }} {{ deltaReplayKpi.text }}</span>
       </div>
     </div>
 
@@ -60,10 +66,10 @@
          1 fois meme s'il a vu live + replay sans venir. -->
     <div class="chart-card participation-card" v-if="!liveLoading && !replayLoading">
       <div class="chart-header">
-        <h3>Comment se decompose le "Total participants"</h3>
+        <h3>Comment se décompose le "Total participants"</h3>
       </div>
       <div class="mode-filter">
-        <span class="mode-filter-label">Mode de consultation</span>
+        <span class="mode-filter-label">Modalité de participation</span>
         <button
           v-for="m in ['PHYSIQUE', 'LIVE', 'REPLAY']"
           :key="m"
@@ -204,13 +210,13 @@
       </div>
 
       <p class="participation-note">
-        Logique : un delegue physiquement checke compte pour 1 (toutes ses vues live/replay sont absorbees). On distingue les presents qui ont aussi suivi en live (« + live ») de ceux presents seulement sur place (« seul »). Pour ceux NON checkes, on regarde s'ils ont vu en live, en replay ou les deux, et chacun ne compte qu'une fois meme s'il a fait les deux.
+        Logique : un délégué physiquement checke compte pour 1 (toutes ses vues live/replay sont absorbees). On distingue les présents qui ont aussi suivi en live (« + live ») de ceux présents seulement sur place (« seul »). Pour ceux NON checkes, on regarde s'ils ont vu en live, en replay ou les deux, et chacun ne compte qu'une fois meme s'il a fait les deux.
       </p>
     </div>
 
     <!-- Charts de synthese participation (comparatif si ?compareWith=) -->
     <div v-if="!liveLoading && !replayLoading">
-      <div class="charts-row">
+      <div class="charts-row cols-3">
         <!-- Chart 1 : Participants vs Inscrits, groupe par event -->
         <div class="chart-card">
           <div class="chart-header">
@@ -229,22 +235,50 @@
           </div>
         </div>
 
-        <!-- Chart 2 : Participants par type de badge, empile par event -->
+        <!-- Chart 2 : Repartition par type d'inscription (remontee a droite de
+             Participants vs Inscrits). -->
         <div class="chart-card">
           <div class="chart-header">
-            <h3>Participants par type de badge</h3>
-            <span class="chart-hint">cumul des types de badge par event</span>
+            <h3>Répartition par type d'inscription</h3>
+            <span class="chart-hint">délégués registered · physique · live/replay seul · aucune participation</span>
             <CsvButton
-              filename="participants-par-type"
-              :headers="['Type de badge', ...(hasCompare ? [eventName, compareEventName] : [eventName])]"
-              :rows="participantsByTypeChart.types.map((t, i) => [t, ...participantsByTypeChart.datasets[i].data])"
+              filename="types-inscription"
+              :headers="['Type', 'Total registered', 'Physique', 'Live/Replay seul', 'Aucune participation']"
+              :rows="registeredTypesBreakdown.map(t => [t.value, t.total, t.physical, t.remote, t.none])"
             />
           </div>
           <StackedBarChart
-            :labels="participantsByTypeChart.labels"
-            :datasets="participantsByTypeChart.datasets"
+            :labels="registeredTypesBreakdown.slice(0, 8).map(t => t.value)"
+            :datasets="participationDatasets(registeredTypesBreakdown.slice(0, 8))"
+            :horizontal="true"
             :show-total="true"
-            :height="300"
+            :height="320"
+            :active-label="afm.regType"
+            @select="onTypeSelect"
+          />
+        </div>
+
+        <!-- Chart 3 : PARTICIPANTS (physique/live/replay) par type d'inscription.
+             x = event(s), stacked par type (légende = types). Visible aussi en
+             mode simple (1 seule barre, données de l'event courant). -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3>Participants par type de badge</h3>
+            <span class="chart-hint">participants (physique · live · replay) par type<template v-if="hasCompare"> · {{ eventName }} vs {{ compareEventName }}</template></span>
+            <CsvButton
+              filename="participants-type-inscription"
+              :headers="hasCompare ? ['Type', eventName, compareEventName] : ['Type', eventName]"
+              :rows="participationByRegTypeChart.types.map((t, i) => hasCompare
+                ? [t, participationByRegTypeChart.datasets[i].data[0], participationByRegTypeChart.datasets[i].data[1]]
+                : [t, participationByRegTypeChart.datasets[i].data[0]])"
+            />
+          </div>
+          <StackedBarChart
+            :labels="participationByRegTypeChart.labels"
+            :datasets="participationByRegTypeChart.datasets"
+            :show-total="true"
+            :height="320"
+            legend-position="bottom"
           />
         </div>
       </div>
@@ -314,48 +348,6 @@
       <p class="chart-hint">Chaque délégué est compté une seule fois, le jour de sa 1ʳᵉ consultation replay.</p>
     </div>
 
-    <div class="charts-row" >
-      <div class="chart-card">
-        <div class="chart-header">
-          <h3>Répartition par type d'inscription</h3>
-          <span class="chart-hint">délégués registered · physique · live/replay seul · aucune participation</span>
-          <CsvButton
-            filename="types-inscription"
-            :headers="['Type', 'Total registered', 'Physique', 'Live/Replay seul', 'Aucune participation']"
-            :rows="registeredTypesBreakdown.map(t => [t.value, t.total, t.physical, t.remote, t.none])"
-          />
-        </div>
-        <StackedBarChart
-          :labels="registeredTypesBreakdown.slice(0, 8).map(t => t.value)"
-          :datasets="participationDatasets(registeredTypesBreakdown.slice(0, 8))"
-          :horizontal="true"
-          :show-total="true"
-          :height="320"
-          :active-label="afm.regType"
-          @select="onTypeSelect"
-        />
-      </div>
-      <div class="chart-card">
-        <div class="chart-header">
-          <h3>Top 10 catégories</h3>
-          <span class="chart-hint">délégués registered · physique · live/replay seul · aucune participation</span>
-          <CsvButton
-            filename="categories"
-            :headers="['Catégorie', 'Total registered', 'Physique', 'Live/Replay seul', 'Aucune participation']"
-            :rows="registeredCategoriesBreakdown.map(c => [c.value, c.total, c.physical, c.remote, c.none])"
-          />
-        </div>
-        <StackedBarChart
-          :labels="registeredCategoriesBreakdown.slice(0, 10).map(c => c.value)"
-          :datasets="participationDatasets(registeredCategoriesBreakdown.slice(0, 10))"
-          :horizontal="true"
-          :show-total="true"
-          :height="380"
-          :active-label="afm.category"
-          @select="onCategorySelect"
-        />
-      </div>
-    </div>
   </div>
 </template>
 
@@ -371,6 +363,7 @@ import { makeDateLabeler } from "../../utils/formatDateLabel.js";
 import { getTypeColor, getTypeColors } from "../../utils/typeColors.js";
 import { delegateBadgeType } from "@/utils/checkinByType.js";
 import { computeParticipation } from "@/utils/participation.js";
+import { computeAllStats } from "@/utils/computeStats.js";
 import { fmt, pct } from "@/utils/formatters.js";
 
 const props = defineProps({
@@ -440,7 +433,7 @@ const physicallyCheckedInSet = computed(() => participation.value.checkedIn);
 const liveRemoteSet = computed(() => participation.value.liveRemote);
 const replayRemoteSet = computed(() => participation.value.replayRemote);
 
-// --- Filtre "Mode de consultation" (PHYSIQUE / LIVE / REPLAY) ---
+// --- Filtre "Modalité de participation" (PHYSIQUE / LIVE / REPLAY) ---
 // Multi-select, tout coche par defaut. Une sous-categorie de la decomposition
 // reste comptee si elle implique AU MOINS UN mode selectionne. Les 7 categories
 // etant DISJOINTES, le total se recalcule par simple somme des categories visibles.
@@ -551,7 +544,7 @@ function makeTooltip(a, b) {
   const diff = (a ?? 0) - (b ?? 0);
   const diffStr = diff > 0 ? `+${fmt(diff)}` : fmt(diff);
   const name = props.compareEventName || "event comparé";
-  return `${diffStr} delegue(s) vs ${name} : ${fmt(b ?? 0)}`;
+  return `${diffStr} délégué(s) vs ${name} : ${fmt(b ?? 0)}`;
 }
 const tooltipCheckin = computed(() => makeTooltip(physicallyCheckedInCount.value, checkedInBCount.value));
 const tooltipCheckinOnly = computed(() => makeTooltip(checkedInOnlyCount.value, checkedInOnlyBCount.value));
@@ -649,6 +642,36 @@ const registeredCountB = computed(() =>
   pageFilteredCompareDelegates.value.filter((d) => d.status?.toLowerCase() === "registered").length
 );
 
+// --- KPI : delta % vs event compare (seulement si ?compareWith=). Reutilise
+// buildDeltaPct (renvoie null hors comparaison -> v-if cache le badge) et
+// makeTooltip (valeurs absolues de l'event compare au survol). Valeurs B via
+// computeAllStats sur les delegues compares = meme logique que fs cote A
+// (check-in / onboarding / mobile dans global, + filtre date).
+const compareStats = computed(() =>
+  hasCompare
+    ? computeAllStats(pageFilteredCompareDelegates.value, props.mobileAppId, props.dateRange)
+    : null,
+);
+const checkedInGlobalB = computed(() => compareStats.value?.global.checkedInCount || 0);
+const onboardingB = computed(() => compareStats.value?.global.onboardingCount || 0);
+const mobileAppB = computed(() => compareStats.value?.global.mobileAppCount || 0);
+const liveUniqueUsersB = computed(() => liveB?.stats.value?.global?.uniqueUsers || 0);
+const replayUniqueUsersB = computed(() => replayB?.stats.value?.global?.uniqueUsers || 0);
+
+const deltaRegisteredKpi = computed(() => buildDeltaPct(registeredCount.value, registeredCountB.value));
+const deltaCheckinKpi = computed(() => buildDeltaPct(fs.value.global.checkedInCount, checkedInGlobalB.value));
+const deltaOnboardingKpi = computed(() => buildDeltaPct(fs.value.global.onboardingCount, onboardingB.value));
+const deltaMobileKpi = computed(() => buildDeltaPct(fs.value.global.mobileAppCount, mobileAppB.value));
+const deltaLiveKpi = computed(() => buildDeltaPct(liveUniqueUsers.value, liveUniqueUsersB.value));
+const deltaReplayKpi = computed(() => buildDeltaPct(replayUniqueUsers.value, replayUniqueUsersB.value));
+
+const tipRegisteredKpi = computed(() => makeTooltip(registeredCount.value, registeredCountB.value));
+const tipCheckinKpi = computed(() => makeTooltip(fs.value.global.checkedInCount, checkedInGlobalB.value));
+const tipOnboardingKpi = computed(() => makeTooltip(fs.value.global.onboardingCount, onboardingB.value));
+const tipMobileKpi = computed(() => makeTooltip(fs.value.global.mobileAppCount, mobileAppB.value));
+const tipLiveKpi = computed(() => makeTooltip(liveUniqueUsers.value, liveUniqueUsersB.value));
+const tipReplayKpi = computed(() => makeTooltip(replayUniqueUsers.value, replayUniqueUsersB.value));
+
 // Libelles d'axe pour les charts comparatifs Vue d'ensemble : 1 ou 2 events.
 const eventAxisLabels = computed(() =>
   hasCompare
@@ -683,17 +706,19 @@ const groupedBarOptions = {
   maintainAspectRatio: false,
   layout: { padding: { top: 18 } },
   plugins: {
-    legend: { position: "top", labels: { font: { size: 11 }, usePointStyle: true, pointStyle: "rectRounded" } },
+    legend: { position: "top", labels: { font: { size: 13 }, usePointStyle: true, pointStyle: "rectRounded" } },
     datalabels: {
       display: true, anchor: "end", align: "end", offset: 2, clip: false,
-      color: "#414141", font: { weight: 600, size: 11 },
+      color: "#414141", font: { weight: 600, size: 13 },
       formatter: (v) => (v > 0 ? v.toLocaleString("fr-FR") : ""),
     },
     tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label} : ${ctx.raw.toLocaleString("fr-FR")}` } },
   },
   scales: {
-    x: { grid: { display: false }, ticks: { font: { size: 11 } } },
-    y: { grid: { color: "#f3f4f6" }, ticks: { font: { size: 11 } }, beginAtZero: true },
+    x: { grid: { display: false }, ticks: { font: { size: 13 } } },
+    // grace : marge haute pour que les totaux en bout de barre ne chevauchent
+    // pas la legende du haut.
+    y: { grid: { color: "#f3f4f6" }, ticks: { font: { size: 13 } }, beginAtZero: true, grace: "12%" },
   },
 };
 
@@ -811,6 +836,38 @@ const registeredTypesBreakdown = computed(() =>
     return set;
   }),
 );
+
+// --- Comparaison des PARTICIPANTS (physique OU live OU replay, dedupe) par
+// TYPE d'inscription, par event. x = events (A/B), y = nombre, stacked par type
+// (legende = types). Population = ceux qui ont participe (exclut les no-show).
+// Un delegue multi-types compte dans chacun de ses types.
+function participantsByRegType(delegates, part) {
+  const phyIds = part?.checkedIn || new Set();
+  const remoteIds = new Set([...(part?.liveRemote || []), ...(part?.replayRemote || [])]);
+  const byType = new Map();
+  for (const d of delegates || []) {
+    if (d.status?.toLowerCase() !== "registered") continue;
+    if (!phyIds.has(d.id) && !remoteIds.has(d.id)) continue;
+    const set = new Set();
+    for (const r of d.registrations || []) if (r.type) set.add(r.type);
+    for (const t of set) byType.set(t, (byType.get(t) || 0) + 1);
+  }
+  return byType;
+}
+const participationByRegTypeChart = computed(() => {
+  const mapA = participantsByRegType(pageFilteredDelegates.value, participation.value);
+  const mapB = participantsByRegType(pageFilteredCompareDelegates.value, participationB.value);
+  const types = [...new Set([...mapA.keys(), ...mapB.keys()])].sort(
+    (t1, t2) => (mapA.get(t2) || 0) + (mapB.get(t2) || 0) - ((mapA.get(t1) || 0) + (mapB.get(t1) || 0)),
+  );
+  const datasets = types.map((type) => ({
+    label: type,
+    data: [mapA.get(type) || 0, mapB.get(type) || 0],
+    backgroundColor: getTypeColor(type),
+    borderRadius: 4,
+  }));
+  return { labels: eventAxisLabels.value, datasets, types };
+});
 
 const registeredCategoriesBreakdown = computed(() =>
   buildParticipationBreakdown((d) => {
@@ -956,7 +1013,7 @@ const replayCumulativeDatasets = computed(() => [{
 
 <style scoped>
 .chart-hint {
-  font-size: 10px; color: var(--text-muted); font-style: italic;
+  font-size: 12px; color: var(--text-muted); font-style: italic;
   margin-left: auto; padding-right: 8px;
 }
 .kpi-overview {
@@ -968,20 +1025,20 @@ const replayCumulativeDatasets = computed(() => [{
   box-shadow: 0 4px 16px rgba(48, 221, 146, 0.25), var(--shadow);
   border: 2px solid var(--accent, #30DD92);
 }
-.kpi-card-highlight .kpi-value { font-size: 32px; }
+.kpi-card-highlight .kpi-value { font-size: 37px; }
 .kpi-card-highlight .kpi-sub { line-height: 1.5; }
 
 /* Decomposition "Total participants" */
 .participation-card { margin-top: 16px; }
 
-/* Filtre "Mode de consultation" (pills PHYSIQUE / LIVE / REPLAY) */
+/* Filtre "Modalité de participation" (pills PHYSIQUE / LIVE / REPLAY) */
 .mode-filter { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 2px 0 14px; }
 .mode-filter-label {
-  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
+  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
   color: var(--text-muted); margin-right: 2px;
 }
 .mode-pill {
-  font: inherit; font-size: 10px; font-weight: 700; letter-spacing: .3px;
+  font: inherit; font-size: 12px; font-weight: 700; letter-spacing: .3px;
   padding: 4px 10px; border-radius: 999px; cursor: pointer;
   border: 1px solid var(--border); background: #fff; color: var(--text-muted);
   transition: all .12s;
@@ -1020,16 +1077,16 @@ const replayCumulativeDatasets = computed(() => [{
 }
 .mode-title {
   flex: 1 1 100%;
-  font-size: 11px; color: var(--text-muted); text-transform: uppercase;
+  font-size: 13px; color: var(--text-muted); text-transform: uppercase;
   letter-spacing: .4px; font-weight: 700;
 }
-.mode-total { font-size: 26px; font-weight: 700; color: var(--text, #414141); line-height: 1; }
-.mode-pct { font-size: 13px; font-weight: 600; color: var(--text-muted, #888); }
+.mode-total { font-size: 30px; font-weight: 700; color: #254f65; line-height: 1; }
+.mode-pct { font-size: 15px; font-weight: 600; color: var(--text-muted, #888); }
 .mode-subs {
   display: flex; flex-direction: column; gap: 4px;
   border-top: 1px dashed #e2e2e6; padding-top: 8px; margin-top: auto;
 }
-.mode-sub { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--text-secondary, #555); }
+.mode-sub { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--text-secondary, #555); }
 .sub-swatch { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
 .sub-label { flex: 1; }
 .sub-value { font-weight: 700; color: var(--text, #414141); font-variant-numeric: tabular-nums; }
@@ -1041,7 +1098,7 @@ const replayCumulativeDatasets = computed(() => [{
   border: 2px solid var(--accent, #30DD92);
 }
 .mode-total-card .mode-title { flex: 0 0 auto; }
-.mode-total-big { font-size: 30px; }
+.mode-total-big { font-size: 35px; }
 .sub-swatch.seg-checkin-only { background: #30DD92; }
 .sub-swatch.seg-checkin-live { background: #16a36a; }
 .sub-swatch.seg-checkin-replay { background: #0b6b48; }
@@ -1052,7 +1109,7 @@ const replayCumulativeDatasets = computed(() => [{
 .formula-delta {
   display: inline-block;
   margin-top: 6px;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   padding: 3px 8px;
   border-radius: 10px;
@@ -1065,7 +1122,7 @@ const replayCumulativeDatasets = computed(() => [{
 
 .formula-op {
   align-self: center;
-  font-size: 22px;
+  font-size: 25px;
   font-weight: 700;
   color: var(--text-muted, #999);
 }
@@ -1082,7 +1139,7 @@ const replayCumulativeDatasets = computed(() => [{
   flex-shrink: 0;
   min-width: 44px;
   text-align: right;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   color: var(--text, #414141);
   font-variant-numeric: tabular-nums;
@@ -1097,7 +1154,7 @@ const replayCumulativeDatasets = computed(() => [{
   gap: 4px; /* separe visuellement les 3 zones (modes) */
 }
 .participation-bar-label {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-muted, #888);
   margin: 0 0 4px;
@@ -1117,7 +1174,7 @@ const replayCumulativeDatasets = computed(() => [{
   align-items: center;
   justify-content: center;
   color: white;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   transition: width 0.4s ease;
   overflow: hidden;
@@ -1135,7 +1192,7 @@ const replayCumulativeDatasets = computed(() => [{
   display: flex;
   flex-wrap: wrap;
   gap: 10px 28px;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--text, #414141);
   margin-bottom: 8px;
 }
@@ -1145,7 +1202,7 @@ const replayCumulativeDatasets = computed(() => [{
 .swatch-pair .swatch {
   width: 11px; height: 11px; border-radius: 3px; display: inline-block;
 }
-.legend-mode-subs { font-size: 10px; color: var(--text-muted, #999); padding-left: 30px; }
+.legend-mode-subs { font-size: 12px; color: var(--text-muted, #999); padding-left: 30px; }
 .swatch.seg-checkin-only { background: #30DD92; }
 .swatch.seg-checkin-live { background: #16a36a; }
 .swatch.seg-checkin-replay { background: #0b6b48; }
@@ -1155,7 +1212,7 @@ const replayCumulativeDatasets = computed(() => [{
 .swatch.seg-replay-only { background: #6F45FF; }
 
 .participation-note {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--text-muted, #888);
   font-style: italic;
   margin: 4px 0 0;
@@ -1166,8 +1223,8 @@ const replayCumulativeDatasets = computed(() => [{
   background: var(--card); border-radius: 10px; padding: 14px 16px;
   box-shadow: var(--shadow);
 }
-.kpi-card-status .kpi-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; font-weight: 600; }
+.kpi-card-status .kpi-label { font-size: 16px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; font-weight: 600; }
 .status-row { display: flex; align-items: center; gap: 10px; }
 .legend-col { display: flex; flex-direction: column; gap: 3px; }
-.legend-col .legend-pill { font-size: 10px; }
+.legend-col .legend-pill { font-size: 12px; }
 </style>

@@ -12,10 +12,10 @@
     <div v-else-if="error" class="scans-state error-state">
       <p><strong>Erreur Elasticsearch :</strong> {{ error }}</p>
       <p class="scans-hint">
-        Verifier que <code>VITE_ES_URL</code> est configure et que le proxy <code>/api/es</code> de Vite
+        Vérifier que <code>VITE_ES_URL</code> est configure et que le proxy <code>/api/es</code> de Vite
         atteint le cluster ES. En dev, le cluster doit etre accessible depuis ta machine.
       </p>
-      <button class="btn-side" @click="reload">Reessayer</button>
+      <button class="btn-side" @click="reload">Réessayer</button>
     </div>
 
     <template v-else>
@@ -23,7 +23,7 @@
         <div class="refresh-bar">
           <div class="refresh-bar-fill" :style="{ width: '50%' }"></div>
         </div>
-        <p class="refresh-bar-text">Rafraichissement des scans...</p>
+        <p class="refresh-bar-text">Rafraîchissement des scans...</p>
       </div>
 
       <!-- KPI -->
@@ -34,7 +34,7 @@
           <div class="kpi-sub">cumul des présences par session (un délégué compte 1× par session suivie)</div>
         </div>
         <div class="kpi-card green">
-          <div class="kpi-label">Delegues uniques scannes</div>
+          <div class="kpi-label">Délégués uniques scannes</div>
           <div class="kpi-value">{{ fmt(g.uniqueDelegatesAll) }}</div>
           <div class="kpi-sub">
             dont {{ fmt(g.uniqueAudienceDelegates) }} en salle<template v-if="g.totalCheckinScans > 0"> · {{ fmt(g.uniqueCheckinDelegates) }} a l'entree</template><span v-else class="entree-note" title="Aucun scan de portique d'entree enregistre pour ce congres — flux dormant depuis avril 2025"> · entree non scannee</span>
@@ -69,7 +69,7 @@
       <!-- Delegues uniques scannes par jour -->
       <div class="chart-card">
         <div class="chart-header">
-          <h3>Delegues uniques scannes par jour</h3>
+          <h3>Délégués uniques scannes par jour</h3>
           <CsvButton
             filename="delegues-uniques-par-jour"
             :headers="['Jour', 'Delegues uniques (total)', 'dont audience salle', 'dont entree congres', 'dont zones', ...uniqueByDay.badgeTypes]"
@@ -422,11 +422,11 @@ function formatTimestamp(ts) {
 }
 /* Mention "entree non scannee" : ton attenue pour ne pas alarmer (vs un "0"). */
 .entree-note { opacity: 0.6; font-style: italic; }
-.scans-progress { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
-.scans-hint { font-size: 11px; color: var(--text-muted); margin-top: 8px; font-style: italic; }
+.scans-progress { font-size: 14px; color: var(--text-muted); margin-top: 8px; }
+.scans-hint { font-size: 13px; color: var(--text-muted); margin-top: 8px; font-style: italic; }
 .scans-hint code {
   background: #f3f4f6; padding: 1px 5px; border-radius: 3px;
-  font-family: "Fira Code", monospace; font-size: 10px;
+  font-family: "Fira Code", monospace; font-size: 12px;
 }
 
 .doughnut-wrap {
@@ -447,25 +447,25 @@ function formatTimestamp(ts) {
 .scans-detail-table { min-width: 1400px; }
 .scans-detail-table .mono {
   font-family: "Fira Code", Consolas, monospace;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--text-secondary);
 }
 
 .kind-pill {
   display: inline-block; padding: 1px 7px;
-  font-size: 10px; font-weight: 600;
+  font-size: 12px; font-weight: 600;
   border-radius: 8px; color: #fff;
 }
 .kind-pill.kind-audience { background: #1E4E66; }
 .kind-pill.kind-checkin { background: #30DD92; color: #0a3a23; }
 .kind-pill.kind-zone { background: #6F45FF; }
 
-.muted { font-size: 10px; color: var(--text-muted); }
+.muted { font-size: 12px; color: var(--text-muted); }
 
 .period-selector { display: flex; gap: 3px; }
 .period-btn {
   padding: 3px 10px; border: 1px solid #d1d5db; background: #fff;
-  border-radius: 4px; font-size: 10px; cursor: pointer; color: #646464;
+  border-radius: 4px; font-size: 12px; cursor: pointer; color: #646464;
   font-weight: 500;
 }
 .period-btn.active { background: #1E4E66; color: #fff; border-color: #1E4E66; }

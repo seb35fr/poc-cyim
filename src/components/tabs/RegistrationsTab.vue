@@ -212,8 +212,8 @@ const statusByTypeDatasets = computed(() => {
 </script>
 
 <style scoped>
-.empty-msg { text-align: center; color: var(--text-muted); padding: 20px; font-size: 13px; }
+.empty-msg { text-align: center; color: var(--text-muted); padding: 20px; font-size: 15px; }
 .status-row { display: flex; align-items: center; gap: 16px; }
 .legend-col { display: flex; flex-direction: column; gap: 4px; }
-.legend-col .legend-pill { font-size: 11px; }
+.legend-col .legend-pill { font-size: 13px; }
 </style>

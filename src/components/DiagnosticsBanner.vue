@@ -60,7 +60,7 @@ const { diagnostics, dismiss } = useDiagnostics();
 }
 
 .diag-icon {
-  font-size: 22px;
+  font-size: 25px;
   font-weight: 700;
   color: var(--warning);
   line-height: 1;
@@ -71,7 +71,7 @@ const { diagnostics, dismiss } = useDiagnostics();
 }
 
 .diag-title {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--text);
   margin-bottom: 4px;
@@ -79,14 +79,14 @@ const { diagnostics, dismiss } = useDiagnostics();
 }
 
 .diag-message {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--text-secondary);
   line-height: 1.5;
   margin-bottom: 6px;
 }
 
 .diag-action {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--primary);
   font-style: italic;
@@ -97,7 +97,7 @@ const { diagnostics, dismiss } = useDiagnostics();
   border: none;
   cursor: pointer;
   color: var(--text-muted);
-  font-size: 16px;
+  font-size: 18px;
   line-height: 1;
   padding: 0;
   width: 24px;

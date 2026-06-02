@@ -23,7 +23,7 @@ import DiagnosticsBanner from "@/components/DiagnosticsBanner.vue";
   --text-secondary: #646464;
   --text-muted: #9ca3af;
   --border: #e5e7eb;
-  --shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow: 0 1px 5px rgba(0, 0, 0, 0.2), 0 2px 2px rgba(0, 0, 0, 0.14), 0 3px 1px -2px rgba(0, 0, 0, 0.12);
   --radius: 12px;
 }
 *, *::before, *::after {
@@ -32,7 +32,7 @@ import DiagnosticsBanner from "@/components/DiagnosticsBanner.vue";
   box-sizing: border-box;
 }
 body {
-  font-family: "Comfortaa", sans-serif;
+  font-family: "Poppins", sans-serif;
   background: var(--bg);
   color: var(--text);
   line-height: 1.5;

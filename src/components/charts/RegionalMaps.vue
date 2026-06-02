@@ -69,8 +69,8 @@ const props = defineProps({
   // omis, "all" est utilise (les cartes se mettent a jour via reactivity normale).
   cacheKey: { type: String, default: "all" },
   // Prefixe des noms de fichiers CSV exportes. Utile pour distinguer
-  // "badges-repartition-monde" vs "comparison-current-monde" par exemple.
-  filenamePrefix: { type: String, default: "repartition" },
+  // "badges-répartition-monde" vs "comparison-current-monde" par exemple.
+  filenamePrefix: { type: String, default: "répartition" },
 });
 
 // Codes regions metropolitaines (13 regions) — utilise pour separer DOM dans l'affichage.
@@ -116,7 +116,7 @@ const frGlobalMax = computed(() => Math.max(1, ...frRegions.value.map((r) => r.c
   border-top: 1px dashed #e5e7eb;
 }
 .dom-row-label {
-  font-size: 11px; color: #646464; text-transform: uppercase;
+  font-size: 13px; color: #646464; text-transform: uppercase;
   letter-spacing: .5px; font-weight: 600; margin-bottom: 8px;
 }
 .dom-row-maps {
@@ -129,7 +129,7 @@ const frGlobalMax = computed(() => Math.max(1, ...frRegions.value.map((r) => r.c
 }
 .dom-card-caption {
   display: flex; justify-content: space-between; align-items: center;
-  margin-top: 2px; font-size: 11px; color: #414141; padding: 0 4px;
+  margin-top: 2px; font-size: 13px; color: #414141; padding: 0 4px;
 }
-.dom-card-caption strong { color: #1E4E66; font-size: 13px; }
+.dom-card-caption strong { color: #1E4E66; font-size: 15px; }
 </style>

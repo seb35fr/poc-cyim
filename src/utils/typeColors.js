@@ -21,6 +21,25 @@ const PALETTE = [
   "#5C7CFA", // indigo
 ];
 
+// Couleurs FIXES pour certains types, prioritaires sur le hash. Cle normalisee
+// (sans accent, minuscule) -> tolere "ETUDIANT" / "Étudiant" / "Etudiant".
+const COLOR_OVERRIDES = {
+  etudiant: "#4ba2d3",
+  congressite: "#274399",
+  congressiste: "#274399", // variante orthographique (FR)
+  exposant: "#60c19d",
+  presse: "#000000",
+  organisation: "#f8752f",
+};
+
+function normalizeType(s) {
+  return String(s)
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
 function hashStr(s) {
   let h = 0;
   for (let i = 0; i < s.length; i++) {
@@ -31,6 +50,8 @@ function hashStr(s) {
 
 export function getTypeColor(type) {
   if (!type) return "#9CA3AF";
+  const override = COLOR_OVERRIDES[normalizeType(type)];
+  if (override) return override;
   return PALETTE[hashStr(String(type)) % PALETTE.length];
 }
 

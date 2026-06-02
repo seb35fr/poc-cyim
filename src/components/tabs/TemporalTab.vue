@@ -258,8 +258,8 @@ const weeklyStatusDatasets = computed(() => {
 .period-selector { display: flex; gap: 4px; }
 .period-btn {
   padding: 4px 12px; border: 1px solid #d1d5db; background: #fff;
-  border-radius: 4px; font-size: 12px; cursor: pointer; color: var(--text-secondary);
+  border-radius: 4px; font-size: 14px; cursor: pointer; color: var(--text-secondary);
 }
 .period-btn.active { background: #1E4E66; color: #fff; border-color: #1E4E66; }
-.empty-msg { text-align: center; color: var(--text-muted); padding: 20px; font-size: 13px; }
+.empty-msg { text-align: center; color: var(--text-muted); padding: 20px; font-size: 15px; }
 </style>

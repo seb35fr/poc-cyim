@@ -65,7 +65,7 @@ const chartOptions = computed(() => ({
         return total > 0 && ctx.dataset.data[ctx.dataIndex] / total > 0.05;
       },
       color: "#fff",
-      font: { weight: 600, size: 12 },
+      font: { weight: 600, size: 14 },
       formatter: (v, ctx) => {
         const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
         return total > 0 ? Math.round((v / total) * 100) + "%" : "";

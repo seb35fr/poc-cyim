@@ -32,7 +32,7 @@ function doExport() {
   border: 1px solid #d1d5db;
   background: #fff;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 13px;
   color: #646464;
   cursor: pointer;
   vertical-align: middle;

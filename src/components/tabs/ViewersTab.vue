@@ -9,10 +9,10 @@
     <div v-else-if="error" class="viewers-state error-state">
       <p><strong>Erreur Elasticsearch :</strong> {{ error }}</p>
       <p class="viewers-hint">
-        Verifier que <code>VITE_ES_URL</code> est configure et que l'index
+        Vérifier que <code>VITE_ES_URL</code> est configure et que l'index
         <code>{{ L.esIndex }}</code> est accessible.
       </p>
-      <button class="btn-side" @click="reload">Reessayer</button>
+      <button class="btn-side" @click="reload">Réessayer</button>
     </div>
 
     <template v-else>
@@ -20,7 +20,7 @@
         <div class="refresh-bar">
           <div class="refresh-bar-fill" :style="{ width: '50%' }"></div>
         </div>
-        <p class="refresh-bar-text">Rafraichissement...</p>
+        <p class="refresh-bar-text">Rafraîchissement...</p>
       </div>
 
       <!-- KPI principal -->
@@ -52,7 +52,7 @@
         </div>
         <div class="kpi-card blue" v-if="stats.origins && stats.origins.length > 0">
           <div class="kpi-label">Vues par origine</div>
-          <div class="kpi-value" style="font-size: 22px">{{ originSummary.topOrigin }} · {{ originSummary.topPct }}</div>
+          <div class="kpi-value" style="font-size: 25px">{{ originSummary.topOrigin }} · {{ originSummary.topPct }}</div>
           <div class="kpi-sub">{{ originSummary.breakdown }}</div>
         </div>
       </div>
@@ -338,7 +338,7 @@ const LABELS = {
   live: {
     loadingLabel: "Chargement des vues live...",
     esIndex: "stats_user__live-view-duration-per-user-per-session",
-    uniqueKpi: "Delegues uniques (live)",
+    uniqueKpi: "Délégués uniques (live)",
     uniqueKpiSub: "ayant consulte au moins une session en live",
     remoteKpi: "Live sans présence physique",
     remoteKpiSub: "délégués de l'event ayant regardé en live mais sans check-in",
@@ -354,7 +354,7 @@ const LABELS = {
   replay: {
     loadingLabel: "Chargement des replays VOD...",
     esIndex: "stats_user__vod-view-per-user-per-session-per-origin",
-    uniqueKpi: "Delegues uniques (replay)",
+    uniqueKpi: "Délégués uniques (replay)",
     uniqueKpiSub: "ayant consulte au moins une VOD",
     remoteKpi: "Replay sans présence physique",
     remoteKpiSub: "délégués de l'event ayant consulté du replay mais sans check-in",
@@ -448,7 +448,7 @@ watch(
   (list) => {
     if (list.length === 0) return;
     const verb = props.kind === "live" ? "regarde du live" : "consulte du replay";
-    debug.log(`${L.value.debugTag} ${list.length} delegues ont ${verb} SANS check-in physique :`);
+    debug.log(`${L.value.debugTag} ${list.length} délégués ont ${verb} SANS check-in physique :`);
     debug.table(list);
   },
   { immediate: true },
@@ -476,15 +476,15 @@ watch(
 );
 
 // Dump console COMPLET des donnees de consultation live (kind === 'live').
-// Demande explicite : voir tout ce qui est recupere/agrege cote Live. Rejoue a
-// chaque chargement / refresh / changement de filtre. Groupe pour rester lisible.
+// DEBUG DESACTIVE (logs console de debug commentes). Decommenter pour reactiver.
+/*
 watch(
   () => stats.value,
   (s) => {
     if (props.kind !== "live" || !s) return;
     const items = s.items || [];
     const rawHits = props.viewerApi.hits?.value || [];
-    /* eslint-disable no-console */
+    // eslint-disable no-console
     console.groupCollapsed(
       `%c[Live] Données de consultation — ${items.length} vues / ${rawHits.length} hits ES bruts`,
       "color:#1E4E66;font-weight:700",
@@ -563,10 +563,11 @@ watch(
     );
     console.log("Lookup délégués (taille) :", lookup.size, "délégués avec user_id Keycloak");
     console.groupEnd();
-    /* eslint-enable no-console */
+    // eslint-enable no-console
   },
   { immediate: true },
 );
+*/
 
 // --- Présents physiques qui consultent du replay (replay uniquement) ---
 // Funnel "venu sur place PUIS revu en replay". Reutilise delegateLookup (deja
@@ -624,7 +625,7 @@ const physicalReplayOptions = {
   maintainAspectRatio: false,
   layout: { padding: { top: 18 } },
   plugins: {
-    legend: { position: "top", labels: { font: { size: 11 }, usePointStyle: true, pointStyle: "rectRounded" } },
+    legend: { position: "top", labels: { font: { size: 13 }, usePointStyle: true, pointStyle: "rectRounded" } },
     datalabels: { display: false },
     tooltip: {
       callbacks: {
@@ -636,16 +637,16 @@ const physicalReplayOptions = {
     },
   },
   scales: {
-    x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+    x: { grid: { display: false }, ticks: { font: { size: 13 } } },
     y: {
       position: "left", beginAtZero: true,
-      grid: { color: "#f3f4f6" }, ticks: { font: { size: 11 }, precision: 0 },
-      title: { display: true, text: "Délégués uniques", font: { size: 10 } },
+      grid: { color: "#f3f4f6" }, ticks: { font: { size: 13 }, precision: 0 },
+      title: { display: true, text: "Délégués uniques", font: { size: 12 } },
     },
     y1: {
       position: "right", beginAtZero: true,
-      grid: { display: false }, ticks: { font: { size: 11 }, precision: 0 },
-      title: { display: true, text: "Vues cumulées", font: { size: 10 } },
+      grid: { display: false }, ticks: { font: { size: 13 }, precision: 0 },
+      title: { display: true, text: "Vues cumulées", font: { size: 12 } },
     },
   },
 };
@@ -802,15 +803,15 @@ const byDayChannelOptions = {
   responsive: true,
   maintainAspectRatio: false,
   plugins: {
-    legend: { position: "top", labels: { font: { size: 11 }, usePointStyle: true, pointStyle: "rectRounded" } },
+    legend: { position: "top", labels: { font: { size: 13 }, usePointStyle: true, pointStyle: "rectRounded" } },
     datalabels: { display: false },
     tooltip: {
       callbacks: { label: (ctx) => `${ctx.dataset.label} : ${ctx.raw.toLocaleString("fr-FR")} délégués uniques` },
     },
   },
   scales: {
-    x: { grid: { display: false }, ticks: { font: { size: 11 } } },
-    y: { grid: { color: "#f3f4f6" }, ticks: { font: { size: 11 } }, beginAtZero: true },
+    x: { grid: { display: false }, ticks: { font: { size: 13 } } },
+    y: { grid: { color: "#f3f4f6" }, ticks: { font: { size: 13 } }, beginAtZero: true },
   },
 };
 
@@ -822,11 +823,11 @@ const byDayOptions = computed(() => {
     layout: { padding: { top: 18 } },
     plugins: {
       legend: isReplay
-        ? { position: "top", labels: { font: { size: 11 }, usePointStyle: true, pointStyle: "rectRounded" } }
+        ? { position: "top", labels: { font: { size: 13 }, usePointStyle: true, pointStyle: "rectRounded" } }
         : { display: false },
       datalabels: {
         display: true, anchor: "end", align: "end", offset: 2, clip: false,
-        color: "#414141", font: { weight: 600, size: 11 },
+        color: "#414141", font: { weight: 600, size: 13 },
       },
       tooltip: {
         callbacks: {
@@ -838,15 +839,15 @@ const byDayOptions = computed(() => {
       },
     },
     scales: {
-      x: { grid: { display: false }, ticks: { font: { size: 11 } } },
-      y: { grid: { color: "#f3f4f6" }, ticks: { font: { size: 11 } }, beginAtZero: true },
+      x: { grid: { display: false }, ticks: { font: { size: 13 } } },
+      y: { grid: { color: "#f3f4f6" }, ticks: { font: { size: 13 } }, beginAtZero: true },
     },
   };
   if (isReplay) {
     opts.scales.y1 = {
       position: "right", beginAtZero: true,
-      grid: { display: false }, ticks: { font: { size: 11 }, precision: 0 },
-      title: { display: true, text: "Cumulés", font: { size: 10 } },
+      grid: { display: false }, ticks: { font: { size: 13 }, precision: 0 },
+      title: { display: true, text: "Cumulés", font: { size: 12 } },
     };
   }
   return opts;
@@ -890,10 +891,10 @@ const replayViewsByDayOptions = {
   maintainAspectRatio: false,
   layout: { padding: { top: 18 } },
   plugins: {
-    legend: { position: "top", labels: { font: { size: 11 }, usePointStyle: true, pointStyle: "rectRounded" } },
+    legend: { position: "top", labels: { font: { size: 13 }, usePointStyle: true, pointStyle: "rectRounded" } },
     datalabels: {
       display: true, anchor: "end", align: "end", offset: 2, clip: false,
-      color: "#414141", font: { weight: 600, size: 11 },
+      color: "#414141", font: { weight: 600, size: 13 },
     },
     tooltip: {
       callbacks: {
@@ -905,16 +906,16 @@ const replayViewsByDayOptions = {
     },
   },
   scales: {
-    x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+    x: { grid: { display: false }, ticks: { font: { size: 13 } } },
     y: {
       position: "left", beginAtZero: true,
-      grid: { color: "#f3f4f6" }, ticks: { font: { size: 11 }, precision: 0 },
-      title: { display: true, text: "Vues / jour", font: { size: 10 } },
+      grid: { color: "#f3f4f6" }, ticks: { font: { size: 13 }, precision: 0 },
+      title: { display: true, text: "Vues / jour", font: { size: 12 } },
     },
     y1: {
       position: "right", beginAtZero: true,
-      grid: { display: false }, ticks: { font: { size: 11 }, precision: 0 },
-      title: { display: true, text: "Cumulées", font: { size: 10 } },
+      grid: { display: false }, ticks: { font: { size: 13 }, precision: 0 },
+      title: { display: true, text: "Cumulées", font: { size: 12 } },
     },
   },
 };
@@ -953,8 +954,8 @@ const by30minOptions = {
     },
   },
   scales: {
-    x: { grid: { display: false }, ticks: { font: { size: 10 }, autoSkip: true, maxTicksLimit: 20, maxRotation: 45 } },
-    y: { grid: { color: "#f3f4f6" }, ticks: { font: { size: 11 } }, beginAtZero: true },
+    x: { grid: { display: false }, ticks: { font: { size: 12 }, autoSkip: true, maxTicksLimit: 20, maxRotation: 45 } },
+    y: { grid: { color: "#f3f4f6" }, ticks: { font: { size: 13 } }, beginAtZero: true },
   },
 };
 
@@ -981,15 +982,15 @@ const engagementOptions = {
     legend: { display: false },
     datalabels: {
       display: true, anchor: "end", align: "end", offset: 2, clip: false,
-      color: "#414141", font: { weight: 600, size: 11 },
+      color: "#414141", font: { weight: 600, size: 13 },
     },
     tooltip: {
       callbacks: { label: (ctx) => `${ctx.raw.toLocaleString("fr-FR")} délégués` },
     },
   },
   scales: {
-    x: { grid: { display: false }, ticks: { font: { size: 11 } } },
-    y: { grid: { color: "#f3f4f6" }, ticks: { font: { size: 11 } }, beginAtZero: true },
+    x: { grid: { display: false }, ticks: { font: { size: 13 } } },
+    y: { grid: { color: "#f3f4f6" }, ticks: { font: { size: 13 } }, beginAtZero: true },
   },
 };
 
@@ -1067,11 +1068,11 @@ function detailCsvRow(it) {
 
 <style scoped>
 .viewers-state { text-align: center; padding: 60px 20px; }
-.viewers-progress { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
-.viewers-hint { font-size: 11px; color: var(--text-muted); margin-top: 8px; font-style: italic; }
+.viewers-progress { font-size: 14px; color: var(--text-muted); margin-top: 8px; }
+.viewers-hint { font-size: 13px; color: var(--text-muted); margin-top: 8px; font-style: italic; }
 .viewers-hint code {
   background: #f3f4f6; padding: 1px 5px; border-radius: 3px;
-  font-family: "Fira Code", monospace; font-size: 10px;
+  font-family: "Fira Code", monospace; font-size: 12px;
 }
 
 .viewers-table-wrap { max-height: 600px; overflow: auto; }
@@ -1079,12 +1080,12 @@ function detailCsvRow(it) {
 .viewers-detail-table { min-width: 900px; }
 .viewers-detail-table .mono {
   font-family: "Fira Code", Consolas, monospace;
-  font-size: 10px; color: var(--text-secondary);
+  font-size: 12px; color: var(--text-secondary);
 }
 
 .origin-pill {
   display: inline-block; padding: 1px 7px;
-  font-size: 10px; font-weight: 600;
+  font-size: 12px; font-weight: 600;
   border-radius: 8px; background: #6F45FF; color: #fff;
 }
 
@@ -1099,13 +1100,13 @@ function detailCsvRow(it) {
 .filter-active-bar {
   margin-top: 12px; padding: 8px 12px;
   background: rgba(48,221,146,0.10); border: 1px solid rgba(48,221,146,0.3);
-  border-radius: 8px; font-size: 12px; color: var(--text);
+  border-radius: 8px; font-size: 14px; color: var(--text);
   display: flex; align-items: center; gap: 12px;
 }
 .filter-clear {
   margin-left: auto; padding: 3px 8px;
   background: #fff; border: 1px solid #d1d5db; border-radius: 4px;
-  cursor: pointer; font-size: 11px; color: #646464;
+  cursor: pointer; font-size: 13px; color: #646464;
 }
 .filter-clear:hover { background: #f3f4f6; }
 
@@ -1114,7 +1115,7 @@ function detailCsvRow(it) {
 }
 .origin-pie { width: 200px; }
 .origin-legend {
-  display: flex; flex-direction: column; gap: 6px; font-size: 12px;
+  display: flex; flex-direction: column; gap: 6px; font-size: 14px;
 }
 .origin-legend-row {
   display: grid; grid-template-columns: 12px 1fr auto auto;
@@ -1123,7 +1124,7 @@ function detailCsvRow(it) {
 .origin-swatch { width: 12px; height: 12px; border-radius: 3px; }
 .origin-name { color: var(--text); }
 .origin-legend-row strong { color: var(--text); font-weight: 700; }
-.origin-sub { color: var(--text-muted); font-size: 11px; min-width: 50px; text-align: right; }
+.origin-sub { color: var(--text-muted); font-size: 13px; min-width: 50px; text-align: right; }
 
 @media (max-width: 700px) {
   .origin-pie-wrap { grid-template-columns: 1fr; }

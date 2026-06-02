@@ -40,7 +40,7 @@
       <div class="progress-bar-container">
         <div class="progress-bar" :style="{ width: checkinPct }"></div>
       </div>
-      <div style="display: flex; justify-content: space-between; font-size: 12px; color: #646464; margin-top: 4px;">
+      <div style="display: flex; justify-content: space-between; font-size: 14px; color: #646464; margin-top: 4px;">
         <span>0</span>
         <span>{{ fmt(fs.global.totalDelegatesCount) }}</span>
       </div>
@@ -224,7 +224,7 @@ const onboardingData = computed(() => [
 .live-banner {
   background: linear-gradient(135deg, #30DD92, #22c55e);
   color: #fff; padding: 12px 20px; border-radius: 8px;
-  font-weight: 600; font-size: 14px; margin-bottom: 16px;
+  font-weight: 600; font-size: 16px; margin-bottom: 16px;
   text-align: center;
 }
 .progress-bar-container {
@@ -235,5 +235,5 @@ const onboardingData = computed(() => [
   height: 100%; border-radius: 8px; transition: width .5s ease;
   min-width: 2px;
 }
-.empty-msg { text-align: center; color: #646464; padding: 20px; font-size: 13px; }
+.empty-msg { text-align: center; color: #646464; padding: 20px; font-size: 15px; }
 </style>

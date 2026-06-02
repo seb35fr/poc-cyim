@@ -74,12 +74,12 @@ const chartOptions = computed(() => ({
       anchor: "end",
       align: "end",
       color: "#414141",
-      font: { weight: 600, size: 11 },
+      font: { weight: 600, size: 13 },
     },
   },
   scales: {
     x: { display: false, grid: { display: false } },
-    y: { grid: { display: false }, ticks: { font: { size: 12 } } },
+    y: { grid: { display: false }, ticks: { font: { size: 14 } } },
   },
 }));
 </script>

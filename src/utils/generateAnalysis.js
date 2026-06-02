@@ -52,10 +52,10 @@ export function generateAnalysis(stats, registeredCount, eventName, options = {}
   const keyFacts = [];
   keyFacts.push(`${fmt(g.totalDelegatesCount)} inscrits au total, dont ${fmt(registeredCount)} au statut registered.`);
   if (g.checkedInCount > 0) {
-    keyFacts.push(`Taux de presence : ${pct(g.checkedInCount, registeredCount)} des registered (${fmt(g.checkedInCount)} delegues physiquement presents).`);
+    keyFacts.push(`Taux de présence : ${pct(g.checkedInCount, registeredCount)} des registered (${fmt(g.checkedInCount)} délégués physiquement présents).`);
     const noShow = registeredCount - g.checkedInCount;
     if (noShow > 0 && registeredCount > 0) {
-      keyFacts.push(`No-show : ${pct(noShow, registeredCount)} (${fmt(noShow)} delegues registered absents).`);
+      keyFacts.push(`No-show : ${pct(noShow, registeredCount)} (${fmt(noShow)} délégués registered absents).`);
     }
   }
   if (g.onboardingCount > 0) {
@@ -80,7 +80,7 @@ export function generateAnalysis(stats, registeredCount, eventName, options = {}
     }
     const m = median(deltas);
     if (m != null) {
-      keyFacts.push(`Delai median inscription -> check-in : ${formatDays(m)} (${fmt(deltas.length)} delegues echantillon).`);
+      keyFacts.push(`Delai median inscription -> check-in : ${formatDays(m)} (${fmt(deltas.length)} délégués echantillon).`);
     }
   }
   sections.push({ title: "Chiffres cles", bullets: keyFacts });
@@ -101,10 +101,10 @@ export function generateAnalysis(stats, registeredCount, eventName, options = {}
     if (mixTotal > 0) {
       const mix = [];
       const sortedTypes = [...mixCounts.entries()].sort((a, b) => b[1] - a[1]);
-      mix.push(`Mix des presents : population de ${fmt(mixTotal)} inscriptions (status = registered ET checkedInDate renseignee).`);
+      mix.push(`Mix des présents : population de ${fmt(mixTotal)} inscriptions (status = registered ET checkedInDate renseignee).`);
       const top = sortedTypes.slice(0, 3).map(([t, n]) => `${t} (${pct(n, mixTotal)})`).join(", ");
       mix.push(`Top types : ${top}.`);
-      sections.push({ title: "Profil des presents", bullets: mix });
+      sections.push({ title: "Profil des présents", bullets: mix });
     }
   }
 
@@ -141,7 +141,7 @@ export function generateAnalysis(stats, registeredCount, eventName, options = {}
   }
   const multiRegs = stats.registrations?.multiRegistrations || [];
   if (multiRegs.length > 0) {
-    reg.push(`${fmt(multiRegs.length)} delegues avec des inscriptions multiples.`);
+    reg.push(`${fmt(multiRegs.length)} délégués avec des inscriptions multiples.`);
   }
   const cancelled = stats.registrations?.statuses?.find((s) => s.value?.toLowerCase().includes("cancel"));
   if (cancelled && cancelled.totalCount > 0) {
@@ -169,7 +169,7 @@ export function generateAnalysis(stats, registeredCount, eventName, options = {}
   const checkinBadges = [];
   if (g.checkedInCount > 0) {
     checkinBadges.push(
-      `Check-in (présence physique réelle) : ${fmt(g.checkedInCount)} delegues, ${pct(g.checkedInCount, registeredCount)} des registered.`
+      `Check-in (présence physique réelle) : ${fmt(g.checkedInCount)} délégués, ${pct(g.checkedInCount, registeredCount)} des registered.`
     );
   }
   const checkinPeak = stats.checkinFlow?.peakSlot;
@@ -207,7 +207,7 @@ export function generateAnalysis(stats, registeredCount, eventName, options = {}
     reco.push(`Onboarding faible (${pct(g.onboardingCount, registeredCount)}) — envisager une relance par email.`);
   }
   if (g.pendingCount > 0 && g.pendingCount / g.totalDelegatesCount > 0.1) {
-    reco.push(`${pct(g.pendingCount, g.totalDelegatesCount)} d'inscriptions en attente — verifier les blocages (paiement, validation manuelle).`);
+    reco.push(`${pct(g.pendingCount, g.totalDelegatesCount)} d'inscriptions en attente — vérifier les blocages (paiement, validation manuelle).`);
   }
   if (registeredCount > 0 && g.mobileAppCount / registeredCount < 0.2 && g.mobileAppCount >= 0) {
     reco.push(`Adoption app mobile faible (${pct(g.mobileAppCount, registeredCount)}) — promouvoir l'application dans les communications.`);
@@ -254,7 +254,7 @@ export function generateAnalysis(stats, registeredCount, eventName, options = {}
       const aPres = registeredCount > 0 ? (g.checkedInCount / registeredCount) * 100 : 0;
       const bPres = cmpRegisteredOnly > 0 ? (cmp.checkedInCount / cmpRegisteredOnly) * 100 : 0;
       compare.push(
-        `Taux de presence : ${aPres.toFixed(1)}% vs ${bPres.toFixed(1)}% — ${deltaPpts(aPres, bPres)}.`
+        `Taux de présence : ${aPres.toFixed(1)}% vs ${bPres.toFixed(1)}% — ${deltaPpts(aPres, bPres)}.`
       );
     }
     const curCheckinPeak = stats.checkinFlow?.peakSlot;

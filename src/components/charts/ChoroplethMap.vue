@@ -128,5 +128,5 @@ watch(() => props.countries, () => {
 
 <style scoped>
 .map-fallback { margin-top: 8px; }
-.map-fallback p { text-align: center; color: #646464; font-size: 12px; margin-bottom: 8px; }
+.map-fallback p { text-align: center; color: #646464; font-size: 14px; margin-bottom: 8px; }
 </style>

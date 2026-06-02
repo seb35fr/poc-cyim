@@ -19,6 +19,9 @@ const props = defineProps({
   // Affiche le total de chaque rangee au bout de la derniere segment. Utile
   // sur les stacked horizontaux pour donner l'ordre de grandeur.
   showTotal: { type: Boolean, default: false },
+  // Position de la legende. "bottom" pour les charts a legende par type de
+  // badge (sous l'abscisse, plus lisible), "top" par defaut ailleurs.
+  legendPosition: { type: String, default: "top" },
 });
 
 const emit = defineEmits(["select"]);
@@ -109,7 +112,7 @@ const chartOptions = computed(() => ({
     if (canvas) canvas.style.cursor = elements.length > 0 ? "pointer" : "default";
   },
   plugins: {
-    legend: { position: "top", labels: { font: { size: 11 }, usePointStyle: true, pointStyle: "rectRounded" } },
+    legend: { position: props.legendPosition, labels: { font: { size: 13 }, usePointStyle: true, pointStyle: "rectRounded" } },
     datalabels: { display: false },
     tooltip: {
       callbacks: {
@@ -127,8 +130,8 @@ const chartOptions = computed(() => ({
     },
   },
   scales: {
-    x: { stacked: true, grid: { display: false }, ticks: { font: { size: 11 } } },
-    y: { stacked: true, grid: { color: "#f3f4f6" }, ticks: { font: { size: 11 } } },
+    x: { stacked: true, grid: { display: false }, ticks: { font: { size: 13 } } },
+    y: { stacked: true, grid: { color: "#f3f4f6" }, ticks: { font: { size: 13 } }, grace: props.showTotal && !props.horizontal ? "12%" : 0 },
   },
 }));
 

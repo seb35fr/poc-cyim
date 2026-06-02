@@ -28,7 +28,8 @@ Chart.register(
   ChartDataLabels
 );
 
-Chart.defaults.font.family = "'Comfortaa', sans-serif";
+Chart.defaults.font.family = "'Poppins', sans-serif";
+Chart.defaults.font.size = 14;
 Chart.defaults.plugins.datalabels.display = false;
 
 const router = createRouter({

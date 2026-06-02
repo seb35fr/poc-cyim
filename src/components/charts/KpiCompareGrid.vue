@@ -64,7 +64,7 @@ defineProps({
   display: flex; flex-direction: column;
 }
 .kpi-compare-card .kpi-label {
-  font-size: 10px; text-transform: uppercase; letter-spacing: .5px;
+  font-size: 16px; text-transform: uppercase; letter-spacing: .5px;
   color: var(--text-muted); font-weight: 600;
   padding-bottom: 8px; border-bottom: 1px solid #f3f4f6; margin-bottom: 10px;
 }
@@ -78,7 +78,7 @@ defineProps({
 .kpi-side--compare { align-items: flex-end; text-align: right; }
 .kpi-side-header {
   display: flex; align-items: center; gap: 6px;
-  font-size: 11px; color: var(--text-muted); font-weight: 500;
+  font-size: 13px; color: var(--text-muted); font-weight: 500;
   min-width: 0; max-width: 100%;
 }
 .kpi-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
@@ -86,17 +86,17 @@ defineProps({
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .kpi-side-value {
-  font-weight: 700; color: var(--text); font-size: 22px; line-height: 1.1;
+  font-weight: 700; color: var(--text); font-size: 25px; line-height: 1.1;
   font-variant-numeric: tabular-nums;
 }
 .kpi-side-sub {
-  color: var(--text-muted); font-size: 11px; line-height: 1.3;
+  color: var(--text-muted); font-size: 13px; line-height: 1.3;
   min-height: 14px;
   font-variant-numeric: tabular-nums;
 }
 .kpi-delta-wrap { align-self: center; padding-top: 16px; }
 .kpi-delta {
-  font-weight: 700; font-size: 11px;
+  font-weight: 700; font-size: 13px;
   padding: 4px 10px; border-radius: 12px; white-space: nowrap;
   display: inline-flex; align-items: center; gap: 4px;
 }

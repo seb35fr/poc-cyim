@@ -28,19 +28,19 @@ const chartOptions = computed(() => {
     maintainAspectRatio: false,
     interaction: { mode: "index", intersect: false },
     plugins: {
-      legend: { position: "top", labels: { font: { size: 11 }, usePointStyle: true, pointStyle: "circle" } },
+      legend: { position: "top", labels: { font: { size: 13 }, usePointStyle: true, pointStyle: "circle" } },
       datalabels: { display: false },
     },
     scales: {
-      x: { grid: { display: false }, ticks: { font: { size: 10 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 } },
-      y: { grid: { color: "#f3f4f6" }, ticks: { font: { size: 11 } }, beginAtZero: props.yBeginAtZero },
+      x: { grid: { display: false }, ticks: { font: { size: 12 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 } },
+      y: { grid: { color: "#f3f4f6" }, ticks: { font: { size: 13 } }, beginAtZero: props.yBeginAtZero },
     },
   };
   if (hasY1.value) {
     opts.scales.y1 = {
       position: "right",
       grid: { display: false },
-      ticks: { font: { size: 10 } },
+      ticks: { font: { size: 12 } },
       beginAtZero: true,
     };
   }

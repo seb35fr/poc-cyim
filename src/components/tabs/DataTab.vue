@@ -407,7 +407,7 @@ function getRpps(d) {
 .search-input {
   width: 100%; padding: 7px 30px 7px 30px;
   border: 1px solid var(--border); border-radius: 8px;
-  font-size: 12px; background: var(--card); outline: none;
+  font-size: 14px; background: var(--card); outline: none;
   transition: border-color .15s, box-shadow .15s;
 }
 .search-input:focus {
@@ -416,21 +416,21 @@ function getRpps(d) {
 }
 .search-clear {
   position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
-  background: none; border: none; font-size: 16px; color: var(--text-muted);
+  background: none; border: none; font-size: 18px; color: var(--text-muted);
   cursor: pointer; padding: 2px 4px; line-height: 1;
 }
 .search-clear:hover { color: var(--text); }
 
 .toolbar-meta { display: flex; align-items: center; gap: 10px; }
 .result-count {
-  font-size: 12px; font-weight: 600; color: var(--text-secondary);
+  font-size: 14px; font-weight: 600; color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
 }
 .result-sep { color: var(--text-muted); margin: 0 1px; }
 .btn-csv {
   display: inline-flex; align-items: center; gap: 4px;
   padding: 6px 12px; background: var(--primary); color: #fff;
-  border: none; border-radius: 6px; font-size: 11px; font-weight: 600;
+  border: none; border-radius: 6px; font-size: 13px; font-weight: 600;
   cursor: pointer; transition: background .15s, transform .1s;
 }
 .btn-csv:hover { background: var(--primary-light); transform: translateY(-1px); }
@@ -448,7 +448,7 @@ function getRpps(d) {
 /* ── Data table ── */
 .dtable {
   width: 100%; border-collapse: collapse;
-  font-size: 12px; line-height: 1.4;
+  font-size: 14px; line-height: 1.4;
 }
 
 /* Sticky header */
@@ -456,7 +456,7 @@ function getRpps(d) {
 .dtable-th {
   padding: 8px 10px; text-align: left;
   background: #f1f3f6; color: var(--text-secondary);
-  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  font-size: 12px; font-weight: 700; text-transform: uppercase;
   letter-spacing: .4px; white-space: nowrap;
   cursor: pointer; user-select: none;
   border-bottom: 2px solid var(--border);
@@ -465,7 +465,7 @@ function getRpps(d) {
 .dtable-th:hover { background: #e6e9ee; color: var(--text); }
 .dtable-th.sorted { color: var(--primary); background: #e8eef3; }
 .th-label { margin-right: 3px; }
-.th-arrow { font-size: 8px; vertical-align: middle; }
+.th-arrow { font-size: 9px; vertical-align: middle; }
 .th-arrow-idle { opacity: .25; }
 
 /* Rows */
@@ -481,8 +481,8 @@ function getRpps(d) {
 
 /* Cell variants */
 .cell-name { font-weight: 500; }
-.cell-email { color: var(--text-secondary); font-size: 11px; }
-.cell-date { font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 11px; color: var(--text-secondary); }
+.cell-email { color: var(--text-secondary); font-size: 13px; }
+.cell-date { font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 13px; color: var(--text-secondary); }
 .cell-mono { font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace; font-size: 10.5px; color: var(--text-secondary); letter-spacing: -.2px; }
 .cell-center { text-align: center; font-weight: 600; }
 .cell-empty { text-align: center; color: var(--text-muted); padding: 40px 10px !important; font-style: italic; }
@@ -502,7 +502,7 @@ function getRpps(d) {
 /* Status pills */
 .status-pill {
   display: inline-block; padding: 1px 7px; border-radius: 8px;
-  font-size: 10px; font-weight: 600; text-transform: capitalize;
+  font-size: 12px; font-weight: 600; text-transform: capitalize;
   letter-spacing: .2px;
 }
 .st-registered { background: #d1fae5; color: #065f46; }
@@ -513,19 +513,19 @@ function getRpps(d) {
 /* ── Pagination ── */
 .pager {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 8px 0; margin-top: 4px; font-size: 11px; color: var(--text-secondary);
+  padding: 8px 0; margin-top: 4px; font-size: 13px; color: var(--text-secondary);
 }
 .pager-left, .pager-right { display: flex; align-items: center; gap: 6px; }
 .pager-center { display: flex; align-items: center; gap: 4px; }
-.pager-label { font-size: 10px; text-transform: uppercase; color: var(--text-muted); letter-spacing: .3px; }
+.pager-label { font-size: 12px; text-transform: uppercase; color: var(--text-muted); letter-spacing: .3px; }
 .pager-select {
   padding: 3px 6px; border: 1px solid var(--border); border-radius: 4px;
-  font-size: 11px; background: var(--card); cursor: pointer;
+  font-size: 13px; background: var(--card); cursor: pointer;
 }
 .pager-btn {
   width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
   border: 1px solid var(--border); border-radius: 4px;
-  background: var(--card); cursor: pointer; font-size: 13px; line-height: 1;
+  background: var(--card); cursor: pointer; font-size: 15px; line-height: 1;
   transition: background .1s;
 }
 .pager-btn:hover:not(:disabled) { background: #f3f4f6; }
@@ -543,18 +543,18 @@ function getRpps(d) {
 }
 .filter-group { display: flex; flex-direction: column; gap: 3px; }
 .filter-label {
-  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  font-size: 12px; font-weight: 700; text-transform: uppercase;
   letter-spacing: .3px; color: var(--text-muted);
 }
 .filter-select {
   padding: 5px 8px; border: 1px solid var(--border); border-radius: 6px;
-  font-size: 12px; background: var(--card); cursor: pointer;
+  font-size: 14px; background: var(--card); cursor: pointer;
   min-width: 140px; max-width: 260px;
 }
 .filter-select:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 2px rgba(30, 78, 102, 0.08); }
 .filter-clear-btn {
   padding: 5px 10px; border: 1px solid #e5e7eb; border-radius: 6px;
-  background: #fff; font-size: 11px; color: var(--text-secondary);
+  background: #fff; font-size: 13px; color: var(--text-secondary);
   cursor: pointer; transition: all .15s;
 }
 .filter-clear-btn:hover { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }

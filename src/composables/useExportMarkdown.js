@@ -453,7 +453,7 @@ function sectionBadges(stats, delegates) {
   }
 
   // Mix des types d'inscription chez les presents confirmes (= chart
-  // "Mix des types (presents confirmes)" du dashboard). Population :
+  // "Mix des types (présents confirmes)" du dashboard). Population :
   // status=registered ET checkedInDate renseignee. Une inscription = une ligne
   // (un delegue multi-inscriptions compte dans chacun de ses types).
   const mixCounts = new Map();
@@ -544,7 +544,7 @@ function sectionLiveReplay(label, viewerStats, delegates) {
   const g = viewerStats.global;
   if ((g.totalViews || 0) === 0 && (g.uniqueUsers || 0) === 0) return "";
 
-  // KPI "sans presence physique" : delegues matched ES live/replay
+  // KPI "sans présence physique" : delegues matched ES live/replay
   // sans check-in physique.
   const lookup = buildDelegateLookup(delegates || [], { datasetLabel: `md-export-${label.toLowerCase()}` });
   const remoteSize = getRemoteOnlyDelegateIds(viewerStats.items || [], lookup, { datasetLabel: `md-export-${label.toLowerCase()}-remote` }).size;

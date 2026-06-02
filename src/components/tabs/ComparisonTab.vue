@@ -19,16 +19,8 @@
       </div>
     </div>
 
-    <!-- Filtre global page par type de badge — etat partage avec
-         Overview/Badges (cf. useBadgeTypeFilter dans StatisticsView). -->
-    <BadgeTypeFilter
-      v-if="compareStats && availableBadgeTypes.length > 0"
-      :types="availableBadgeTypes"
-      :selected="selectedBadgeTypes"
-      @toggle="toggleBadgeType"
-      @clear="clearBadgeTypes"
-      @select="setBadgeTypes"
-    />
+    <!-- Le filtre Type de badge est porte par la toolbar globale (StatisticsView).
+         Pas de filtre local ici pour eviter le doublon. -->
 
     <div v-if="compareLoading" class="cmp-loading">
       <div class="spinner"></div>
@@ -59,7 +51,18 @@
       <!-- Taux de conversion (gauche) / Mix des types d'inscriptions (droite) -->
       <div class="charts-row">
         <div class="chart-card">
-          <h3>Taux de conversion (% des registered)</h3>
+          <div class="chart-header">
+            <h3>Taux de conversion (% des registered)</h3>
+            <CsvButton
+              filename="comparatif-conversion"
+              :headers="['Indicateur', eventName, compareEventName]"
+              :rows="[
+                ['Badges délivrés', currentMetrics.badgesDelivered, compareMetrics.badgesDelivered],
+                ['Check-in effectués', currentMetrics.checkedIn, compareMetrics.checkedIn],
+                ['Restants sans badge', currentMetrics.remainingNoBadge, compareMetrics.remainingNoBadge],
+              ]"
+            />
+          </div>
           <div :style="{ position: 'relative', height: '220px' }">
             <Bar :data="conversionChartData" :options="conversionOptions" />
           </div>
@@ -81,7 +84,10 @@
         <div class="chart-card">
           <div class="chart-header">
             <h3>Régions françaises — {{ shortName(eventName) }}</h3>
-            <span class="cmp-axis-hint">Métropole · échelle partagée</span>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="cmp-axis-hint">Métropole · échelle partagée</span>
+              <CsvButton filename="comparatif-regions-fr-A" :headers="['Région', 'Inscrits']" :rows="frRegionsCurrent.map(r => [REGION_NAMES[r.code] || r.code, r.count])" />
+            </div>
           </div>
           <FrenchRegionMap
             :regions="frRegionsCurrentMetro"
@@ -101,7 +107,10 @@
         <div class="chart-card">
           <div class="chart-header">
             <h3>Régions françaises — {{ shortName(compareEventName) }}</h3>
-            <span class="cmp-axis-hint">Métropole · échelle partagée</span>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="cmp-axis-hint">Métropole · échelle partagée</span>
+              <CsvButton filename="comparatif-regions-fr-B" :headers="['Région', 'Inscrits']" :rows="frRegionsCompare.map(r => [REGION_NAMES[r.code] || r.code, r.count])" />
+            </div>
           </div>
           <FrenchRegionMap
             :regions="frRegionsCompareMetro"
@@ -117,6 +126,30 @@
               {{ REGION_NAMES[r.code] || r.code }} <strong>{{ r.count }}</strong>
             </span>
           </div>
+        </div>
+      </div>
+
+      <!-- Répartition géographique (monde) : 2 cartes A vs B (échelle auto par carte) -->
+      <div class="charts-row" v-if="countriesCurrent.length > 0 || countriesCompare.length > 0">
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3>Répartition géographique — {{ shortName(eventName) }}</h3>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="cmp-axis-hint">Monde · {{ uniqueCountriesCurrent }} pays</span>
+              <CsvButton filename="comparatif-pays-A" :headers="['Pays', 'Inscrits']" :rows="countriesCurrent.map(c => [c.value, c.totalCount])" />
+            </div>
+          </div>
+          <ChoroplethMap :countries="countriesCurrent" :height="320" :key="`world-cmp-cur-${badgeFilterKey}`" />
+        </div>
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3>Répartition géographique — {{ shortName(compareEventName) }}</h3>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="cmp-axis-hint">Monde · {{ uniqueCountriesCompare }} pays</span>
+              <CsvButton filename="comparatif-pays-B" :headers="['Pays', 'Inscrits']" :rows="countriesCompare.map(c => [c.value, c.totalCount])" />
+            </div>
+          </div>
+          <ChoroplethMap :countries="countriesCompare" :height="320" :key="`world-cmp-cmp-${badgeFilterKey}`" />
         </div>
       </div>
 
@@ -151,7 +184,10 @@
         <div class="chart-card">
           <div class="chart-header">
             <h3>Performance de check-in — {{ shortName(eventName) }}</h3>
-            <span class="cmp-axis-hint">Créneaux de 15 min</span>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="cmp-axis-hint">Créneaux de 15 min</span>
+              <CsvButton v-if="checkinPerfCurrent.labels.length > 0" filename="comparatif-perf-checkin-A" :headers="['Créneau', 'Check-in']" :rows="checkinPerfCurrent.labels.map((l, i) => [l, checkinPerfCurrent.chartData.datasets[0]?.data[i] ?? 0])" />
+            </div>
           </div>
           <div v-if="checkinPerfCurrent.labels.length > 0" :style="{ position: 'relative', height: '260px' }">
             <Bar :data="checkinPerfCurrent.chartData" :options="checkinPerfOptions" />
@@ -167,7 +203,10 @@
         <div class="chart-card">
           <div class="chart-header">
             <h3>Performance de check-in — {{ shortName(compareEventName) }}</h3>
-            <span class="cmp-axis-hint">Créneaux de 15 min</span>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="cmp-axis-hint">Créneaux de 15 min</span>
+              <CsvButton v-if="checkinPerfCompare.labels.length > 0" filename="comparatif-perf-checkin-B" :headers="['Créneau', 'Check-in']" :rows="checkinPerfCompare.labels.map((l, i) => [l, checkinPerfCompare.chartData.datasets[0]?.data[i] ?? 0])" />
+            </div>
           </div>
           <div v-if="checkinPerfCompare.labels.length > 0" :style="{ position: 'relative', height: '260px' }">
             <Bar :data="checkinPerfCompare.chartData" :options="checkinPerfOptions" />
@@ -186,7 +225,10 @@
         <div class="chart-card">
           <div class="chart-header">
             <h3>Check-in par jour (J0 = 1er check-in)</h3>
-            <span class="cmp-axis-hint">Axe X : décalage en jours depuis le 1er check-in de chaque event</span>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="cmp-axis-hint">Axe X : décalage en jours depuis le 1er check-in de chaque event</span>
+              <CsvButton v-if="checkinByDayBarChart.labels.length > 0" filename="comparatif-checkin-par-jour" :headers="['Jour', eventName, compareEventName]" :rows="checkinByDayBarChart.labels.map((l, i) => [l, checkinByDayBarChart.datasets[0]?.data[i] ?? 0, checkinByDayBarChart.datasets[1]?.data[i] ?? 0])" />
+            </div>
           </div>
           <div v-if="checkinByDayBarChart.labels.length > 0" :style="{ position: 'relative', height: '260px' }">
             <Bar :data="checkinByDayBarChart" :options="dayHistogramOptions" />
@@ -260,7 +302,7 @@
 import { computed } from "vue";
 import { Bar } from "vue-chartjs";
 import LineChart from "../charts/LineChart.vue";
-import BadgeTypeFilter from "../BadgeTypeFilter.vue";
+import CsvButton from "../CsvButton.vue";
 import { makeDateLabeler } from "../../utils/formatDateLabel.js";
 import { getTypeColor } from "../../utils/typeColors.js";
 import { computeAllStats } from "../../utils/computeStats.js";
@@ -272,6 +314,7 @@ import {
   checkinByTypeTotalsPlugin,
 } from "../../utils/checkinByType.js";
 import FrenchRegionMap from "../charts/FrenchRegionMap.vue";
+import ChoroplethMap from "../charts/ChoroplethMap.vue";
 import KpiCompareGrid from "../charts/KpiCompareGrid.vue";
 
 const props = defineProps({
@@ -307,7 +350,7 @@ const {
 } = props.badgeFilter;
 
 // Effective stats : recalculees avec le filtre badge type (effDelegates) et le
-// filtre date (props.dateRange — applique au CHECK-IN, ex: "Taux de presence").
+// filtre date (props.dateRange — applique au CHECK-IN, ex: "Taux de présence").
 const effStats = computed(() => computeAllStats(effDelegates.value, null, props.dateRange));
 const effCompareStats = computed(() =>
   computeAllStats(effCompareDelegates.value, null, props.dateRange),
@@ -346,6 +389,15 @@ const frGlobalMax = computed(() => Math.max(
   ...frRegionsCurrent.value.map((r) => r.count),
   ...frRegionsCompare.value.map((r) => r.count),
 ));
+
+// --- Repartition geographique (monde) : 2 cartes choropleth A vs B ---
+// Chaque carte s'auto-echelonne sur son propre max (ChoroplethMap ne supporte
+// pas d'echelle partagee, contrairement a FrenchRegionMap). Donnees filtrees
+// par le filtre badge (effStats / effCompareStats).
+const countriesCurrent = computed(() => effStats.value.demographics.countries);
+const countriesCompare = computed(() => effCompareStats.value.demographics.countries);
+const uniqueCountriesCurrent = computed(() => effStats.value.demographics.uniqueCountries);
+const uniqueCountriesCompare = computed(() => effCompareStats.value.demographics.uniqueCountries);
 
 // ComparisonTab utilise des cards plus etroites que les autres tabs : 26 chars.
 const shortName = (n) => shortNameBase(n, 26);
@@ -556,13 +608,13 @@ const conversionOptions = computed(() => ({
   responsive: true,
   maintainAspectRatio: false,
   plugins: {
-    legend: { position: "top", labels: { font: { size: 11 }, usePointStyle: true, pointStyle: "circle" } },
+    legend: { position: "top", labels: { font: { size: 13 }, usePointStyle: true, pointStyle: "circle" } },
     datalabels: {
       display: true,
       anchor: "end",
       align: "end",
       color: "#414141",
-      font: { weight: 600, size: 10 },
+      font: { weight: 600, size: 12 },
       formatter: (v) => v + "%",
     },
     tooltip: {
@@ -579,8 +631,8 @@ const conversionOptions = computed(() => ({
     },
   },
   scales: {
-    x: { grid: { display: false }, ticks: { font: { size: 11 } } },
-    y: { grid: { color: "#f3f4f6" }, ticks: { font: { size: 11 }, callback: (v) => v + "%" }, beginAtZero: true, max: 110 },
+    x: { grid: { display: false }, ticks: { font: { size: 13 } } },
+    y: { grid: { color: "#f3f4f6" }, ticks: { font: { size: 13 }, callback: (v) => v + "%" }, beginAtZero: true, max: 110 },
   },
 }));
 
@@ -715,7 +767,7 @@ const dayHistogramOptions = {
   plugins: {
     legend: {
       position: "top",
-      labels: { font: { size: 11 }, usePointStyle: true, pointStyle: "rect", padding: 12 },
+      labels: { font: { size: 13 }, usePointStyle: true, pointStyle: "rect", padding: 12 },
     },
     datalabels: { display: false },
     tooltip: {
@@ -725,8 +777,8 @@ const dayHistogramOptions = {
     },
   },
   scales: {
-    x: { grid: { display: false }, ticks: { font: { size: 10 }, autoSkip: true, maxTicksLimit: 18 } },
-    y: { grid: { color: "#f3f4f6" }, ticks: { font: { size: 11 } }, beginAtZero: true },
+    x: { grid: { display: false }, ticks: { font: { size: 12 }, autoSkip: true, maxTicksLimit: 18 } },
+    y: { grid: { color: "#f3f4f6" }, ticks: { font: { size: 13 } }, beginAtZero: true },
   },
 };
 
@@ -850,12 +902,12 @@ const typesMixOptions = {
   plugins: {
     legend: {
       position: "bottom",
-      labels: { font: { size: 11 }, usePointStyle: true, pointStyle: "rect", padding: 10, boxWidth: 12 },
+      labels: { font: { size: 13 }, usePointStyle: true, pointStyle: "rect", padding: 10, boxWidth: 12 },
     },
     datalabels: {
       display: (ctx) => ctx.dataset.data[ctx.dataIndex] >= 6,
       color: "#fff",
-      font: { weight: 600, size: 10 },
+      font: { weight: 600, size: 12 },
       formatter: (v) => v + "%",
     },
     tooltip: {
@@ -868,8 +920,8 @@ const typesMixOptions = {
     },
   },
   scales: {
-    x: { stacked: true, max: 100, ticks: { callback: (v) => v + "%", font: { size: 10 } }, grid: { color: "#f3f4f6" } },
-    y: { stacked: true, grid: { display: false }, ticks: { font: { size: 11 } } },
+    x: { stacked: true, max: 100, ticks: { callback: (v) => v + "%", font: { size: 12 } }, grid: { color: "#f3f4f6" } },
+    y: { stacked: true, grid: { display: false }, ticks: { font: { size: 13 } } },
   },
 };
 
@@ -1021,8 +1073,8 @@ const checkinPerfOptions = {
     },
   },
   scales: {
-    x: { grid: { display: false }, ticks: { font: { size: 9 }, maxRotation: 45, autoSkip: true, maxTicksLimit: 18 } },
-    y: { grid: { color: "#f3f4f6" }, ticks: { font: { size: 11 } }, beginAtZero: true },
+    x: { grid: { display: false }, ticks: { font: { size: 10 }, maxRotation: 45, autoSkip: true, maxTicksLimit: 18 } },
+    y: { grid: { color: "#f3f4f6" }, ticks: { font: { size: 13 } }, beginAtZero: true },
   },
 };
 
@@ -1067,28 +1119,28 @@ const perf15minChart = computed(() => {
 }
 .cmp-event { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
 .cmp-event-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-.cmp-event-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; font-weight: 600; }
-.cmp-event-name { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cmp-vs { font-size: 11px; color: var(--text-muted); font-weight: 600; }
+.cmp-event-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; font-weight: 600; }
+.cmp-event-name { font-size: 15px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmp-vs { font-size: 13px; color: var(--text-muted); font-weight: 600; }
 
 .dom-bar {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   margin-top: 8px; padding-top: 8px;
   border-top: 1px dashed #e5e7eb;
 }
-.dom-bar-label { font-size: 11px; color: #646464; text-transform: uppercase; letter-spacing: .5px; font-weight: 600; }
+.dom-bar-label { font-size: 13px; color: #646464; text-transform: uppercase; letter-spacing: .5px; font-weight: 600; }
 .dom-pill {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 3px 8px; background: #f3f4f6; border-radius: 12px;
-  font-size: 11px; color: #414141;
+  font-size: 13px; color: #414141;
 }
 .dom-pill strong { color: #1E4E66; }
 
-.cmp-axis-hint { font-size: 10px; color: var(--text-muted); font-style: italic; }
+.cmp-axis-hint { font-size: 12px; color: var(--text-muted); font-style: italic; }
 
 .perf-summary {
   display: flex; gap: 16px; margin-top: 10px; padding: 8px 12px;
-  background: #f9fafb; border-radius: 8px; font-size: 12px; color: #414141;
+  background: #f9fafb; border-radius: 8px; font-size: 14px; color: #414141;
   flex-wrap: wrap;
 }
 
@@ -1097,5 +1149,5 @@ const perf15minChart = computed(() => {
   box-shadow: var(--shadow); text-align: center;
 }
 .cmp-error { color: var(--danger); }
-.empty-msg { text-align: center; color: #9ca3af; padding: 20px; font-size: 13px; }
+.empty-msg { text-align: center; color: #9ca3af; padding: 20px; font-size: 15px; }
 </style>

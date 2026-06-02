@@ -167,7 +167,7 @@ watch(open, async (v) => {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 6px;
-  font-size: 11px; font-weight: 500;
+  font-size: 13px; font-weight: 500;
   color: var(--text-secondary);
   cursor: pointer;
   box-shadow: var(--shadow);
@@ -180,7 +180,7 @@ watch(open, async (v) => {
   border-color: var(--primary);
 }
 .bt-trigger-label {
-  color: var(--text-muted); font-size: 10px; text-transform: uppercase;
+  color: var(--text-muted); font-size: 12px; text-transform: uppercase;
   letter-spacing: .3px; font-weight: 600;
 }
 .bt-trigger.active .bt-trigger-label { color: rgba(255,255,255,.85); }
@@ -190,7 +190,7 @@ watch(open, async (v) => {
 }
 .bt-trigger.active .bt-trigger-value { color: #fff; }
 .bt-trigger-chevron {
-  font-size: 10px; color: var(--text-muted); transition: transform .15s;
+  font-size: 12px; color: var(--text-muted); transition: transform .15s;
 }
 .bt-trigger.open .bt-trigger-chevron { transform: rotate(180deg); }
 .bt-trigger.active .bt-trigger-chevron { color: rgba(255,255,255,.85); }
@@ -214,7 +214,7 @@ watch(open, async (v) => {
 .bt-popover-head { padding: 10px 10px 6px; }
 .bt-search {
   width: 100%; padding: 6px 10px;
-  font-size: 12px; font-family: inherit;
+  font-size: 14px; font-family: inherit;
   border: 1px solid var(--border); border-radius: 5px;
   background: #fff; color: var(--text);
   transition: border-color .12s;
@@ -232,7 +232,7 @@ watch(open, async (v) => {
 }
 .bt-link {
   background: none; border: none;
-  font-size: 11px; font-weight: 600;
+  font-size: 13px; font-weight: 600;
   color: var(--primary); cursor: pointer;
   padding: 2px 6px; border-radius: 4px;
   transition: background .12s;
@@ -271,7 +271,7 @@ watch(open, async (v) => {
 
 .bt-empty {
   padding: 16px 12px; text-align: center;
-  font-size: 11px; color: var(--text-muted); font-style: italic;
+  font-size: 13px; color: var(--text-muted); font-style: italic;
 }
 
 .bt-popover-foot {
@@ -280,11 +280,11 @@ watch(open, async (v) => {
   border-top: 1px solid var(--border);
   background: #fafbfc;
 }
-.bt-count { font-size: 10px; color: var(--text-muted); font-weight: 500; }
+.bt-count { font-size: 12px; color: var(--text-muted); font-weight: 500; }
 .bt-close {
   background: var(--primary); color: #fff; border: none;
   padding: 4px 12px; border-radius: 4px;
-  font-size: 11px; font-weight: 600; cursor: pointer;
+  font-size: 13px; font-weight: 600; cursor: pointer;
   transition: background .12s;
 }
 .bt-close:hover { background: var(--primary-light); }
