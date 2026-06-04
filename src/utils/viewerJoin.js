@@ -19,6 +19,7 @@
 // Dedupe par fingerprint pour ne pas spammer.
 
 import { pushDiagnostic } from "@/composables/useDiagnostics.js";
+import { i18n } from "@/i18n/index.js";
 import { debug } from "@/utils/debug.js";
 
 // Type d'externalId Keycloak cote service contacts (cf. getByExternalId({ type: "/kc" })).
@@ -147,11 +148,13 @@ export function buildDelegateLookup(delegates, { datasetLabel = "" } = {}) {
         // recalculent la meme lookup.
         pushDiagnostic({
           severity: "warn",
-          title: "Anomalie de données détectée",
-          message:
-            `Seuls ${pctStr} des délégués${label} ont un identifiant Keycloak exploitable ` +
-            `(${missing} sur ${total} manquants). Les KPI Live et Replay "sans présence ` +
-            `physique" sont probablement sous-estimés.`,
+          title: i18n.global.t("diagnostics.dataAnomalyTitle"),
+          message: i18n.global.t("diagnostics.kcCoverage", {
+            pct: pctStr,
+            label,
+            missing,
+            total,
+          }),
           fingerprint: fp,
         });
       }

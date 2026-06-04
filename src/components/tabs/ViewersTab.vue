@@ -3,16 +3,16 @@
     <div v-if="loading" class="viewers-state">
       <div class="spinner"></div>
       <p class="loading-label">{{ L.loadingLabel }}</p>
-      <p class="viewers-progress">{{ fmt(progress.loaded) }} vues chargees</p>
+      <p class="viewers-progress">{{ t("viewers.viewsLoaded", { n: fmt(progress.loaded) }) }}</p>
     </div>
 
     <div v-else-if="error" class="viewers-state error-state">
-      <p><strong>Erreur Elasticsearch :</strong> {{ error }}</p>
+      <p><strong>{{ t("viewers.esError") }}</strong> {{ error }}</p>
       <p class="viewers-hint">
-        Vérifier que <code>VITE_ES_URL</code> est configure et que l'index
-        <code>{{ L.esIndex }}</code> est accessible.
+        {{ t("viewers.esHintPre") }} <code>VITE_ES_URL</code> {{ t("viewers.esHintMid") }}
+        <code>{{ L.esIndex }}</code> {{ t("viewers.esHintPost") }}
       </p>
-      <button class="btn-side" @click="reload">Réessayer</button>
+      <button class="btn-side" @click="reload">{{ t("states.retry") }}</button>
     </div>
 
     <template v-else>
@@ -20,7 +20,7 @@
         <div class="refresh-bar">
           <div class="refresh-bar-fill" :style="{ width: '50%' }"></div>
         </div>
-        <p class="refresh-bar-text">Rafraîchissement...</p>
+        <p class="refresh-bar-text">{{ t("viewers.refreshing") }}</p>
       </div>
 
       <!-- KPI principal -->
@@ -36,22 +36,22 @@
           <div class="kpi-sub">
             {{ L.remoteKpiSub }}
             <span v-if="joinStats.unknown > 0">
-              · {{ fmt(joinStats.unknown) }} viewers non liés à la registration
+              {{ t("viewers.kpi.unlinkedViewers", { n: fmt(joinStats.unknown) }) }}
             </span>
           </div>
         </div>
         <div class="kpi-card blue">
-          <div class="kpi-label">Vues totales</div>
+          <div class="kpi-label">{{ t("viewers.kpi.totalViews") }}</div>
           <div class="kpi-value">{{ fmt(g.totalViews) }}</div>
-          <div class="kpi-sub">{{ fmt(g.distinctSessions) }} sessions distinctes</div>
+          <div class="kpi-sub">{{ t("viewers.kpi.distinctSessions", { n: fmt(g.distinctSessions) }) }}</div>
         </div>
         <div class="kpi-card purple">
-          <div class="kpi-label">Durée moyenne / vue</div>
+          <div class="kpi-label">{{ t("viewers.kpi.avgDuration") }}</div>
           <div class="kpi-value">{{ formatDuration(g.avgViewDurationSec) }}</div>
-          <div class="kpi-sub">{{ formatDuration(g.totalDurationSec) }} cumulées</div>
+          <div class="kpi-sub">{{ t("viewers.kpi.totalDuration", { dur: formatDuration(g.totalDurationSec) }) }}</div>
         </div>
         <div class="kpi-card blue" v-if="stats.origins && stats.origins.length > 0">
-          <div class="kpi-label">Vues par origine</div>
+          <div class="kpi-label">{{ t("viewers.kpi.byOrigin") }}</div>
           <div class="kpi-value" style="font-size: 25px">{{ originSummary.topOrigin }} · {{ originSummary.topPct }}</div>
           <div class="kpi-sub">{{ originSummary.breakdown }}</div>
         </div>
@@ -65,8 +65,8 @@
             <CsvButton
               :filename="`${kind}-delegues-uniques-par-jour`"
               :headers="kind === 'replay'
-                ? ['Jour', 'Délégués uniques', 'Délégués cumulés']
-                : ['Jour', 'Délégués uniques', ...byDayByBadgeType.types]"
+                ? [t('viewers.csv.day'), t('viewers.csv.uniqueDelegates'), t('viewers.csv.cumulDelegates')]
+                : [t('viewers.csv.day'), t('viewers.csv.uniqueDelegates'), ...byDayByBadgeType.types.map(viewerTypeLbl)]"
               :rows="kind === 'replay'
                 ? stats.uniqueByDay.map((d, i) => [d.day, d.count, stats.cumulativeUniqueByDay[i]?.count ?? ''])
                 : byDayByBadgeType.labels.map((day, i) => [day, byDayByBadgeType.types.reduce((s, t) => s + (byDayByBadgeType.perDayType[i][t] || 0), 0), ...byDayByBadgeType.types.map(t => byDayByBadgeType.perDayType[i][t] || 0)])"
@@ -87,10 +87,10 @@
         </div>
         <div class="chart-card" v-if="kind === 'live' && byDayChannel.channels.length > 0">
           <div class="chart-header">
-            <h3>Délégués uniques en live par jour et par chaîne</h3>
+            <h3>{{ t("viewers.charts.byDayChannel") }}</h3>
             <CsvButton
               filename="live-delegues-uniques-par-jour-chaine"
-              :headers="['Jour', ...byDayChannel.channels.map(c => `${c.label} (${c.id})`)]"
+              :headers="[t('viewers.csv.day'), ...byDayChannel.channels.map(c => `${c.label} (${c.id})`)]"
               :rows="byDayChannel.days.map(d => [d, ...byDayChannel.channels.map(c => byDayChannel.byDay[d]?.[c.id] || 0)])"
             />
           </div>
@@ -98,27 +98,24 @@
             <Bar :data="byDayChannelChart" :options="byDayChannelOptions" />
           </div>
           <p class="viewers-hint">
-            Une chaîne = un <code>channel_id</code> de diffusion (l'index n'expose pas de libellé,
-            d'où les noms « Chaîne N » triés par volume). Audience unique propre à chaque chaîne :
-            un délégué ayant suivi plusieurs chaînes le même jour compte dans chacune, donc la
-            somme d'un jour peut dépasser le total dédoublonné de gauche.
+            {{ t("viewers.charts.byDayChannelHintPre") }} <code>channel_id</code> {{ t("viewers.charts.byDayChannelHintPost") }}
           </p>
         </div>
         <!-- Replay : vues par jour (barres) + vues cumulées (courbe) a droite
              des delegues uniques par jour. -->
         <div class="chart-card" v-else-if="kind === 'replay'">
           <div class="chart-header">
-            <h3>Vues en replay par jour</h3>
+            <h3>{{ t("viewers.charts.replayViewsByDay") }}</h3>
             <CsvButton
               filename="replay-vues-par-jour"
-              :headers="['Jour', 'Vues', 'Vues cumulées']"
+              :headers="[t('viewers.csv.day'), t('viewers.csv.views'), t('viewers.csv.cumulViews')]"
               :rows="replayViewsByDay.map((d, i) => [d.day, d.count, stats.cumulativeViewsByDay[i]?.count ?? ''])"
             />
           </div>
           <div v-if="replayViewsByDay.length > 0" :style="{ position: 'relative', height: '300px' }">
             <Bar :data="replayViewsByDayChart" :options="replayViewsByDayOptions" />
           </div>
-          <p v-else class="empty-msg">Aucune vue replay horodatée</p>
+          <p v-else class="empty-msg">{{ t("viewers.charts.replayViewsByDayEmpty") }}</p>
         </div>
       </div>
 
@@ -128,39 +125,39 @@
       <div class="charts-row" v-if="kind === 'replay'">
         <div class="chart-card">
           <div class="chart-header">
-            <h3>Présents physiques ayant consulté du replay — par jour</h3>
+            <h3>{{ t("viewers.charts.physicalReplayDaily") }}</h3>
             <span class="viewers-hint" style="margin-left: auto">
-              {{ fmt(physicalReplayTotals.uniqueDelegates) }} délégués · {{ fmt(physicalReplayTotals.views) }} vues
+              {{ t("viewers.charts.physicalReplaySummary", { delegates: fmt(physicalReplayTotals.uniqueDelegates), views: fmt(physicalReplayTotals.views) }) }}
             </span>
             <CsvButton
               filename="replay-presents-physiques-par-jour"
-              :headers="['Jour', 'Délégués uniques (présents physiques)', 'Vues replay', 'Vues replay cumulées']"
+              :headers="[t('viewers.csv.day'), t('viewers.csv.physicalUniqueDelegates'), t('viewers.csv.replayViews'), t('viewers.csv.replayCumulViews')]"
               :rows="physicalReplayDaily.map((d, i, arr) => [d.day, d.uniqueDelegates, d.views, arr.slice(0, i + 1).reduce((s, x) => s + x.views, 0)])"
             />
           </div>
           <div v-if="physicalReplayDaily.length > 0" :style="{ position: 'relative', height: '300px' }">
             <Bar :data="physicalReplayChart" :options="physicalReplayOptions" />
           </div>
-          <p v-else class="empty-msg">Aucun délégué physiquement présent n'a (encore) consulté de replay</p>
+          <p v-else class="empty-msg">{{ t("viewers.charts.physicalReplayEmpty") }}</p>
           <p class="viewers-hint">
-            Délégués avec un check-in physique valide qui ont ensuite regardé du replay. Bucketage sur la date de visionnage VOD (heure de Paris).
+            {{ t("viewers.charts.physicalReplayHint") }}
           </p>
         </div>
         <!-- Vues en replay par jour pour les PRESENTS PHYSIQUES (barres) +
              vues cumulees (courbe), a droite des presents physiques par jour. -->
         <div class="chart-card">
           <div class="chart-header">
-            <h3>Vues en replay par jour — présents physiques</h3>
+            <h3>{{ t("viewers.charts.physicalReplayViews") }}</h3>
             <CsvButton
               filename="replay-vues-par-jour-presents-physiques"
-              :headers="['Jour', 'Vues (présents physiques)', 'Vues cumulées']"
+              :headers="[t('viewers.csv.day'), t('viewers.csv.viewsPhysical'), t('viewers.csv.cumulViews')]"
               :rows="physicalReplayDaily.map((d, i, arr) => [d.day, d.views, arr.slice(0, i + 1).reduce((s, x) => s + x.views, 0)])"
             />
           </div>
           <div v-if="physicalReplayDaily.length > 0" :style="{ position: 'relative', height: '300px' }">
             <Bar :data="physicalReplayViewsChart" :options="replayViewsByDayOptions" />
           </div>
-          <p v-else class="empty-msg">Aucune vue replay de présent physique</p>
+          <p v-else class="empty-msg">{{ t("viewers.charts.physicalReplayViewsEmpty") }}</p>
         </div>
       </div>
 
@@ -168,27 +165,27 @@
            le pipeline VOD ne suit pas le timing live des sessions). -->
       <div class="chart-card" v-if="kind === 'live' && stats.uniqueBy30min">
         <div class="chart-header">
-          <h3>Délégués uniques par tranche de 30 min</h3>
+          <h3>{{ t("viewers.charts.by30min") }}</h3>
           <CsvButton
             filename="live-delegues-uniques-30min"
-            :headers="['Créneau', 'Délégués uniques']"
+            :headers="[t('viewers.csv.slot'), t('viewers.csv.uniqueDelegates')]"
             :rows="stats.uniqueBy30min.map(s => [s.slot, s.count])"
           />
         </div>
         <div v-if="stats.uniqueBy30min.length > 0" :style="{ position: 'relative', height: '320px' }">
           <Bar :data="by30minChart" :options="by30minOptions" />
         </div>
-        <p v-else class="empty-msg">Aucune date de fin de session exploitable</p>
+        <p v-else class="empty-msg">{{ t("viewers.charts.by30minEmpty") }}</p>
       </div>
 
       <!-- Camembert vues par session_type cliquable -> filtre tableau (live uniquement). -->
       <div class="chart-card" v-if="kind === 'live' && stats.sessionTypes && stats.sessionTypes.length > 0">
         <div class="chart-header">
-          <h3>Vues par type de session</h3>
+          <h3>{{ t("viewers.charts.bySessionType") }}</h3>
           <CsvButton
             filename="live-par-session-type"
-            :headers="['Type', 'Vues', 'Délégués uniques']"
-            :rows="stats.sessionTypes.map(t => [t.type, t.views, t.uniqueUsers])"
+            :headers="[t('viewers.csv.type'), t('viewers.csv.views'), t('viewers.csv.uniqueDelegates')]"
+            :rows="stats.sessionTypes.map(st => [st.type, st.views, st.uniqueUsers])"
           />
         </div>
         <div class="origin-pie-wrap">
@@ -213,8 +210,8 @@
           </div>
         </div>
         <div v-if="selectedSessionType" class="filter-active-bar">
-          Filtre actif sur le tableau : <strong>{{ selectedSessionType }}</strong>
-          <button class="filter-clear" @click="selectedSessionType = null">✕ Effacer</button>
+          {{ t("viewers.charts.filterActive") }} <strong>{{ selectedSessionType }}</strong>
+          <button class="filter-clear" @click="selectedSessionType = null">{{ t("viewers.charts.clearFilter") }}</button>
         </div>
       </div>
 
@@ -224,7 +221,7 @@
           <h3>{{ L.topSessionsTitle }}</h3>
           <CsvButton
             :filename="`${kind}-top-sessions`"
-            :headers="['Session', 'Délégués uniques', 'Vues', 'Durée moyenne (s)']"
+            :headers="[t('viewers.csv.session'), t('viewers.csv.uniqueDelegates'), t('viewers.csv.views'), t('viewers.csv.avgDurationS')]"
             :rows="stats.topSessions.slice(0, topN).map(s => [s.title, s.uniqueUsers, s.views, Math.round(s.avgDuration)])"
           />
         </div>
@@ -243,7 +240,7 @@
           <h3>{{ L.engagementTitle }}</h3>
           <CsvButton
             :filename="`${kind}-engagement`"
-            :headers="['Tranche', 'Délégués']"
+            :headers="[t('viewers.csv.bucket'), t('viewers.csv.delegates')]"
             :rows="Object.entries(stats.sessionsPerUserBuckets).map(([k, v]) => [k, v])"
           />
         </div>
@@ -257,7 +254,7 @@
         <div class="chart-header">
           <h3>
             {{ L.detailTitle(filteredItems.length) }}
-            <span v-if="kind === 'live' && selectedSessionType"> · filtré</span>
+            <span v-if="kind === 'live' && selectedSessionType">{{ t("viewers.charts.filtered") }}</span>
           </h3>
           <CsvButton
             :filename="`${kind}-detail`"
@@ -269,15 +266,15 @@
           <table class="data-table viewers-detail-table">
             <thead>
               <tr>
-                <th>Délégué</th>
-                <th>Email</th>
-                <th>Session ID</th>
-                <th>Session</th>
-                <th v-if="kind === 'live'">Type</th>
-                <th v-if="kind === 'live'">Début session</th>
-                <th v-if="kind === 'replay'">Origine</th>
-                <th>{{ kind === 'live' ? 'Horodatage vue' : 'Horodatage' }}</th>
-                <th>Durée</th>
+                <th>{{ t("viewers.table.delegate") }}</th>
+                <th>{{ t("viewers.table.email") }}</th>
+                <th>{{ t("viewers.table.sessionId") }}</th>
+                <th>{{ t("viewers.table.session") }}</th>
+                <th v-if="kind === 'live'">{{ t("viewers.table.type") }}</th>
+                <th v-if="kind === 'live'">{{ t("viewers.table.sessionStart") }}</th>
+                <th v-if="kind === 'replay'">{{ t("viewers.table.origin") }}</th>
+                <th>{{ kind === 'live' ? t("viewers.table.timestampView") : t("viewers.table.timestamp") }}</th>
+                <th>{{ t("viewers.table.duration") }}</th>
               </tr>
             </thead>
             <tbody>
@@ -295,7 +292,7 @@
             </tbody>
           </table>
           <p v-if="filteredItems.length > pageSize" class="viewers-hint">
-            Affichage des {{ pageSize }} premières vues (sur {{ fmt(filteredItems.length) }}). Utilisez le CSV pour tout exporter.
+            {{ t("viewers.pageHint", { size: pageSize, total: fmt(filteredItems.length) }) }}
           </p>
         </div>
         <p v-else class="empty-msg">{{ L.detailEmpty }}</p>
@@ -306,6 +303,7 @@
 
 <script setup>
 import { computed, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { Bar } from "vue-chartjs";
 import HBarChart from "../charts/HBarChart.vue";
 import DoughnutChart from "../charts/DoughnutChart.vue";
@@ -333,42 +331,51 @@ const props = defineProps({
   badgeFilterActive: { type: Boolean, default: false },
 });
 
-// Labels affiches. Centralises ici, jamais en dur dans le template.
-const LABELS = {
+const { t } = useI18n();
+
+// Metadonnees techniques non traduisibles par kind (nom d'index ES, couleur du
+// chart par jour, tag de log debug). Les libelles textuels viennent d'i18n.
+const META = {
   live: {
-    loadingLabel: "Chargement des vues live...",
     esIndex: "stats_user__live-view-duration-per-user-per-session",
-    uniqueKpi: "Délégués uniques (live)",
-    uniqueKpiSub: "ayant consulte au moins une session en live",
-    remoteKpi: "Live sans présence physique",
-    remoteKpiSub: "délégués de l'event ayant regardé en live mais sans check-in",
-    byDayTitle: "Délégués uniques en live par jour",
-    byDayEmpty: "Aucun horodatage exploitable dans les vues live",
-    topSessionsTitle: "Top sessions live par délégués uniques",
-    engagementTitle: "Engagement — nombre de sessions consultées par délégué",
-    detailTitle: (n) => `Détail des vues live (${fmt(n)})`,
-    detailEmpty: "Aucune vue live enregistrée",
     byDayColor: "#30DD92",
     debugTag: "[Live]",
   },
   replay: {
-    loadingLabel: "Chargement des replays VOD...",
     esIndex: "stats_user__vod-view-per-user-per-session-per-origin",
-    uniqueKpi: "Délégués uniques (replay)",
-    uniqueKpiSub: "ayant consulte au moins une VOD",
-    remoteKpi: "Replay sans présence physique",
-    remoteKpiSub: "délégués de l'event ayant consulté du replay mais sans check-in",
-    byDayTitle: "Délégués uniques en replay par jour",
-    byDayEmpty: "Aucun horodatage exploitable dans les vues VOD",
-    topSessionsTitle: "Top sessions VOD par délégués uniques",
-    engagementTitle: "Engagement — sessions consultées par délégué",
-    detailTitle: (n) => `Détail des vues VOD (${fmt(n)} au total)`,
-    detailEmpty: "Aucune vue VOD enregistrée",
     byDayColor: "#6F45FF",
     debugTag: "[Replay]",
   },
 };
-const L = computed(() => LABELS[props.kind]);
+
+// Labels affiches : composes depuis i18n (cles viewers.<kind>.*) + META technique.
+// API identique a l'ancien LABELS (L.xxx + L.detailTitle(n)) pour ne pas toucher
+// le template.
+// Libelle d'affichage d'un type de badge cote viewers : cle canonique "Inscrit
+// non reconnu" localisee, sinon valeur reelle (donnee libre). Garde les cles
+// internes (data/couleur) intactes.
+const viewerTypeLbl = (type) =>
+  type === "Inscrit non reconnu" ? t("viewers.datasets.unrecognized") : type;
+
+const L = computed(() => {
+  const k = props.kind;
+  return {
+    loadingLabel: k === "live" ? t("viewers.loadingLive") : t("viewers.loadingReplay"),
+    esIndex: META[k].esIndex,
+    uniqueKpi: t(`viewers.${k}.uniqueKpi`),
+    uniqueKpiSub: t(`viewers.${k}.uniqueKpiSub`),
+    remoteKpi: t(`viewers.${k}.remoteKpi`),
+    remoteKpiSub: t(`viewers.${k}.remoteKpiSub`),
+    byDayTitle: t(`viewers.${k}.byDayTitle`),
+    byDayEmpty: t(`viewers.${k}.byDayEmpty`),
+    topSessionsTitle: t(`viewers.${k}.topSessionsTitle`),
+    engagementTitle: t(`viewers.${k}.engagementTitle`),
+    detailTitle: (n) => t(`viewers.${k}.detailTitle`, { n: fmt(n) }),
+    detailEmpty: t(`viewers.${k}.detailEmpty`),
+    byDayColor: META[k].byDayColor,
+    debugTag: META[k].debugTag,
+  };
+});
 
 const { loading, refreshing, error, progress, stats, reload } = props.viewerApi;
 
@@ -594,7 +601,7 @@ const physicalReplayChart = computed(() => ({
   datasets: [
     {
       type: "bar",
-      label: "Délégués uniques (présents physiques)",
+      label: t("viewers.datasets.physicalUniqueDelegates"),
       data: physicalReplayDaily.value.map((d) => d.uniqueDelegates),
       backgroundColor: "#1E4E66",
       borderRadius: 4,
@@ -603,7 +610,7 @@ const physicalReplayChart = computed(() => ({
     },
     {
       type: "line",
-      label: "Vues replay cumulées",
+      label: t("viewers.datasets.replayCumulViews"),
       // Cumul des vues replay de ces presents physiques, jour apres jour.
       data: (() => {
         let c = 0;
@@ -620,7 +627,7 @@ const physicalReplayChart = computed(() => ({
     },
   ],
 }));
-const physicalReplayOptions = {
+const physicalReplayOptions = computed(() => ({
   responsive: true,
   maintainAspectRatio: false,
   layout: { padding: { top: 18 } },
@@ -631,8 +638,8 @@ const physicalReplayOptions = {
       callbacks: {
         label: (ctx) =>
           ctx.dataset.yAxisID === "y1"
-            ? `${ctx.raw.toLocaleString("fr-FR")} vues cumulées`
-            : `${ctx.raw.toLocaleString("fr-FR")} délégués uniques`,
+            ? t("viewers.tooltip.cumulViews", { n: ctx.raw.toLocaleString("fr-FR") })
+            : t("viewers.tooltip.uniqueDelegates", { n: ctx.raw.toLocaleString("fr-FR") }),
       },
     },
   },
@@ -641,15 +648,15 @@ const physicalReplayOptions = {
     y: {
       position: "left", beginAtZero: true,
       grid: { color: "#f3f4f6" }, ticks: { font: { size: 13 }, precision: 0 },
-      title: { display: true, text: "Délégués uniques", font: { size: 12 } },
+      title: { display: true, text: t("viewers.axis.uniqueDelegates"), font: { size: 12 } },
     },
     y1: {
       position: "right", beginAtZero: true,
       grid: { display: false }, ticks: { font: { size: 13 }, precision: 0 },
-      title: { display: true, text: "Vues cumulées", font: { size: 12 } },
+      title: { display: true, text: t("viewers.axis.cumulViews"), font: { size: 12 } },
     },
   },
-};
+}));
 
 // Vues en replay par jour POUR LES PRESENTS PHYSIQUES : barres (vues/jour) +
 // courbe (vues cumulees), restreint aux delegues avec check-in valide ayant
@@ -659,7 +666,7 @@ const physicalReplayViewsChart = computed(() => ({
   datasets: [
     {
       type: "bar",
-      label: "Vues / jour (présents physiques)",
+      label: t("viewers.datasets.viewsPerDayPhysical"),
       data: physicalReplayDaily.value.map((d) => d.views),
       backgroundColor: "#6F45FF",
       borderRadius: 4,
@@ -669,7 +676,7 @@ const physicalReplayViewsChart = computed(() => ({
     },
     {
       type: "line",
-      label: "Vues cumulées",
+      label: t("viewers.datasets.cumulViews"),
       data: (() => {
         let c = 0;
         return physicalReplayDaily.value.map((d) => (c += d.views));
@@ -695,7 +702,7 @@ const byDayChart = computed(() => {
   const labels = stats.value.uniqueByDay.map((d) => d.day);
   const datasets = [{
     type: "bar",
-    label: "Délégués uniques",
+    label: t("viewers.datasets.uniqueDelegates"),
     data: stats.value.uniqueByDay.map((d) => d.count),
     backgroundColor: L.value.byDayColor,
     borderRadius: 4,
@@ -708,7 +715,7 @@ const byDayChart = computed(() => {
   if (props.kind === "replay" && (stats.value.cumulativeUniqueByDay || []).length > 0) {
     datasets.push({
       type: "line",
-      label: "Délégués cumulés",
+      label: t("viewers.datasets.cumulDelegates"),
       data: stats.value.cumulativeUniqueByDay.map((d) => d.count),
       borderColor: "#1E4E66",
       backgroundColor: "rgba(30,78,102,0.10)",
@@ -745,11 +752,11 @@ const byDayByBadgeType = computed(() => {
     const dayMap = seen.get(p.ymd);
     if (!dayMap.has(it.userId)) {
       const entry = lookup.get(it.userId);
-      // Viewer non rapproche d'un delegue (ou delegue sans type) => "Inscrit non
-      // reconnu" : il a regarde du live donc il EST inscrit, mais la jointure
-      // Keycloak <-> delegue echoue. Anomalie a corriger (cf. couverture ACCOUNT).
-      const t = entry?.delegate ? delegateBadgeType(entry.delegate) : "Inconnu";
-      const label = t === "Inconnu" ? "Inscrit non reconnu" : t;
+      // Viewer non rapproche d'un delegue (ou delegue sans type) => cle canonique
+      // "Inscrit non reconnu" : il a regarde du live donc il EST inscrit, mais la
+      // jointure Keycloak <-> delegue echoue. Anomalie a corriger (cf. ACCOUNT).
+      const badgeT = entry?.delegate ? delegateBadgeType(entry.delegate) : "Inconnu";
+      const label = badgeT === "Inconnu" ? "Inscrit non reconnu" : badgeT;
       // Filtre badge type actif : on masque les "Inscrit non reconnu" (viewers
       // non rapprochés / hors du/des type(s) sélectionné(s)).
       if (props.badgeFilterActive && label === "Inscrit non reconnu") continue;
@@ -769,7 +776,7 @@ const byDayByBadgeType = computed(() => {
     return byType;
   });
   const datasets = types.map((type) => ({
-    label: type,
+    label: viewerTypeLbl(type),
     data: perDayType.map((bt) => bt[type] || 0),
     backgroundColor: type === "Inscrit non reconnu" ? "#9CA3AF" : getTypeColor(type),
     borderRadius: 3,
@@ -806,7 +813,7 @@ const byDayChannelOptions = {
     legend: { position: "top", labels: { font: { size: 13 }, usePointStyle: true, pointStyle: "rectRounded" } },
     datalabels: { display: false },
     tooltip: {
-      callbacks: { label: (ctx) => `${ctx.dataset.label} : ${ctx.raw.toLocaleString("fr-FR")} délégués uniques` },
+      callbacks: { label: (ctx) => `${ctx.dataset.label} : ${t("viewers.tooltip.uniqueDelegates", { n: ctx.raw.toLocaleString("fr-FR") })}` },
     },
   },
   scales: {
@@ -833,8 +840,8 @@ const byDayOptions = computed(() => {
         callbacks: {
           label: (ctx) =>
             ctx.dataset.yAxisID === "y1"
-              ? `${ctx.raw.toLocaleString("fr-FR")} délégués cumulés`
-              : `${ctx.raw.toLocaleString("fr-FR")} délégués uniques`,
+              ? t("viewers.tooltip.cumulDelegates", { n: ctx.raw.toLocaleString("fr-FR") })
+              : t("viewers.tooltip.uniqueDelegates", { n: ctx.raw.toLocaleString("fr-FR") }),
         },
       },
     },
@@ -847,7 +854,7 @@ const byDayOptions = computed(() => {
     opts.scales.y1 = {
       position: "right", beginAtZero: true,
       grid: { display: false }, ticks: { font: { size: 13 }, precision: 0 },
-      title: { display: true, text: "Cumulés", font: { size: 12 } },
+      title: { display: true, text: t("viewers.axis.cumul"), font: { size: 12 } },
     };
   }
   return opts;
@@ -860,7 +867,7 @@ const replayViewsByDayChart = computed(() => ({
   datasets: [
     {
       type: "bar",
-      label: "Vues / jour",
+      label: t("viewers.datasets.viewsPerDay"),
       data: replayViewsByDay.value.map((d) => d.count),
       backgroundColor: "#6F45FF",
       borderRadius: 4,
@@ -870,7 +877,7 @@ const replayViewsByDayChart = computed(() => ({
     },
     {
       type: "line",
-      label: "Vues cumulées",
+      label: t("viewers.datasets.cumulViews"),
       data: (stats.value.cumulativeViewsByDay || []).map((d) => d.count),
       borderColor: "#1E4E66",
       backgroundColor: "rgba(30,78,102,0.10)",
@@ -886,7 +893,7 @@ const replayViewsByDayChart = computed(() => ({
     },
   ],
 }));
-const replayViewsByDayOptions = {
+const replayViewsByDayOptions = computed(() => ({
   responsive: true,
   maintainAspectRatio: false,
   layout: { padding: { top: 18 } },
@@ -900,8 +907,8 @@ const replayViewsByDayOptions = {
       callbacks: {
         label: (ctx) =>
           ctx.dataset.yAxisID === "y1"
-            ? `${ctx.raw.toLocaleString("fr-FR")} vues cumulées`
-            : `${ctx.raw.toLocaleString("fr-FR")} vues`,
+            ? t("viewers.tooltip.cumulViews", { n: ctx.raw.toLocaleString("fr-FR") })
+            : t("viewers.tooltip.views", { n: ctx.raw.toLocaleString("fr-FR") }),
       },
     },
   },
@@ -910,15 +917,15 @@ const replayViewsByDayOptions = {
     y: {
       position: "left", beginAtZero: true,
       grid: { color: "#f3f4f6" }, ticks: { font: { size: 13 }, precision: 0 },
-      title: { display: true, text: "Vues / jour", font: { size: 12 } },
+      title: { display: true, text: t("viewers.axis.viewsPerDay"), font: { size: 12 } },
     },
     y1: {
       position: "right", beginAtZero: true,
       grid: { display: false }, ticks: { font: { size: 13 }, precision: 0 },
-      title: { display: true, text: "Cumulées", font: { size: 12 } },
+      title: { display: true, text: t("viewers.axis.cumulShort"), font: { size: 12 } },
     },
   },
-};
+}));
 
 // 30-min slot chart (live uniquement) — labels HH:MM (ou MM-DD HH:MM si multi-jour).
 const by30minChart = computed(() => {
@@ -932,7 +939,7 @@ const by30minChart = computed(() => {
   return {
     labels,
     datasets: [{
-      label: "Délégués uniques",
+      label: t("viewers.datasets.uniqueDelegates"),
       data: slots.map((s) => s.count),
       backgroundColor: "#1E4E66",
       borderRadius: 3,
@@ -950,7 +957,7 @@ const by30minOptions = {
     legend: { display: false },
     datalabels: { display: false },
     tooltip: {
-      callbacks: { label: (ctx) => `${ctx.raw.toLocaleString("fr-FR")} délégués uniques` },
+      callbacks: { label: (ctx) => t("viewers.tooltip.uniqueDelegates", { n: ctx.raw.toLocaleString("fr-FR") }) },
     },
   },
   scales: {
@@ -965,7 +972,7 @@ const engagementChart = computed(() => {
   return {
     labels,
     datasets: [{
-      label: "Délégués",
+      label: t("viewers.datasets.delegates"),
       data: labels.map((l) => buckets[l]),
       backgroundColor: ["#9CA3AF", "#1E4E66", "#30DD92", "#6F45FF"],
       borderRadius: 4,
@@ -985,7 +992,7 @@ const engagementOptions = {
       color: "#414141", font: { weight: 600, size: 13 },
     },
     tooltip: {
-      callbacks: { label: (ctx) => `${ctx.raw.toLocaleString("fr-FR")} délégués` },
+      callbacks: { label: (ctx) => t("viewers.tooltip.delegates", { n: ctx.raw.toLocaleString("fr-FR") }) },
     },
   },
   scales: {
@@ -1047,8 +1054,8 @@ function formatTimestamp(ts) {
 // Headers / rows CSV du tableau detaille — varient selon kind.
 const detailCsvHeaders = computed(() =>
   props.kind === "live"
-    ? ["Délégué", "Email", "Session ID", "Session", "Type session", "Début session", "Horodatage vue", "Durée (s)"]
-    : ["Délégué", "Email", "Session ID", "Session", "Origine", "Horodatage", "Durée (s)"]
+    ? [t("viewers.csv.delegate"), t("viewers.table.email"), t("viewers.table.sessionId"), t("viewers.csv.session"), t("viewers.csv.typeSession"), t("viewers.csv.sessionStart"), t("viewers.csv.timestampView"), t("viewers.csv.durationS")]
+    : [t("viewers.csv.delegate"), t("viewers.table.email"), t("viewers.table.sessionId"), t("viewers.csv.session"), t("viewers.csv.origin"), t("viewers.csv.timestamp"), t("viewers.csv.durationS")]
 );
 
 function detailCsvRow(it) {

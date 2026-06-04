@@ -4,6 +4,7 @@ import { fetchEventSessions } from "@/api/graphql.js";
 import { computeLiveStats } from "@/utils/computeLiveStats.js";
 import { debug } from "@/utils/debug.js";
 import { pushDiagnostic } from "@/composables/useDiagnostics.js";
+import { i18n } from "@/i18n/index.js";
 import { AUTO_REFRESH_MS } from "@/constants.js";
 
 // Live views ES + enrichissement sessions GraphQL.
@@ -54,10 +55,8 @@ export function useLive(eventId, options = {}) {
           // pour dedup en cas de retry.
           pushDiagnostic({
             severity: "warn",
-            title: "Enrichissement Live indisponible",
-            message:
-              "Impossible de récupérer la liste des sessions du congrès (GraphQL). " +
-              "Les titres, types et durées des sessions vont manquer dans l'onglet Live.",
+            title: i18n.global.t("diagnostics.liveTitle"),
+            message: i18n.global.t("diagnostics.liveMessage"),
             fingerprint: `useLive:sessions:${eventId}`,
           });
           return [];

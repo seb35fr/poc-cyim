@@ -11,13 +11,13 @@
 
     <div class="kpi-grid">
       <div class="kpi-card green">
-        <div class="kpi-label">Check-in effectués</div>
+        <div class="kpi-label">{{ t("badges.kpi.checkinDone") }}</div>
         <div class="kpi-value">{{ fmt(fs.global.checkedInCount) }}</div>
-        <div class="kpi-sub">{{ pct(fs.global.checkedInCount, registeredCount) }} des présents</div>
+        <div class="kpi-sub">{{ t("badges.kpi.ofPresent", { pct: pct(fs.global.checkedInCount, registeredCount) }) }}</div>
       </div>
       <div class="kpi-card blue">
         <div class="kpi-label kpi-label-with-action">
-          <span>Badges imprimés</span>
+          <span>{{ t("badges.kpi.badgesPrinted") }}</span>
           <CsvButton
             filename="badges-imprimes"
             :headers="badgesCsvHeaders"
@@ -25,31 +25,31 @@
           />
         </div>
         <div class="kpi-value">{{ fmt(fs.global.totalBadgesDelivered) }}</div>
-        <div class="kpi-sub">{{ pct(fs.global.totalBadgesDelivered, registeredCount) }} des attendus</div>
+        <div class="kpi-sub">{{ t("badges.kpi.ofExpected", { pct: pct(fs.global.totalBadgesDelivered, registeredCount) }) }}</div>
       </div>
       <div class="kpi-card green">
-        <div class="kpi-label">Pic Check-in (15 min)</div>
-        <div class="kpi-value">{{ fs.checkinFlow.peakSlot.count > 0 ? fs.checkinFlow.peakSlot.count + ' / 15min' : '—' }}</div>
+        <div class="kpi-label">{{ t("badges.kpi.peakCheckin") }}</div>
+        <div class="kpi-value">{{ fs.checkinFlow.peakSlot.count > 0 ? t("badges.kpi.per15min", { n: fs.checkinFlow.peakSlot.count }) : '—' }}</div>
         <div class="kpi-sub" v-if="fs.checkinFlow.peakSlot.count > 0">
-          le {{ fs.checkinFlow.peakSlot.date }} à {{ fs.checkinFlow.peakSlot.time }} (~{{ fs.checkinFlow.peakSlot.count * 4 }}/h)
+          {{ t("badges.kpi.peakWhen", { date: fs.checkinFlow.peakSlot.date, time: fs.checkinFlow.peakSlot.time, rate: fs.checkinFlow.peakSlot.count * 4 }) }}
         </div>
       </div>
       <div class="kpi-card orange">
-        <div class="kpi-label">Pic Impressions (15 min)</div>
-        <div class="kpi-value">{{ fs.badges.peakSlot.count > 0 ? fs.badges.peakSlot.count + ' / 15min' : '—' }}</div>
+        <div class="kpi-label">{{ t("badges.kpi.peakPrint") }}</div>
+        <div class="kpi-value">{{ fs.badges.peakSlot.count > 0 ? t("badges.kpi.per15min", { n: fs.badges.peakSlot.count }) : '—' }}</div>
         <div class="kpi-sub" v-if="fs.badges.peakSlot.count > 0">
-          le {{ fs.badges.peakSlot.date }} à {{ fs.badges.peakSlot.time }} (~{{ fs.badges.peakSlot.count * 4 }}/h)
+          {{ t("badges.kpi.peakWhen", { date: fs.badges.peakSlot.date, time: fs.badges.peakSlot.time, rate: fs.badges.peakSlot.count * 4 }) }}
         </div>
       </div>
       <div class="kpi-card orange">
-        <div class="kpi-label">Perf max / device / min</div>
+        <div class="kpi-label">{{ t("badges.kpi.perfPerDevice") }}</div>
         <div class="kpi-value">{{ perfPerDeviceMin }}</div>
         <div class="kpi-sub" v-if="fs.badges.peakMinute?.count > 0">
           {{ perfPerDeviceSub }}
         </div>
       </div>
       <div class="kpi-card purple">
-        <div class="kpi-label">Restants sans badge (validés)</div>
+        <div class="kpi-label">{{ t("badges.kpi.remainingNoBadge") }}</div>
         <div class="kpi-value">{{ fmt(confirmedWithoutBadge) }}</div>
       </div>
     </div>
@@ -60,22 +60,22 @@
     <!-- Progression du check-in (gauche) / Progression par type (droite) -->
     <div class="charts-row">
       <div class="chart-card">
-        <h3>Progression du check-in</h3>
+        <h3>{{ t("badges.charts.checkinProgress") }}</h3>
         <div class="progress-bar-container">
           <div class="progress-bar-fill-checkin" :style="{ width: checkinPct }"></div>
         </div>
         <div style="display: flex; justify-content: space-between; font-size: 13px; color: var(--text-secondary); margin-top: 4px;">
-          <span>{{ fmt(fs.global.checkedInCount) }} checked-in ({{ checkinPct }})</span>
-          <span>{{ fmt(registeredCount) }} attendus (registered)</span>
+          <span>{{ t("badges.charts.checkedInOf", { n: fmt(fs.global.checkedInCount), pct: checkinPct }) }}</span>
+          <span>{{ t("badges.charts.expectedRegistered", { n: fmt(registeredCount) }) }}</span>
         </div>
 
         <div v-if="burndown.labels.length > 0" style="margin-top: 16px;">
           <div class="chart-header" style="margin-bottom: 6px;">
             <h4 style="margin: 0; font-size: 15px; color: var(--text-secondary); font-weight: 600;">
-              Restants à check-in (créneaux de 30 min)
+              {{ t("badges.charts.burndownTitle") }}
             </h4>
             <CsvButton filename="burndown-checkin"
-              :headers="['Horodatage', 'Restants']"
+              :headers="[t('badges.csv.timestamp'), t('badges.csv.remaining')]"
               :rows="burndown.labels.map((l, i) => [l, burndown.data[i]])" />
           </div>
           <LineChart
@@ -89,14 +89,14 @@
 
       <div class="chart-card">
         <div class="chart-header">
-          <h3>Progression du check-in par type</h3>
-          <span class="chart-hint" style="margin: 0;">Couleur pleine = check-in · estompée = restants · couleur = type</span>
+          <h3>{{ t("badges.charts.checkinByType") }}</h3>
+          <span class="chart-hint" style="margin: 0;">{{ t("badges.charts.checkinByTypeHint") }}</span>
         </div>
         <div v-if="checkinByType.labels.length > 0"
           :style="{ position: 'relative', height: checkinByType.height + 'px' }">
           <Bar :data="checkinByType.chartData" :options="checkinByTypeOptions" :plugins="[checkinByTypeTotalsPlugin]" />
         </div>
-        <p v-else class="empty-msg">Aucun délégué registered</p>
+        <p v-else class="empty-msg">{{ t("badges.empty.noRegistered") }}</p>
       </div>
     </div>
 
@@ -104,28 +104,28 @@
     <div class="charts-row">
       <div class="chart-card">
         <div class="chart-header">
-          <h3>Check-in par jour</h3>
-          <CsvButton filename="checkin-par-jour" :headers="['Date', 'Check-in']" :rows="checkinByDay.map(([d, c]) => [d, c])" />
+          <h3>{{ t("badges.charts.checkinPerDay") }}</h3>
+          <CsvButton filename="checkin-par-jour" :headers="[t('badges.csv.date'), t('badges.csv.checkin')]" :rows="checkinByDay.map(([d, c]) => [d, c])" />
         </div>
         <template v-if="checkinDayLabels.length > 0">
           <div :style="{ position: 'relative', height: '280px' }">
             <Bar :data="checkinDayChartData" :options="checkinDayByTypeOptions" :plugins="[checkinDayTotalsPlugin]" />
           </div>
         </template>
-        <p v-else class="empty-msg">Aucun check-in enregistré</p>
+        <p v-else class="empty-msg">{{ t("badges.empty.noCheckin") }}</p>
       </div>
       <div class="chart-card">
         <div class="chart-header">
-          <h3>Badges délivrés par jour</h3>
-          <CsvButton filename="badges-par-jour" :headers="['Date', 'Badges']" :rows="(stats.badges.byDay || []).map(d => [d.date, d.count])" />
+          <h3>{{ t("badges.charts.badgesPerDay") }}</h3>
+          <CsvButton filename="badges-par-jour" :headers="[t('badges.csv.date'), t('badges.csv.badges')]" :rows="(stats.badges.byDay || []).map(d => [d.date, d.count])" />
         </div>
         <template v-if="badgesDayLabels.length > 0">
           <div :style="{ position: 'relative', height: '280px' }">
             <Bar :data="badgesDayChartData" :options="badgesDayOptions" :plugins="[checkinDayTotalsPlugin]" />
           </div>
-          <p class="chart-hint">Cliquez sur un ou plusieurs jours pour filtrer la page.</p>
+          <p class="chart-hint">{{ t("badges.charts.badgesPerDayHint") }}</p>
         </template>
-        <p v-else class="empty-msg">Aucun badge délivré</p>
+        <p v-else class="empty-msg">{{ t("badges.empty.noBadge") }}</p>
       </div>
     </div>
 
@@ -133,14 +133,14 @@
     <div class="charts-row">
       <div class="chart-card">
         <div class="chart-header">
-          <h3>Performance de check-in (créneaux de 15 min)</h3>
+          <h3>{{ t("badges.charts.perfCheckin15") }}</h3>
           <div style="display: flex; align-items: center; gap: 6px;">
-            <CsvButton filename="perf-checkin-15min" :headers="['Date', 'Heure', 'Check-in']" :rows="filteredCheckin15min.map(s => [s.date, s.time, s.count])" />
+            <CsvButton filename="perf-checkin-15min" :headers="[t('badges.csv.date'), t('badges.csv.time'), t('badges.csv.checkin')]" :rows="filteredCheckin15min.map(s => [s.date, s.time, s.count])" />
             <div v-if="availableCheckinDays.length > 1" class="period-selector">
               <button v-for="day in availableCheckinDays" :key="day"
                 :class="['period-btn', { active: selectedCheckinDay === day }]"
                 @click="selectedCheckinDay = day">
-                {{ day === 'all' ? 'Tous' : day.slice(5) }}
+                {{ day === 'all' ? t('badges.allShort') : day.slice(5) }}
               </button>
             </div>
           </div>
@@ -150,24 +150,24 @@
             <Bar :data="perfCheckin15ChartData" :options="perfCheckin15Options" />
           </div>
           <div class="perf-summary">
-            <span><strong>Moyenne :</strong> {{ avgCheckinPer15min }} check-in / 15 min</span>
-            <span><strong>Max :</strong> {{ maxCheckinPer15min }} check-in / 15 min</span>
-            <span><strong>Équivalent horaire max :</strong> {{ maxCheckinPer15min * 4 }} check-in/h</span>
+            <span><strong>{{ t("badges.perf.avg") }} :</strong> {{ avgCheckinPer15min }} {{ t("badges.perf.unitCheckin15") }}</span>
+            <span><strong>{{ t("badges.perf.max") }} :</strong> {{ maxCheckinPer15min }} {{ t("badges.perf.unitCheckin15") }}</span>
+            <span><strong>{{ t("badges.perf.hourlyMax") }} :</strong> {{ maxCheckinPer15min * 4 }} check-in/h</span>
           </div>
         </template>
-        <p v-else class="empty-msg">Aucune donnée de check-in</p>
+        <p v-else class="empty-msg">{{ t("badges.empty.noCheckinData") }}</p>
       </div>
 
       <div class="chart-card">
         <div class="chart-header">
-          <h3>Performance de distribution (créneaux de 15 min)</h3>
+          <h3>{{ t("badges.charts.perfDistribution15") }}</h3>
           <div style="display: flex; align-items: center; gap: 6px;">
-            <CsvButton filename="perf-15min" :headers="['Date', 'Heure', 'Badges']" :rows="filtered15min.map(s => [s.date, s.time, s.count])" />
+            <CsvButton filename="perf-15min" :headers="[t('badges.csv.date'), t('badges.csv.time'), t('badges.csv.badges')]" :rows="filtered15min.map(s => [s.date, s.time, s.count])" />
             <div v-if="availableDays.length > 1" class="period-selector">
               <button v-for="day in availableDays" :key="day"
                 :class="['period-btn', { active: selectedDay === day }]"
                 @click="selectedDay = day">
-                {{ day === 'all' ? 'Tous' : day.slice(5) }}
+                {{ day === 'all' ? t('badges.allShort') : day.slice(5) }}
               </button>
             </div>
           </div>
@@ -177,42 +177,42 @@
             <Bar :data="perf15ChartData" :options="perf15Options" />
           </div>
           <div class="perf-summary">
-            <span><strong>Moyenne :</strong> {{ avgPer15min }} badges / 15 min</span>
-            <span><strong>Max :</strong> {{ maxPer15min }} badges / 15 min</span>
-            <span><strong>Équivalent horaire max :</strong> {{ maxPer15min * 4 }} badges/h</span>
+            <span><strong>{{ t("badges.perf.avg") }} :</strong> {{ avgPer15min }} {{ t("badges.perf.unitBadges15") }}</span>
+            <span><strong>{{ t("badges.perf.max") }} :</strong> {{ maxPer15min }} {{ t("badges.perf.unitBadges15") }}</span>
+            <span><strong>{{ t("badges.perf.hourlyMax") }} :</strong> {{ maxPer15min * 4 }} badges/h</span>
           </div>
         </template>
-        <p v-else class="empty-msg">Aucune donnée de distribution</p>
+        <p v-else class="empty-msg">{{ t("badges.empty.noDistributionData") }}</p>
       </div>
     </div>
 
     <!-- Badges imprimés par device (stacked par type de badge) -->
     <div class="chart-card">
       <div class="chart-header">
-        <h3>Badges imprimés par device</h3>
+        <h3>{{ t("badges.charts.badgesByDevice") }}</h3>
         <CsvButton filename="badges-par-device"
-          :headers="['Device', ...badgeTypeList]"
-          :rows="deviceLabels.map(dev => [dev, ...badgeTypeList.map(t => deviceByType[dev]?.[t] || 0)])" />
+          :headers="[t('badges.csv.device'), ...badgeTypeList.map(typeLbl)]"
+          :rows="deviceLabels.map(dev => [typeLbl(dev), ...badgeTypeList.map(bt => deviceByType[dev]?.[bt] || 0)])" />
       </div>
       <template v-if="deviceLabels.length > 0">
         <div :style="{ position: 'relative', height: deviceChartHeight + 'px' }">
           <Bar :data="deviceChartData" :options="deviceChartOptions" :plugins="[deviceRowTotalsPlugin]" />
         </div>
       </template>
-      <p v-else class="empty-msg">Aucune donnée de device</p>
+      <p v-else class="empty-msg">{{ t("badges.empty.noDeviceData") }}</p>
     </div>
 
     <!-- Mix des types d'inscriptions (presents confirmes) -->
     <div class="chart-card" v-if="typesMixChart.datasets.length > 0">
       <div class="chart-header">
-        <h3>Mix des types d'inscriptions (présents confirmés)</h3>
+        <h3>{{ t("badges.charts.typesMix") }}</h3>
         <div style="display: flex; align-items: center; gap: 6px;">
           <span class="chart-hint" style="margin: 0;">
-            Population : <code>status = registered</code> ET <code>checkedInDate</code> renseignée
+            {{ t("badges.charts.typesMixHintPre") }} <code>status = registered</code> {{ t("badges.charts.typesMixHintAnd") }} <code>checkedInDate</code> {{ t("badges.charts.typesMixHintPost") }}
           </span>
           <CsvButton filename="mix-types-presents"
-            :headers="['Type', '%', 'Nb']"
-            :rows="typesMixChart.datasets.map(ds => [ds.label, ds.data[0], typesMixCounts[ds.label] || 0])" />
+            :headers="[t('badges.csv.type'), t('badges.csv.pct'), t('badges.csv.count')]"
+            :rows="typesMixChart.datasets.map(ds => [ds.label, ds.data[0], ds._count || 0])" />
         </div>
       </div>
       <div :style="{ position: 'relative', height: typesMixHeight + 'px' }">
@@ -231,8 +231,8 @@
     <div class="charts-row">
       <div class="chart-card">
         <div class="chart-header">
-          <h3>Flux de check-in par jour et heure</h3>
-          <CsvButton filename="checkin-par-heure" :headers="['Heure', ...checkinDays.map(d => d.slice(5))]" :rows="allCheckinHours.map(h => [h, ...checkinDays.map(day => (fs.checkinFlow?.byDayAndHour?.[day]?.[h] || 0))])" />
+          <h3>{{ t("badges.charts.checkinFlowByHour") }}</h3>
+          <CsvButton filename="checkin-par-heure" :headers="[t('badges.csv.hour'), ...checkinDays.map(d => d.slice(5))]" :rows="allCheckinHours.map(h => [h, ...checkinDays.map(day => (fs.checkinFlow?.byDayAndHour?.[day]?.[h] || 0))])" />
         </div>
         <LineChart
           v-if="hourlyLabels.length > 0"
@@ -240,13 +240,13 @@
           :datasets="hourlyDatasets"
           :height="220"
         />
-        <p v-else class="empty-msg">Aucun check-in enregistré</p>
+        <p v-else class="empty-msg">{{ t("badges.empty.noCheckin") }}</p>
       </div>
 
       <div class="chart-card">
         <div class="chart-header">
-          <h3>Flux de Badges imprimés par jour et heure</h3>
-          <CsvButton filename="badges-par-heure" :headers="['Heure', ...badgeDays.map(d => d.slice(5))]" :rows="allBadgeHours.map(h => [h, ...badgeDays.map(day => (fs.badges?.byDayAndHour?.[day]?.[h] || 0))])" />
+          <h3>{{ t("badges.charts.badgesFlowByHour") }}</h3>
+          <CsvButton filename="badges-par-heure" :headers="[t('badges.csv.hour'), ...badgeDays.map(d => d.slice(5))]" :rows="allBadgeHours.map(h => [h, ...badgeDays.map(day => (fs.badges?.byDayAndHour?.[day]?.[h] || 0))])" />
         </div>
         <LineChart
           v-if="badgeHourlyLabels.length > 0"
@@ -254,7 +254,7 @@
           :datasets="badgeHourlyDatasets"
           :height="220"
         />
-        <p v-else class="empty-msg">Aucun badge délivré</p>
+        <p v-else class="empty-msg">{{ t("badges.empty.noBadge") }}</p>
       </div>
     </div>
   </div>
@@ -262,6 +262,7 @@
 
 <script setup>
 import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { Bar } from "vue-chartjs";
 import HBarChart from "../charts/HBarChart.vue";
 import LineChart from "../charts/LineChart.vue";
@@ -273,6 +274,7 @@ import { parisDay, parisDateTime } from "../../utils/parisTime.js";
 import { buildBurndownAbsolute } from "../../utils/burndown.js";
 import { makeInRange } from "../../utils/dateRange.js";
 import { getTypeColor } from "../../utils/typeColors.js";
+import { notSpecified } from "@/i18n/labels.js";
 import { fmt, pct } from "@/utils/formatters.js";
 import {
   delegateBadgeType,
@@ -281,6 +283,18 @@ import {
   checkinByTypeTotalsPlugin,
 } from "../../utils/checkinByType.js";
 import RegionalMaps from "../charts/RegionalMaps.vue";
+
+const { t } = useI18n();
+
+// Libelle d'affichage pour les placeholders canoniques (cles internes /
+// logique couleur+filtre inchangees). Une vraie valeur de type/device passe
+// telle quelle (donnee libre).
+const typeLbl = (v) => {
+  if (v === "Inconnu") return t("common.unknown");
+  if (v === "Autres") return t("common.others");
+  if (v === "Non renseigne") return notSpecified();
+  return v;
+};
 
 const props = defineProps({
   stats: Object,
@@ -352,9 +366,12 @@ const badgesCsvRows = computed(() => {
 });
 
 // --- Filtres ---
-function onDeviceSelect(label) {
-  toggleFilter("device", label, (d) =>
-    (d.badges || []).some((b) => (b.deliveredBy || "Inconnu") === label)
+// `rawDev` = valeur brute du device ("Inconnu" inclus). On stocke le libelle
+// LOCALISE comme tag de filtre (affichage FilterBanner + active-label) mais on
+// compare sur la valeur brute cote donnees.
+function onDeviceSelect(rawDev) {
+  toggleFilter("device", typeLbl(rawDev), (d) =>
+    (d.badges || []).some((b) => (b.deliveredBy || "Inconnu") === rawDev)
   );
 }
 
@@ -428,7 +445,7 @@ const badgesDayChartData = computed(() => {
   const rest = sortedTypes.slice(MAX_TYPES);
   const barThickness = Math.max(8, Math.min(32, 600 / (dates.length || 1)));
   const mkDataset = (type, getCount, baseColor) => ({
-    label: type,
+    label: typeLbl(type),
     data: dates.map((dt) => getCount(dt)),
     // Couleur par jour : estompee quand un autre jour est selectionne.
     backgroundColor: labels.map((l) => (active && !isActive(l) ? dimColor(baseColor, 0.18) : baseColor)),
@@ -441,7 +458,7 @@ const badgesDayChartData = computed(() => {
   );
   if (rest.length > 0) {
     datasets.push(
-      mkDataset("Autres", (dt) => rest.reduce((s, t) => s + (byDayType[dt]?.[t] || 0), 0), "#9CA3AF"),
+      mkDataset("Autres", (dt) => rest.reduce((s, tp) => s + (byDayType[dt]?.[tp] || 0), 0), "#9CA3AF"),
     );
   }
   return { labels, datasets };
@@ -469,7 +486,7 @@ const badgesDayOptions = computed(() => ({
           if (i == null) return "";
           let total = 0;
           for (const ds of items[0].chart.data.datasets) total += ds.data[i] || 0;
-          return total > 0 ? `Total : ${total.toLocaleString("fr-FR")}` : "";
+          return total > 0 ? `${t("badges.tooltip.total")} : ${total.toLocaleString("fr-FR")}` : "";
         },
       },
     },
@@ -503,7 +520,7 @@ const perf15Labels = computed(() => {
 const perf15ChartData = computed(() => ({
   labels: perf15Labels.value,
   datasets: [{
-    label: "Badges / 15 min",
+    label: t("badges.datasets.badgesPer15"),
     data: filtered15min.value.map((s) => s.count),
     backgroundColor: (ctx) => {
       const v = ctx.raw || 0;
@@ -538,7 +555,7 @@ const perf15Options = {
     datalabels: { display: false },
     tooltip: {
       callbacks: {
-        label: (ctx) => `${ctx.raw} badges (≈ ${ctx.raw * 4}/h)`,
+        label: (ctx) => t("badges.tooltip.badgesRate", { n: ctx.raw, rate: ctx.raw * 4 }),
       },
     },
   },
@@ -571,7 +588,7 @@ const perfCheckin15Labels = computed(() => {
 const perfCheckin15ChartData = computed(() => ({
   labels: perfCheckin15Labels.value,
   datasets: [{
-    label: "Check-in / 15 min",
+    label: t("badges.datasets.checkinPer15"),
     data: filteredCheckin15min.value.map((s) => s.count),
     backgroundColor: (ctx) => {
       const v = ctx.raw || 0;
@@ -606,7 +623,7 @@ const perfCheckin15Options = {
     datalabels: { display: false },
     tooltip: {
       callbacks: {
-        label: (ctx) => `${ctx.raw} check-in (≈ ${ctx.raw * 4}/h)`,
+        label: (ctx) => t("badges.tooltip.checkinRate", { n: ctx.raw, rate: ctx.raw * 4 }),
       },
     },
   },
@@ -673,20 +690,22 @@ function dimColor(hex, alpha) {
 }
 
 const deviceChartData = computed(() => {
-  const labels = deviceLabels.value;
+  const labels = deviceLabels.value; // valeurs brutes (cles data + couleur)
   const types = badgeTypeList.value;
-  const active = afm.value?.device;
+  const active = afm.value?.device; // tag de filtre = libelle LOCALISE
+  // dev est brut ; on compare son libelle localise au tag actif.
   const isDim = (dev) => {
     if (!active) return false;
-    if (Array.isArray(active)) return !active.includes(dev);
-    return dev !== active;
+    const dl = typeLbl(dev);
+    if (Array.isArray(active)) return !active.includes(dl);
+    return dl !== active;
   };
   return {
-    labels,
+    labels: labels.map(typeLbl),
     datasets: types.map((type) => {
       const baseColor = type === "Inconnu" ? "#9CA3AF" : getTypeColor(type);
       return {
-        label: type,
+        label: typeLbl(type),
         data: labels.map((dev) => deviceByType.value[dev]?.[type] || 0),
         backgroundColor: labels.map((dev) => (isDim(dev) ? dimColor(baseColor, 0.2) : baseColor)),
         borderWidth: 0,
@@ -778,15 +797,15 @@ const perfPerDeviceMin = computed(() => {
   const peak = fs.value?.badges?.peakMinute?.count || 0;
   const devices = deviceCountForPerf.value;
   if (!devices || !peak) return "—";
-  return (peak / devices).toFixed(1) + "/min";
+  return t("badges.kpi.perMin", { n: (peak / devices).toFixed(1) });
 });
 
 const perfPerDeviceSub = computed(() => {
   const peak = fs.value?.badges?.peakMinute?.count || 0;
   const devices = deviceCountForPerf.value;
   const plural = devices > 1 ? "s" : "";
-  const filtered = afm.value?.device ? ` (sélectionné${plural})` : "";
-  return `pic ${peak}/min ÷ ${devices} device${plural}${filtered}`;
+  const filtered = afm.value?.device ? t("badges.perfDeviceSelected", { plural }) : "";
+  return t("badges.perfDeviceSub", { peak, devices, plural, filtered });
 });
 
 // --- Flux de check-in par jour et heure ---
@@ -900,9 +919,9 @@ const typesMixChart = computed(() => {
   const segments = otherCount > 0 ? [...top, ["Autres", otherCount]] : top;
 
   return {
-    labels: ["Présents"],
+    labels: [t("badges.attendeesAxis")],
     datasets: segments.map(([type, count]) => ({
-      label: type,
+      label: typeLbl(type),
       data: [+((count / total) * 100).toFixed(1)],
       _count: count,
       backgroundColor: type === "Autres" ? MIX_OTHER_COLOR : getTypeColor(type),
@@ -948,7 +967,7 @@ const typesMixOptions = {
 };
 const burndownDatasets = computed(() => [
   {
-    label: "Restants à check-in",
+    label: t("badges.datasets.remainingCheckin"),
     data: burndown.value.data,
     borderColor: "#1E4E66",
     backgroundColor: "rgba(30,78,102,0.10)",
@@ -993,7 +1012,7 @@ const checkinDayChartData = computed(() => {
   const rest = sortedTypes.slice(MAX_TYPES);
   const barThickness = Math.max(8, Math.min(32, 600 / (dates.length || 1)));
   const datasets = top.map((type) => ({
-    label: type,
+    label: typeLbl(type),
     data: dates.map((dt) => byDayType[dt]?.[type] || 0),
     backgroundColor: type === "Inconnu" ? "#9CA3AF" : getTypeColor(type),
     borderRadius: 3,
@@ -1002,8 +1021,8 @@ const checkinDayChartData = computed(() => {
   }));
   if (rest.length > 0) {
     datasets.push({
-      label: "Autres",
-      data: dates.map((dt) => rest.reduce((s, t) => s + (byDayType[dt]?.[t] || 0), 0)),
+      label: typeLbl("Autres"),
+      data: dates.map((dt) => rest.reduce((s, tp) => s + (byDayType[dt]?.[tp] || 0), 0)),
       backgroundColor: "#9CA3AF",
       borderRadius: 3,
       barThickness,
@@ -1029,7 +1048,7 @@ const checkinDayByTypeOptions = {
           if (i == null) return "";
           let total = 0;
           for (const ds of items[0].chart.data.datasets) total += ds.data[i] || 0;
-          return total > 0 ? `Total : ${total.toLocaleString("fr-FR")}` : "";
+          return total > 0 ? `${t("badges.tooltip.total")} : ${total.toLocaleString("fr-FR")}` : "";
         },
       },
     },

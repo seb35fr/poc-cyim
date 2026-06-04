@@ -6,11 +6,11 @@
       :class="{ open, active: selected.size > 0 }"
       @click="toggleOpen"
     >
-      <span class="bt-trigger-label">Type de badge :</span>
+      <span class="bt-trigger-label">{{ t("badgeFilter.label") }}</span>
       <span class="bt-trigger-value">
-        <template v-if="selected.size === 0">Tous</template>
+        <template v-if="selected.size === 0">{{ t("badgeFilter.all") }}</template>
         <template v-else-if="selected.size === 1">{{ firstSelected }}</template>
-        <template v-else>{{ selected.size }} sélectionnés</template>
+        <template v-else>{{ t("badgeFilter.selectedN", { n: selected.size }) }}</template>
       </span>
       <span class="bt-trigger-chevron" aria-hidden="true">▾</span>
     </button>
@@ -22,49 +22,49 @@
           v-model="query"
           type="text"
           class="bt-search"
-          placeholder="Rechercher un type…"
+          :placeholder="t('badgeFilter.searchPlaceholder')"
           @keydown.escape.prevent="close"
         />
       </div>
 
       <div class="bt-popover-actions">
         <button type="button" class="bt-link" @click="checkAllVisible">
-          Tout cocher{{ query ? " (visibles)" : "" }}
+          {{ query ? t("badgeFilter.checkAllVisible") : t("badgeFilter.checkAll") }}
         </button>
         <button type="button" class="bt-link" :disabled="selected.size === 0" @click="$emit('clear')">
-          Effacer
+          {{ t("badgeFilter.clear") }}
         </button>
       </div>
 
       <div class="bt-options">
         <label
-          v-for="t in filteredTypes"
-          :key="t"
+          v-for="bt in filteredTypes"
+          :key="bt"
           class="bt-option"
-          :class="{ checked: selected.has(t) }"
+          :class="{ checked: selected.has(bt) }"
         >
           <input
             type="checkbox"
-            :checked="selected.has(t)"
-            @change="$emit('toggle', t)"
+            :checked="selected.has(bt)"
+            @change="$emit('toggle', bt)"
           />
           <span class="bt-checkbox" aria-hidden="true">
-            <svg v-if="selected.has(t)" width="10" height="10" viewBox="0 0 12 12" fill="none">
+            <svg v-if="selected.has(bt)" width="10" height="10" viewBox="0 0 12 12" fill="none">
               <path d="M2 6.5l2.5 2.5L10 3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
           </span>
-          <span class="bt-option-label" :title="t">{{ t }}</span>
+          <span class="bt-option-label" :title="bt">{{ bt }}</span>
         </label>
         <div v-if="filteredTypes.length === 0" class="bt-empty">
-          Aucun type ne correspond
+          {{ t("badgeFilter.noMatch") }}
         </div>
       </div>
 
       <div class="bt-popover-foot">
         <span class="bt-count">
-          {{ selected.size }} / {{ types.length }} sélectionné{{ selected.size > 1 ? "s" : "" }}
+          {{ t("badgeFilter.count", selected.size, { selected: selected.size, total: types.length }) }}
         </span>
-        <button type="button" class="bt-close" @click="close">Fermer</button>
+        <button type="button" class="bt-close" @click="close">{{ t("badgeFilter.close") }}</button>
       </div>
     </div>
   </div>
@@ -78,6 +78,9 @@
 // Le v-if sur le composant est cote parent (cf. OverviewTab) pour eviter le
 // bug Vue 3 du v-if-at-root-template qui casse le patch.
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
+
+const { t } = useI18n();
 
 const props = defineProps({
   types: { type: Array, required: true },

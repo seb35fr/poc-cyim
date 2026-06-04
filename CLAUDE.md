@@ -25,7 +25,7 @@ Copy `.env.example` to `.env` with:
 
 ## Stack
 
-Vue 3 + Vite 6 + Vue Router + Chart.js 4 (vue-chartjs) + chartjs-chart-geo (world/FR maps) + d3-geo (Lambert projection FR, fallback mercator) + chartjs-plugin-datalabels. No UI framework (custom CSS with CSS variables defined in `App.vue`). **Seul export disponible : Markdown** (destiné aux LLM) — les exports PDF/PPTX ont été retirés.
+Vue 3 + Vite 6 + Vue Router + Chart.js 4 (vue-chartjs) + chartjs-chart-geo (world/FR maps) + d3-geo (Lambert projection FR, fallback mercator) + chartjs-plugin-datalabels + **vue-i18n** (bilingue FR/EN). No UI framework (custom CSS with CSS variables defined in `App.vue`). **Seul export disponible : Markdown** (destiné aux LLM) — les exports PDF/PPTX ont été retirés.
 
 **Vite alias** : `@/` → `/src/` (configuré dans `vite.config.js`). Tous les nouveaux imports utilisent `@/utils/...` au lieu de `../../utils/...`. Les imports legacy `../../` restent valides — pas de migration forcée.
 
@@ -189,7 +189,7 @@ Fingerprint partagé entre `console.warn` et `pushDiagnostic` évite la duplicat
 
 ## Conventions
 
-- Language: French UI labels, French comments, English code identifiers
+- Language: **UI bilingue FR/EN via vue-i18n** (cf. section **i18n**). FR = langue source/fallback. Commentaires en français, identifiants de code en anglais. **Tout nouveau libellé affiché passe par `t("…")`**, jamais de texte en dur dans les templates/datasets.
 - No linter or formatter configured — follow existing style
 - No component library — all styling via scoped/global CSS with shared classes (`.kpi-card`, `.chart-card`, `.data-table`)
 - GraphQL queries are inline strings in `api/graphql.js`, not `.graphql` files
@@ -197,6 +197,28 @@ Fingerprint partagé entre `console.warn` et `pushDiagnostic` évite la duplicat
 - Status comparisons are case-insensitive (`.toLowerCase()`)
 - **Composables stateful** (auto-refresh) sont **liftés** au niveau `StatisticsView` et propagés en prop aux tabs. Évite cache module-level, timers fantômes en HMR, fetchs dupliqués.
 - **Pas de v-if au root d'un composant** — Vue 3 a un bug de patch quand le seul root template alterne entre comment vide et vrai élément. Mettre le v-if côté parent (`<Foo v-if="..." />`).
+
+## Internationalisation (i18n)
+
+UI **bilingue FR/EN** via **vue-i18n** (Composition API, `legacy: false`). Bouton FR/EN en haut à droite du header (`LanguageToggle.vue`), langue persistée en `localStorage` (`stats-lang`) et reflétée sur `<html lang>`. **FR = langue source + `fallbackLocale`** : une clé EN manquante retombe sur le libellé FR.
+
+| Fichier | Rôle |
+|---------|------|
+| `src/i18n/index.js` | `createI18n` + `setLocale(locale)` (persist + `<html lang>`). Langue initiale = localStorage sinon FR. |
+| `src/i18n/locales/fr.js` / `en.js` | Messages, **un namespace de 1er niveau par zone** (`nav`, `filters`, `overview`, `demographics`, `registrations`, `temporal`, `badges`, `data`, `scans`, `viewers`, `viewersCompare`, `comparison`, `exports`, `maps`, `diagnostics`, `categories`, `analysis`, `md`, …). |
+| `src/i18n/labels.js` | Traduit les **catégories dérivées** produites canoniques-FR par `computeStats`/`countries.js` (genres, continents, jours de semaine, « Tous les jours », « Non renseigné ») **à l'affichage** — `computeStats` reste locale-agnostic. Helpers : `genderLabel`, `continentLabel`, `notSpecified`, `isNotSpecified`, `allDaysLabel`, `weekdayNames`. |
+| `src/components/LanguageToggle.vue` | Bouton segmenté FR\|EN. |
+
+**Conventions i18n :**
+- Composants : `const { t } = useI18n()`, libellés via `t("ns.key")`. Jamais de texte en dur (templates, `label:` de datasets, en-têtes CSV, titres de charts).
+- **Options Chart.js avec titres d'axes traduits** → les passer en `computed(() => ({...}))` pour qu'ils se rafraîchissent au switch de langue (les `tooltip.callbacks` sont lazy, donc OK même en `const`).
+- **Hors composant** (utils/composables : `generateAnalysis.js`, `useExportMarkdown.js`, `viewerJoin.js`, `useLive/useReplay`) : importer `{ i18n }` et utiliser `i18n.global.t`. L'export MD/analyse suit la langue active à la génération.
+- **Filtres cross-clic** : quand un libellé de catégorie est traduit à l'affichage, le prédicat de filtre compare sur la **valeur localisée** (ou garde la valeur brute comme tag + compare le brut) pour rester correct en EN — cf. `DemographicsTab` (continents/genre), `BadgesTab` (device), `TemporalTab` (jours).
+- **Variable d'itération `t`** : un `v-for="t in …"` ou `.map(t => …)` shadow la fonction i18n — renommer (`rt`, `bt`, `st`, `row`…).
+- Pluriels : forme vue-i18n `"x | y"` + `t(key, count, { … })`.
+- Format date/nombre : `toLocaleString(locale.value === "en" ? "en-GB" : "fr-FR", …)`.
+
+**Non traduit (assumé) :** valeurs **data** issues du backend (types/catégories d'inscription, statuts, `sessionType`) ; **noms de pays** (`COUNTRY_NAMES`, ~250, affichés dans DataTab) ; **en-têtes de colonnes des CSV par session/parcours** (`ATTENDANCE_HEADERS`/`JOURNEY_HEADERS` + marqueurs `O`/`N`) ; `DayOfTab.vue` (code mort non référencé).
 
 ## Limitations
 

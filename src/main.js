@@ -1,6 +1,7 @@
 import { createApp } from "vue";
 import { createRouter, createWebHistory } from "vue-router";
 import App from "./App.vue";
+import { i18n } from "./i18n/index.js";
 import {
   Chart,
   ArcElement,
@@ -50,4 +51,4 @@ const router = createRouter({
   ],
 });
 
-createApp(App).use(router).mount("#app");
+createApp(App).use(router).use(i18n).mount("#app");

@@ -13,50 +13,50 @@
 
     <div class="kpi-grid kpi-overview">
       <div class="kpi-card blue">
-        <div class="kpi-label">Total inscrits</div>
+        <div class="kpi-label">{{ t("overview.kpi.totalRegistered") }}</div>
         <div class="kpi-value">{{ fmt(registeredCount) }}</div>
-        <div class="kpi-sub">au statut registered</div>
+        <div class="kpi-sub">{{ t("overview.kpi.registeredStatus") }}</div>
         <span v-if="deltaRegisteredKpi" class="formula-delta" :class="deltaRegisteredKpi.cls" :title="tipRegisteredKpi">{{ deltaRegisteredKpi.arrow }} {{ deltaRegisteredKpi.text }}</span>
       </div>
       <div class="kpi-card green">
-        <div class="kpi-label">Check-in</div>
+        <div class="kpi-label">{{ t("overview.kpi.checkin") }}</div>
         <div class="kpi-value">{{ fmt(fs.global.checkedInCount) }}</div>
-        <div class="kpi-sub">{{ pct(fs.global.checkedInCount, registeredCount) }} des registered</div>
+        <div class="kpi-sub">{{ t("overview.kpi.ofRegistered", { pct: pct(fs.global.checkedInCount, registeredCount) }) }}</div>
         <span v-if="deltaCheckinKpi" class="formula-delta" :class="deltaCheckinKpi.cls" :title="tipCheckinKpi">{{ deltaCheckinKpi.arrow }} {{ deltaCheckinKpi.text }}</span>
       </div>
       <div class="kpi-card orange">
-        <div class="kpi-label">Onboarding</div>
+        <div class="kpi-label">{{ t("overview.kpi.onboarding") }}</div>
         <div class="kpi-value">{{ fmt(fs.global.onboardingCount) }}</div>
-        <div class="kpi-sub">{{ pct(fs.global.onboardingCount, registeredCount) }} des registered</div>
+        <div class="kpi-sub">{{ t("overview.kpi.ofRegistered", { pct: pct(fs.global.onboardingCount, registeredCount) }) }}</div>
         <span v-if="deltaOnboardingKpi" class="formula-delta" :class="deltaOnboardingKpi.cls" :title="tipOnboardingKpi">{{ deltaOnboardingKpi.arrow }} {{ deltaOnboardingKpi.text }}</span>
       </div>
       <div v-if="props.mobileAppId" class="kpi-card purple">
-        <div class="kpi-label">App mobile</div>
+        <div class="kpi-label">{{ t("overview.kpi.mobileApp") }}</div>
         <div class="kpi-value">{{ fmt(fs.global.mobileAppCount) }}</div>
-        <div class="kpi-sub">{{ pct(fs.global.mobileAppCount, registeredCount) }} des registered (&lt; 3 mois)</div>
+        <div class="kpi-sub">{{ t("overview.kpi.ofRegisteredMobile", { pct: pct(fs.global.mobileAppCount, registeredCount) }) }}</div>
         <span v-if="deltaMobileKpi" class="formula-delta" :class="deltaMobileKpi.cls" :title="tipMobileKpi">{{ deltaMobileKpi.arrow }} {{ deltaMobileKpi.text }}</span>
       </div>
       <div class="kpi-card blue">
-        <div class="kpi-label">Live</div>
+        <div class="kpi-label">{{ t("overview.kpi.live") }}</div>
         <div class="kpi-value">
           <span v-if="liveLoading" class="kpi-loading">...</span>
           <template v-else>{{ fmt(liveUniqueUsers) }}</template>
         </div>
         <div class="kpi-sub">
-          <template v-if="!liveLoading">{{ pct(liveUniqueUsers, registeredCount) }} des registered</template>
-          <template v-else>chargement…</template>
+          <template v-if="!liveLoading">{{ t("overview.kpi.ofRegistered", { pct: pct(liveUniqueUsers, registeredCount) }) }}</template>
+          <template v-else>{{ t("overview.kpi.loading") }}</template>
         </div>
         <span v-if="!liveLoading && deltaLiveKpi" class="formula-delta" :class="deltaLiveKpi.cls" :title="tipLiveKpi">{{ deltaLiveKpi.arrow }} {{ deltaLiveKpi.text }}</span>
       </div>
       <div class="kpi-card purple">
-        <div class="kpi-label">Replay</div>
+        <div class="kpi-label">{{ t("overview.kpi.replay") }}</div>
         <div class="kpi-value">
           <span v-if="replayLoading" class="kpi-loading">...</span>
           <template v-else>{{ fmt(replayUniqueUsers) }}</template>
         </div>
         <div class="kpi-sub">
-          <template v-if="!replayLoading">{{ pct(replayUniqueUsers, registeredCount) }} des registered</template>
-          <template v-else>chargement…</template>
+          <template v-if="!replayLoading">{{ t("overview.kpi.ofRegistered", { pct: pct(replayUniqueUsers, registeredCount) }) }}</template>
+          <template v-else>{{ t("overview.kpi.loading") }}</template>
         </div>
         <span v-if="!replayLoading && deltaReplayKpi" class="formula-delta" :class="deltaReplayKpi.cls" :title="tipReplayKpi">{{ deltaReplayKpi.arrow }} {{ deltaReplayKpi.text }}</span>
       </div>
@@ -66,10 +66,10 @@
          1 fois meme s'il a vu live + replay sans venir. -->
     <div class="chart-card participation-card" v-if="!liveLoading && !replayLoading">
       <div class="chart-header">
-        <h3>Comment se décompose le "Total participants"</h3>
+        <h3>{{ t("overview.participation.decompositionTitle") }}</h3>
       </div>
       <div class="mode-filter">
-        <span class="mode-filter-label">Modalité de participation</span>
+        <span class="mode-filter-label">{{ t("overview.participation.modeFilterLabel") }}</span>
         <button
           v-for="m in ['PHYSIQUE', 'LIVE', 'REPLAY']"
           :key="m"
@@ -77,7 +77,7 @@
           class="mode-pill"
           :class="{ on: isModeOn(m) }"
           @click="toggleMode(m)"
-        >{{ m }}</button>
+        >{{ modeLabel(m) }}</button>
       </div>
 
       <!-- 3 grands modes de participation : Physique / Live distanciel /
@@ -85,46 +85,46 @@
       <div class="participation-modes">
         <div class="mode-card mode-physique">
           <div class="mode-head">
-            <span class="mode-title">Présence physique</span>
+            <span class="mode-title">{{ t("overview.participation.physical") }}</span>
             <span class="mode-total">{{ fmt(physiqueCount) }}</span>
             <span class="mode-pct">{{ pct(physiqueCount, totalParticipants) }}</span>
             <span v-if="deltaPhysique" class="formula-delta" :class="deltaPhysique.cls" :title="tooltipPhysique">{{ deltaPhysique.arrow }} {{ deltaPhysique.text }}</span>
           </div>
           <div class="mode-subs">
-            <div class="mode-sub"><span class="sub-swatch seg-checkin-only"></span><span class="sub-label">Sur place seul</span><span class="sub-value">{{ fmt(checkedInOnlyCount) }}</span></div>
-            <div class="mode-sub"><span class="sub-swatch seg-checkin-live"></span><span class="sub-label">Sur place + live</span><span class="sub-value">{{ fmt(checkedInLiveCount) }}</span></div>
-            <div class="mode-sub"><span class="sub-swatch seg-checkin-livereplay"></span><span class="sub-label">Sur place + live & replay</span><span class="sub-value">{{ fmt(checkedInLiveReplayCount) }}</span></div>
-            <div class="mode-sub"><span class="sub-swatch seg-checkin-replay"></span><span class="sub-label">Sur place + replay</span><span class="sub-value">{{ fmt(checkedInReplayCount) }}</span></div>
+            <div class="mode-sub"><span class="sub-swatch seg-checkin-only"></span><span class="sub-label">{{ t("overview.participation.onsiteOnly") }}</span><span class="sub-value">{{ fmt(checkedInOnlyCount) }}</span></div>
+            <div class="mode-sub"><span class="sub-swatch seg-checkin-live"></span><span class="sub-label">{{ t("overview.participation.onsitePlusLive") }}</span><span class="sub-value">{{ fmt(checkedInLiveCount) }}</span></div>
+            <div class="mode-sub"><span class="sub-swatch seg-checkin-livereplay"></span><span class="sub-label">{{ t("overview.participation.onsitePlusLiveReplay") }}</span><span class="sub-value">{{ fmt(checkedInLiveReplayCount) }}</span></div>
+            <div class="mode-sub"><span class="sub-swatch seg-checkin-replay"></span><span class="sub-label">{{ t("overview.participation.onsitePlusReplay") }}</span><span class="sub-value">{{ fmt(checkedInReplayCount) }}</span></div>
           </div>
         </div>
         <span class="formula-op">+</span>
         <div class="mode-card mode-live">
           <div class="mode-head">
-            <span class="mode-title">Live distanciel</span>
+            <span class="mode-title">{{ t("overview.participation.liveRemote") }}</span>
             <span class="mode-total">{{ fmt(liveModeCount) }}</span>
             <span class="mode-pct">{{ pct(liveModeCount, totalParticipants) }}</span>
             <span v-if="deltaLiveMode" class="formula-delta" :class="deltaLiveMode.cls" :title="tooltipLiveMode">{{ deltaLiveMode.arrow }} {{ deltaLiveMode.text }}</span>
           </div>
           <div class="mode-subs">
-            <div class="mode-sub"><span class="sub-swatch seg-live-only"></span><span class="sub-label">Live seul</span><span class="sub-value">{{ fmt(liveOnlyRemoteCount) }}</span></div>
-            <div class="mode-sub"><span class="sub-swatch seg-both"></span><span class="sub-label">Live + Replay</span><span class="sub-value">{{ fmt(bothRemoteCount) }}</span></div>
+            <div class="mode-sub"><span class="sub-swatch seg-live-only"></span><span class="sub-label">{{ t("overview.participation.liveOnly") }}</span><span class="sub-value">{{ fmt(liveOnlyRemoteCount) }}</span></div>
+            <div class="mode-sub"><span class="sub-swatch seg-both"></span><span class="sub-label">{{ t("overview.participation.liveAndReplay") }}</span><span class="sub-value">{{ fmt(bothRemoteCount) }}</span></div>
           </div>
         </div>
         <span class="formula-op">+</span>
         <div class="mode-card mode-replay">
           <div class="mode-head">
-            <span class="mode-title">Replay distanciel</span>
+            <span class="mode-title">{{ t("overview.participation.replayRemote") }}</span>
             <span class="mode-total">{{ fmt(replayModeCount) }}</span>
             <span class="mode-pct">{{ pct(replayModeCount, totalParticipants) }}</span>
             <span v-if="deltaReplayMode" class="formula-delta" :class="deltaReplayMode.cls" :title="tooltipReplayMode">{{ deltaReplayMode.arrow }} {{ deltaReplayMode.text }}</span>
           </div>
           <div class="mode-subs">
-            <div class="mode-sub"><span class="sub-swatch seg-replay-only"></span><span class="sub-label">Replay seul</span><span class="sub-value">{{ fmt(replayOnlyRemoteCount) }}</span></div>
+            <div class="mode-sub"><span class="sub-swatch seg-replay-only"></span><span class="sub-label">{{ t("overview.participation.replayOnly") }}</span><span class="sub-value">{{ fmt(replayOnlyRemoteCount) }}</span></div>
           </div>
         </div>
         <span class="formula-op">=</span>
         <div class="mode-card mode-total-card">
-          <span class="mode-title">Total participants</span>
+          <span class="mode-title">{{ t("overview.participation.total") }}</span>
           <span class="mode-total mode-total-big">{{ fmt(totalParticipants) }}</span>
           <span v-if="deltaTotal" class="formula-delta" :class="deltaTotal.cls" :title="tooltipTotal">{{ deltaTotal.arrow }} {{ deltaTotal.text }}</span>
         </div>
@@ -163,7 +163,7 @@
 
       <!-- Barre B (event compare) : meme structure en zones. -->
       <template v-if="hasCompare">
-        <div class="participation-bar-label">{{ compareEventName || "Event comparé" }}</div>
+        <div class="participation-bar-label">{{ compareEventName || t("overview.participation.comparedEvent") }}</div>
         <div class="participation-bar-row" v-if="totalParticipantsB > 0">
           <div class="participation-bar-track">
             <div class="participation-bar participation-bar-compare" :style="{ width: barScaleB + '%' }">
@@ -190,27 +190,27 @@
           </div>
           <span class="participation-bar-total">{{ fmt(totalParticipantsB) }}</span>
         </div>
-        <p v-else class="participation-note" style="margin-bottom: 12px">Aucun participant détecté pour {{ compareEventName || "l'event comparé" }}.</p>
+        <p v-else class="participation-note" style="margin-bottom: 12px">{{ t("overview.participation.noParticipant", { name: compareEventName || t("overview.participation.comparedEventLower") }) }}</p>
       </template>
 
       <!-- Legende groupee par grand mode -->
       <div class="participation-legend">
         <div class="legend-mode">
-          <span class="legend-mode-head"><span class="swatch-pair"><i class="swatch seg-checkin-only"></i><i class="swatch seg-checkin-live"></i><i class="swatch seg-checkin-livereplay"></i><i class="swatch seg-checkin-replay"></i></span> Présence physique <strong>· {{ pct(physiqueCount, totalParticipants) }}</strong></span>
-          <span class="legend-mode-subs">sur place seul {{ fmt(checkedInOnlyCount) }} · + live {{ fmt(checkedInLiveCount) }} · + live & replay {{ fmt(checkedInLiveReplayCount) }} · + replay {{ fmt(checkedInReplayCount) }}</span>
+          <span class="legend-mode-head"><span class="swatch-pair"><i class="swatch seg-checkin-only"></i><i class="swatch seg-checkin-live"></i><i class="swatch seg-checkin-livereplay"></i><i class="swatch seg-checkin-replay"></i></span> {{ t("overview.participation.physical") }} <strong>· {{ pct(physiqueCount, totalParticipants) }}</strong></span>
+          <span class="legend-mode-subs">{{ t("overview.participation.legendPhysicalSubs", { a: fmt(checkedInOnlyCount), b: fmt(checkedInLiveCount), c: fmt(checkedInLiveReplayCount), d: fmt(checkedInReplayCount) }) }}</span>
         </div>
         <div class="legend-mode">
-          <span class="legend-mode-head"><span class="swatch-pair"><i class="swatch seg-live-only"></i><i class="swatch seg-both"></i></span> Live distanciel <strong>· {{ pct(liveModeCount, totalParticipants) }}</strong></span>
-          <span class="legend-mode-subs">live seul {{ fmt(liveOnlyRemoteCount) }} · live + replay {{ fmt(bothRemoteCount) }}</span>
+          <span class="legend-mode-head"><span class="swatch-pair"><i class="swatch seg-live-only"></i><i class="swatch seg-both"></i></span> {{ t("overview.participation.liveRemote") }} <strong>· {{ pct(liveModeCount, totalParticipants) }}</strong></span>
+          <span class="legend-mode-subs">{{ t("overview.participation.legendLiveSubs", { a: fmt(liveOnlyRemoteCount), b: fmt(bothRemoteCount) }) }}</span>
         </div>
         <div class="legend-mode">
-          <span class="legend-mode-head"><span class="swatch-pair"><i class="swatch seg-replay-only"></i></span> Replay distanciel <strong>· {{ pct(replayModeCount, totalParticipants) }}</strong></span>
-          <span class="legend-mode-subs">replay seul {{ fmt(replayOnlyRemoteCount) }}</span>
+          <span class="legend-mode-head"><span class="swatch-pair"><i class="swatch seg-replay-only"></i></span> {{ t("overview.participation.replayRemote") }} <strong>· {{ pct(replayModeCount, totalParticipants) }}</strong></span>
+          <span class="legend-mode-subs">{{ t("overview.participation.legendReplaySubs", { a: fmt(replayOnlyRemoteCount) }) }}</span>
         </div>
       </div>
 
       <p class="participation-note">
-        Logique : un délégué physiquement checke compte pour 1 (toutes ses vues live/replay sont absorbees). On distingue les présents qui ont aussi suivi en live (« + live ») de ceux présents seulement sur place (« seul »). Pour ceux NON checkes, on regarde s'ils ont vu en live, en replay ou les deux, et chacun ne compte qu'une fois meme s'il a fait les deux.
+        {{ t("overview.participation.note") }}
       </p>
     </div>
 
@@ -220,11 +220,11 @@
         <!-- Chart 1 : Participants vs Inscrits, groupe par event -->
         <div class="chart-card">
           <div class="chart-header">
-            <h3>Participants vs Inscrits</h3>
-            <span class="chart-hint">participants = présents · live · replay (dédoublonnés) · inscrits = registered</span>
+            <h3>{{ t("overview.charts.participantsVsRegistered") }}</h3>
+            <span class="chart-hint">{{ t("overview.charts.participantsVsRegisteredHint") }}</span>
             <CsvButton
               filename="participants-vs-inscrits"
-              :headers="['Event', 'Inscrits', 'Participants']"
+              :headers="[t('overview.csv.event'), t('overview.csv.registrations'), t('overview.csv.participants')]"
               :rows="hasCompare
                 ? [[eventName, registeredCount, totalParticipants], [compareEventName, registeredCountB, totalParticipantsB]]
                 : [[eventName, registeredCount, totalParticipants]]"
@@ -239,16 +239,16 @@
              Participants vs Inscrits). -->
         <div class="chart-card">
           <div class="chart-header">
-            <h3>Répartition par type d'inscription</h3>
-            <span class="chart-hint">délégués registered · physique · live/replay seul · aucune participation</span>
+            <h3>{{ t("overview.charts.byRegType") }}</h3>
+            <span class="chart-hint">{{ t("overview.charts.byRegTypeHint") }}</span>
             <CsvButton
               filename="types-inscription"
-              :headers="['Type', 'Total registered', 'Physique', 'Live/Replay seul', 'Aucune participation']"
-              :rows="registeredTypesBreakdown.map(t => [t.value, t.total, t.physical, t.remote, t.none])"
+              :headers="[t('overview.csv.type'), t('overview.csv.totalRegistered'), t('overview.csv.physical'), t('overview.csv.liveReplayOnly'), t('overview.csv.noParticipation')]"
+              :rows="registeredTypesBreakdown.map(row => [row.value, row.total, row.physical, row.remote, row.none])"
             />
           </div>
           <StackedBarChart
-            :labels="registeredTypesBreakdown.slice(0, 8).map(t => t.value)"
+            :labels="registeredTypesBreakdown.slice(0, 8).map(row => row.value)"
             :datasets="participationDatasets(registeredTypesBreakdown.slice(0, 8))"
             :horizontal="true"
             :show-total="true"
@@ -263,14 +263,14 @@
              mode simple (1 seule barre, données de l'event courant). -->
         <div class="chart-card">
           <div class="chart-header">
-            <h3>Participants par type de badge</h3>
-            <span class="chart-hint">participants (physique · live · replay) par type<template v-if="hasCompare"> · {{ eventName }} vs {{ compareEventName }}</template></span>
+            <h3>{{ t("overview.charts.participantsByBadge") }}</h3>
+            <span class="chart-hint"><template v-if="hasCompare">{{ t("overview.charts.participantsByBadgeHintCompare", { a: eventName, b: compareEventName }) }}</template><template v-else>{{ t("overview.charts.participantsByBadgeHint") }}</template></span>
             <CsvButton
               filename="participants-type-inscription"
-              :headers="hasCompare ? ['Type', eventName, compareEventName] : ['Type', eventName]"
-              :rows="participationByRegTypeChart.types.map((t, i) => hasCompare
-                ? [t, participationByRegTypeChart.datasets[i].data[0], participationByRegTypeChart.datasets[i].data[1]]
-                : [t, participationByRegTypeChart.datasets[i].data[0]])"
+              :headers="hasCompare ? [t('overview.csv.type'), eventName, compareEventName] : [t('overview.csv.type'), eventName]"
+              :rows="participationByRegTypeChart.types.map((type, i) => hasCompare
+                ? [type, participationByRegTypeChart.datasets[i].data[0], participationByRegTypeChart.datasets[i].data[1]]
+                : [type, participationByRegTypeChart.datasets[i].data[0]])"
             />
           </div>
           <StackedBarChart
@@ -286,11 +286,11 @@
       <!-- Chart 3 : Audience salle + live + replay, horizontal empile par event -->
       <div class="chart-card">
         <div class="chart-header">
-          <h3>Audience : salle de conférence + live + replay</h3>
-          <span class="chart-hint">vues en salle (présences cumulées par session) · vues live · vues replay</span>
+          <h3>{{ t("overview.charts.audienceMix") }}</h3>
+          <span class="chart-hint">{{ t("overview.charts.audienceMixHint") }}</span>
           <CsvButton
             filename="audience-salle-live-replay"
-            :headers="['Event', 'Salle', 'Live', 'Replay']"
+            :headers="[t('overview.csv.event'), t('overview.csv.room'), t('overview.csv.live'), t('overview.csv.replay')]"
             :rows="audienceMixChart.labels.map((lbl, i) => [
               lbl,
               audienceMixChart.datasets[0].data[i],
@@ -307,7 +307,7 @@
           :height="hasCompare ? 220 : 150"
         />
         <p class="participation-note">
-          « Salle » = présences en salle cumulées par session : un délégué compte 1× pour chaque session qu'il a suivie (multi-passages dans une même session dédupliqués). C'est l'affluence totale des conférences.
+          {{ t("overview.charts.audienceNote") }}
         </p>
       </div>
     </div>
@@ -315,8 +315,8 @@
     <div class="charts-row" >
       <div class="chart-card" v-if="onboardingDaily.length > 0">
         <div class="chart-header">
-          <h3>Evolution des connexions onboarding</h3>
-          <CsvButton filename="onboarding" :headers="['Date', 'Connexions']" :rows="onboardingDaily.map(d => [d.date, d.count])" />
+          <h3>{{ t("overview.charts.onboardingEvolution") }}</h3>
+          <CsvButton filename="onboarding" :headers="[t('overview.csv.date'), t('overview.csv.connections')]" :rows="onboardingDaily.map(d => [d.date, d.count])" />
         </div>
         <LineChart
           :labels="onboardingLabels"
@@ -326,8 +326,8 @@
       </div>
       <div class="chart-card" v-if="mobileAppDaily.length > 0">
         <div class="chart-header">
-          <h3>Utilisation de l'application mobile</h3>
-          <CsvButton filename="mobile-app" :headers="['Date', 'Utilisateurs']" :rows="mobileAppDaily.map(d => [d.date, d.count])" />
+          <h3>{{ t("overview.charts.mobileAppUsage") }}</h3>
+          <CsvButton filename="mobile-app" :headers="[t('overview.csv.date'), t('overview.csv.users')]" :rows="mobileAppDaily.map(d => [d.date, d.count])" />
         </div>
         <LineChart
           :labels="mobileAppLabels"
@@ -341,11 +341,11 @@
          jour" et "cumulés — comparé" ont été retirés de la vue d'ensemble. -->
     <div class="chart-card" v-if="!hasCompare && replayCumulativeByDay.length > 0">
       <div class="chart-header">
-        <h3>Délégués cumulés ayant consulté du replay</h3>
-        <CsvButton filename="replay-cumul-delegues" :headers="['Jour', 'Délégués cumulés']" :rows="replayCumulativeByDay.map(d => [d.day, d.count])" />
+        <h3>{{ t("overview.charts.replayCumul") }}</h3>
+        <CsvButton filename="replay-cumul-delegues" :headers="[t('overview.csv.day'), t('overview.csv.delegatesCumul')]" :rows="replayCumulativeByDay.map(d => [d.day, d.count])" />
       </div>
       <LineChart :labels="replayDayLabels" :datasets="replayCumulativeDatasets" :height="260" />
-      <p class="chart-hint">Chaque délégué est compté une seule fois, le jour de sa 1ʳᵉ consultation replay.</p>
+      <p class="chart-hint">{{ t("overview.charts.replayCumulHint") }}</p>
     </div>
 
   </div>
@@ -353,6 +353,7 @@
 
 <script setup>
 import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { Bar } from "vue-chartjs";
 import StackedBarChart from "../charts/StackedBarChart.vue";
 import LineChart from "../charts/LineChart.vue";
@@ -365,6 +366,8 @@ import { delegateBadgeType } from "@/utils/checkinByType.js";
 import { computeParticipation } from "@/utils/participation.js";
 import { computeAllStats } from "@/utils/computeStats.js";
 import { fmt, pct } from "@/utils/formatters.js";
+
+const { t } = useI18n();
 
 const props = defineProps({
   stats: Object,
@@ -447,6 +450,9 @@ function toggleMode(m) {
   selectedModes.value = next.size === 0 ? new Set(ALL_MODES) : next;
 }
 const isModeOn = (m) => selectedModes.value.has(m);
+// Libelle affiche des pills de mode (les cles internes restent PHYSIQUE/LIVE/REPLAY).
+const modeLabel = (m) =>
+  ({ PHYSIQUE: t("overview.modes.physique"), LIVE: t("overview.modes.live"), REPLAY: t("overview.modes.replay") })[m] || m;
 const CATEGORY_MODES = {
   checkedInOnly: ["PHYSIQUE"],
   checkedInLive: ["PHYSIQUE", "LIVE"],
@@ -517,7 +523,7 @@ const totalParticipantsB = computed(() => fcB.value.total);
 function buildDeltaPct(a, b) {
   if (!hasCompare) return null;
   if (b === 0 && a === 0) return { arrow: "=", text: "0%", cls: "delta--neutral" };
-  if (b === 0) return { arrow: "▲", text: "Nouveau", cls: "delta--good" };
+  if (b === 0) return { arrow: "▲", text: t("overview.misc.new"), cls: "delta--good" };
   if (a === 0) return { arrow: "▼", text: "-100%", cls: "delta--bad" };
   const diff = ((a - b) / b) * 100;
   if (Math.abs(diff) < 0.5) return { arrow: "=", text: "0%", cls: "delta--neutral" };
@@ -543,8 +549,8 @@ function makeTooltip(a, b) {
   if (!hasCompare) return "";
   const diff = (a ?? 0) - (b ?? 0);
   const diffStr = diff > 0 ? `+${fmt(diff)}` : fmt(diff);
-  const name = props.compareEventName || "event comparé";
-  return `${diffStr} délégué(s) vs ${name} : ${fmt(b ?? 0)}`;
+  const name = props.compareEventName || t("overview.misc.eventComparedFallback");
+  return t("overview.misc.tooltipDelegates", { diff: diffStr, name, value: fmt(b ?? 0) });
 }
 const tooltipCheckin = computed(() => makeTooltip(physicallyCheckedInCount.value, checkedInBCount.value));
 const tooltipCheckinOnly = computed(() => makeTooltip(checkedInOnlyCount.value, checkedInOnlyBCount.value));
@@ -604,30 +610,30 @@ function buildZones(c) {
   return [
     {
       key: "physique",
-      label: "Présence physique",
+      label: t("overview.participation.physical"),
       total: c.checkedInOnly + c.checkedInLive + c.checkedInReplay + c.checkedInLiveReplay,
       segments: [
-        { cls: "seg-checkin-only", label: "Sur place seul", count: c.checkedInOnly },
-        { cls: "seg-checkin-live", label: "Sur place + live", count: c.checkedInLive },
-        { cls: "seg-checkin-livereplay", label: "Sur place + live & replay", count: c.checkedInLiveReplay },
-        { cls: "seg-checkin-replay", label: "Sur place + replay", count: c.checkedInReplay },
+        { cls: "seg-checkin-only", label: t("overview.participation.onsiteOnly"), count: c.checkedInOnly },
+        { cls: "seg-checkin-live", label: t("overview.participation.onsitePlusLive"), count: c.checkedInLive },
+        { cls: "seg-checkin-livereplay", label: t("overview.participation.onsitePlusLiveReplay"), count: c.checkedInLiveReplay },
+        { cls: "seg-checkin-replay", label: t("overview.participation.onsitePlusReplay"), count: c.checkedInReplay },
       ],
     },
     {
       key: "live",
-      label: "Live distanciel",
+      label: t("overview.participation.liveRemote"),
       total: c.liveOnly + c.both,
       segments: [
-        { cls: "seg-live-only", label: "Live seul", count: c.liveOnly },
-        { cls: "seg-both", label: "Live + Replay", count: c.both },
+        { cls: "seg-live-only", label: t("overview.participation.liveOnly"), count: c.liveOnly },
+        { cls: "seg-both", label: t("overview.participation.liveAndReplay"), count: c.both },
       ],
     },
     {
       key: "replay",
-      label: "Replay distanciel",
+      label: t("overview.participation.replayRemote"),
       total: c.replayOnly,
       segments: [
-        { cls: "seg-replay-only", label: "Replay seul", count: c.replayOnly },
+        { cls: "seg-replay-only", label: t("overview.participation.replayOnly"), count: c.replayOnly },
       ],
     },
   ];
@@ -675,8 +681,8 @@ const tipReplayKpi = computed(() => makeTooltip(replayUniqueUsers.value, replayU
 // Libelles d'axe pour les charts comparatifs Vue d'ensemble : 1 ou 2 events.
 const eventAxisLabels = computed(() =>
   hasCompare
-    ? [props.eventName || "Event A", props.compareEventName || "Event B"]
-    : [props.eventName || "Event"],
+    ? [props.eventName || t("overview.misc.axisEventA"), props.compareEventName || t("overview.misc.axisEventB")]
+    : [props.eventName || t("overview.misc.axisEvent")],
 );
 
 // --- Chart 1 : Participants (physique+live+replay dedoublonne) vs Inscrits
@@ -685,14 +691,14 @@ const participantsVsRegisteredData = computed(() => ({
   labels: eventAxisLabels.value,
   datasets: [
     {
-      label: "Inscrits",
+      label: t("overview.datasets.registrations"),
       data: hasCompare ? [registeredCount.value, registeredCountB.value] : [registeredCount.value],
       backgroundColor: "#1E4E66",
       borderRadius: 4,
       maxBarThickness: 90,
     },
     {
-      label: "Participants",
+      label: t("overview.datasets.participants"),
       data: hasCompare ? [totalParticipants.value, totalParticipantsB.value] : [totalParticipants.value],
       backgroundColor: "#30DD92",
       borderRadius: 4,
@@ -774,9 +780,9 @@ const audienceMixChart = computed(() => {
     return {
       labels: eventAxisLabels.value,
       datasets: [
-        { label: "Salle", data: [scanAudienceViewsA.value], backgroundColor: "#1E4E66", borderRadius: 4 },
-        { label: "Live", data: [liveViewsA], backgroundColor: "#30DD92", borderRadius: 4 },
-        { label: "Replay", data: [replayViewsA], backgroundColor: "#6F45FF", borderRadius: 4 },
+        { label: t("overview.datasets.room"), data: [scanAudienceViewsA.value], backgroundColor: "#1E4E66", borderRadius: 4 },
+        { label: t("overview.datasets.live"), data: [liveViewsA], backgroundColor: "#30DD92", borderRadius: 4 },
+        { label: t("overview.datasets.replay"), data: [replayViewsA], backgroundColor: "#6F45FF", borderRadius: 4 },
       ],
     };
   }
@@ -785,9 +791,9 @@ const audienceMixChart = computed(() => {
   return {
     labels: eventAxisLabels.value,
     datasets: [
-      { label: "Salle", data: [scanAudienceViewsA.value, scanAudienceViewsB.value], backgroundColor: "#1E4E66", borderRadius: 4 },
-      { label: "Live", data: [liveViewsA, liveViewsB], backgroundColor: "#30DD92", borderRadius: 4 },
-      { label: "Replay", data: [replayViewsA, replayViewsB], backgroundColor: "#6F45FF", borderRadius: 4 },
+      { label: t("overview.datasets.room"), data: [scanAudienceViewsA.value, scanAudienceViewsB.value], backgroundColor: "#1E4E66", borderRadius: 4 },
+      { label: t("overview.datasets.live"), data: [liveViewsA, liveViewsB], backgroundColor: "#30DD92", borderRadius: 4 },
+      { label: t("overview.datasets.replay"), data: [replayViewsA, replayViewsB], backgroundColor: "#6F45FF", borderRadius: 4 },
     ],
   };
 });
@@ -884,19 +890,19 @@ const registeredCategoriesBreakdown = computed(() =>
 function participationDatasets(breakdown) {
   return [
     {
-      label: "Physique",
+      label: t("overview.datasets.physical"),
       data: breakdown.map((b) => b.physical),
       backgroundColor: "#30DD92",
       borderRadius: 4,
     },
     {
-      label: "Live/Replay uniquement",
+      label: t("overview.datasets.liveReplayOnly"),
       data: breakdown.map((b) => b.remote),
       backgroundColor: "#6F45FF",
       borderRadius: 4,
     },
     {
-      label: "Aucune participation",
+      label: t("overview.datasets.noParticipation"),
       data: breakdown.map((b) => b.none),
       backgroundColor: "#D1D5DB",
       borderRadius: 4,
@@ -929,7 +935,7 @@ const mobileAppDatasets = computed(() => {
   const cumulData = daily.map((v) => { cumul += v; return cumul; });
   return [
     {
-      label: "Utilisateurs cumulés",
+      label: t("overview.datasets.usersCumul"),
       data: cumulData,
       borderColor: "#6F45FF",
       backgroundColor: "rgba(111,69,255,0.08)",
@@ -939,7 +945,7 @@ const mobileAppDatasets = computed(() => {
       borderWidth: 2.5,
     },
     {
-      label: "Utilisateurs/jour",
+      label: t("overview.datasets.usersPerDay"),
       data: daily,
       borderColor: "#30DD92",
       backgroundColor: "rgba(48,221,146,0.4)",
@@ -965,7 +971,7 @@ const onboardingDatasets = computed(() => {
   const cumulData = daily.map((v) => { cumul += v; return cumul; });
   return [
     {
-      label: "Connexions cumulées",
+      label: t("overview.datasets.connectionsCumul"),
       data: cumulData,
       borderColor: "#FFA600",
       backgroundColor: "rgba(255,166,0,0.08)",
@@ -975,7 +981,7 @@ const onboardingDatasets = computed(() => {
       borderWidth: 2.5,
     },
     {
-      label: "Connexions/jour",
+      label: t("overview.datasets.connectionsPerDay"),
       data: daily,
       borderColor: "#30DD92",
       backgroundColor: "rgba(48,221,146,0.4)",
@@ -999,7 +1005,7 @@ const replayDayLabels = computed(() => {
   return dates.map(labelFor);
 });
 const replayCumulativeDatasets = computed(() => [{
-  label: "Délégués cumulés (replay)",
+  label: t("overview.datasets.delegatesCumulReplay"),
   data: replayCumulativeByDay.value.map((d) => d.count),
   borderColor: "#6F45FF",
   backgroundColor: "rgba(111,69,255,0.10)",

@@ -11,7 +11,7 @@
           v-model="searchQuery"
           type="text"
           class="search-input"
-          placeholder="Rechercher..."
+          :placeholder="t('data.searchPlaceholder')"
         />
         <button v-if="searchQuery" class="search-clear" @click="searchQuery = ''">&#215;</button>
       </div>
@@ -29,16 +29,16 @@
     <!-- Filtres -->
     <div class="filter-bar" v-if="allRegTypes.length > 0 || allAddonContents.length > 0">
       <div class="filter-group" v-if="allRegTypes.length > 0">
-        <label class="filter-label">Type d'inscription</label>
+        <label class="filter-label">{{ t("data.filterRegType") }}</label>
         <select v-model="filterRegType" class="filter-select">
-          <option value="">Tous</option>
-          <option v-for="t in allRegTypes" :key="t" :value="t">{{ t }}</option>
+          <option value="">{{ t("data.all") }}</option>
+          <option v-for="rt in allRegTypes" :key="rt" :value="rt">{{ rt }}</option>
         </select>
       </div>
       <div class="filter-group" v-if="allAddonContents.length > 0">
-        <label class="filter-label">Option / Addon</label>
+        <label class="filter-label">{{ t("data.filterAddon") }}</label>
         <select v-model="filterAddonContent" class="filter-select">
-          <option value="">Tous</option>
+          <option value="">{{ t("data.all") }}</option>
           <option v-for="c in allAddonContents" :key="c" :value="c">{{ c }}</option>
         </select>
       </div>
@@ -46,7 +46,7 @@
         v-if="filterRegType || filterAddonContent"
         class="filter-clear-btn"
         @click="filterRegType = ''; filterAddonContent = '';"
-      >Effacer les filtres</button>
+      >{{ t("data.clearFilters") }}</button>
     </div>
 
     <!-- Table -->
@@ -96,7 +96,7 @@
             </td>
           </tr>
           <tr v-if="filteredDelegates.length === 0">
-            <td :colspan="columns.length" class="cell-empty">Aucun resultat</td>
+            <td :colspan="columns.length" class="cell-empty">{{ t("data.noResult") }}</td>
           </tr>
         </tbody>
       </table>
@@ -105,7 +105,7 @@
     <!-- Pagination -->
     <div class="pager" v-if="totalPages > 0">
       <div class="pager-left">
-        <span class="pager-label">Lignes</span>
+        <span class="pager-label">{{ t("data.rows") }}</span>
         <select v-model.number="pageSize" class="pager-select">
           <option :value="50">50</option>
           <option :value="100">100</option>
@@ -123,7 +123,7 @@
       <div class="pager-right">
         <span class="pager-range">
           {{ (currentPage - 1) * pageSize + 1 }}–{{ Math.min(currentPage * pageSize, filteredDelegates.length) }}
-          sur {{ filteredDelegates.length }}
+          {{ t("data.of", { n: filteredDelegates.length }) }}
         </span>
       </div>
     </div>
@@ -132,8 +132,11 @@
 
 <script setup>
 import { ref, computed, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { COUNTRY_NAMES } from "../../utils/countries.js";
 import { downloadCsv } from "../../utils/exportCsv.js";
+
+const { t, locale } = useI18n();
 
 const props = defineProps({
   stats: Object,
@@ -154,21 +157,21 @@ const pageSize = ref(100);
 const filterRegType = ref("");
 const filterAddonContent = ref("");
 
-const columns = [
-  { key: "familyName", label: "Nom" },
-  { key: "givenName", label: "Prenom" },
-  { key: "country", label: "Pays" },
-  { key: "email", label: "Email" },
-  { key: "status", label: "Statut" },
-  { key: "createdAt", label: "Date creation" },
-  { key: "rpps", label: "RPPS" },
-  { key: "membershipType", label: "Adhesion" },
-  { key: "externalContactId", label: "Contact ext." },
-  { key: "externalId", label: "Participant ext." },
-  { key: "regTypes", label: "Types inscr." },
-  { key: "badgesCount", label: "Badges" },
-  { key: "badgePdf", label: "Badge PDF" },
-];
+const columns = computed(() => [
+  { key: "familyName", label: t("data.columns.familyName") },
+  { key: "givenName", label: t("data.columns.givenName") },
+  { key: "country", label: t("data.columns.country") },
+  { key: "email", label: t("data.columns.email") },
+  { key: "status", label: t("data.columns.status") },
+  { key: "createdAt", label: t("data.columns.createdAt") },
+  { key: "rpps", label: t("data.columns.rpps") },
+  { key: "membershipType", label: t("data.columns.membershipType") },
+  { key: "externalContactId", label: t("data.columns.externalContactId") },
+  { key: "externalId", label: t("data.columns.externalId") },
+  { key: "regTypes", label: t("data.columns.regTypes") },
+  { key: "badgesCount", label: t("data.columns.badgesCount") },
+  { key: "badgePdf", label: t("data.columns.badgePdf") },
+]);
 
 function getCountryCode(d) {
   return d.primaryAddress?.country?.code || d.primaryAddress?.countryCode || "";
@@ -182,7 +185,8 @@ function getCountryName(d) {
 function formatDate(iso) {
   if (!iso) return "—";
   const d = new Date(iso);
-  return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const dl = locale.value === "en" ? "en-GB" : "fr-FR";
+  return d.toLocaleDateString(dl, { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 function statusClass(status) {

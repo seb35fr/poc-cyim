@@ -11,29 +11,29 @@
 
     <div class="kpi-grid" v-if="fs.temporal.insights">
       <div class="kpi-card blue">
-        <div class="kpi-label">Jour pic d'inscriptions</div>
+        <div class="kpi-label">{{ t("temporal.kpi.peakDay") }}</div>
         <div class="kpi-value">{{ fs.temporal.insights.peakDay?.date || '—' }}</div>
-        <div class="kpi-sub">{{ fmt(fs.temporal.insights.peakDay?.count || 0) }} inscriptions</div>
+        <div class="kpi-sub">{{ t("temporal.kpi.peakDaySub", { n: fmt(fs.temporal.insights.peakDay?.count || 0) }) }}</div>
       </div>
       <div class="kpi-card green">
-        <div class="kpi-label">Moyenne / jour</div>
+        <div class="kpi-label">{{ t("temporal.kpi.avgPerDay") }}</div>
         <div class="kpi-value">{{ fs.temporal.insights.avgPerDay?.toFixed(1) || '0' }}</div>
       </div>
       <div class="kpi-card orange">
-        <div class="kpi-label">Dernière semaine</div>
+        <div class="kpi-label">{{ t("temporal.kpi.lastWeek") }}</div>
         <div class="kpi-value">{{ fmt(lastWeekCount) }}</div>
       </div>
       <div class="kpi-card purple">
-        <div class="kpi-label">Taux d'annulation</div>
+        <div class="kpi-label">{{ t("temporal.kpi.cancellationRate") }}</div>
         <div class="kpi-value">{{ cancellationRate }}</div>
       </div>
     </div>
 
     <div class="chart-card" v-if="fs.temporal.dailyRegistrations.length > 0">
       <div class="chart-header">
-        <h3>Courbe d'inscriptions cumulées</h3>
+        <h3>{{ t("temporal.charts.cumulCurve") }}</h3>
         <div style="display: flex; align-items: center; gap: 8px;">
-        <CsvButton filename="inscriptions-cumulees" :headers="['Date', 'Inscriptions']" :rows="periodData.map(d => [d.date, d.count])" />
+        <CsvButton filename="inscriptions-cumulees" :headers="[t('temporal.csv.date'), t('temporal.csv.registrations')]" :rows="periodData.map(d => [d.date, d.count])" />
         <div class="period-selector">
           <button v-for="p in periods" :key="p.value"
             :class="['period-btn', { active: selectedPeriod === p.value }]"
@@ -49,8 +49,8 @@
     <div class="charts-row">
       <div class="chart-card">
         <div class="chart-header">
-          <h3>Inscriptions par jour (30 derniers jours)</h3>
-          <CsvButton filename="inscriptions-30j" :headers="['Date', 'Inscriptions']" :rows="last30.map(d => [d.date, d.count])" />
+          <h3>{{ t("temporal.charts.last30") }}</h3>
+          <CsvButton filename="inscriptions-30j" :headers="[t('temporal.csv.date'), t('temporal.csv.registrations')]" :rows="last30.map(d => [d.date, d.count])" />
         </div>
         <LineChart
           :labels="last30Labels"
@@ -60,8 +60,8 @@
       </div>
       <div class="chart-card">
         <div class="chart-header">
-          <h3>Distribution par jour de la semaine</h3>
-          <CsvButton filename="jours-semaine" :headers="['Jour', 'Inscriptions']" :rows="dayOfWeekLabels.map((d, i) => [d, dayOfWeekData[i]])" />
+          <h3>{{ t("temporal.charts.byWeekday") }}</h3>
+          <CsvButton filename="jours-semaine" :headers="[t('temporal.csv.day'), t('temporal.csv.registrations')]" :rows="dayOfWeekLabels.map((d, i) => [d, dayOfWeekData[i]])" />
         </div>
         <HBarChart
           :labels="dayOfWeekLabels"
@@ -77,8 +77,8 @@
     <div class="charts-row">
       <div class="chart-card">
         <div class="chart-header">
-          <h3>Inscriptions par semaine et par type (8 dernières)</h3>
-          <CsvButton filename="hebdo-par-type" :headers="['Semaine', ...weeklyByTypeDatasets.map(d => d.label)]" :rows="weeklyByTypeLabels.map((w, i) => [w, ...weeklyByTypeDatasets.map(d => d.data[i])])" />
+          <h3>{{ t("temporal.charts.weeklyByType") }}</h3>
+          <CsvButton filename="hebdo-par-type" :headers="[t('temporal.csv.week'), ...weeklyByTypeDatasets.map(d => d.label)]" :rows="weeklyByTypeLabels.map((w, i) => [w, ...weeklyByTypeDatasets.map(d => d.data[i])])" />
         </div>
         <StackedBarChart
           v-if="weeklyByTypeLabels.length > 0"
@@ -86,12 +86,12 @@
           :datasets="weeklyByTypeDatasets"
           :height="240"
         />
-        <p v-else class="empty-msg">Pas assez de données</p>
+        <p v-else class="empty-msg">{{ t("temporal.notEnoughData") }}</p>
       </div>
       <div class="chart-card">
         <div class="chart-header">
-          <h3>Évolution des statuts par semaine</h3>
-          <CsvButton filename="hebdo-statuts" :headers="['Semaine', ...weeklyStatusDatasets.map(d => d.label)]" :rows="weeklyStatusLabels.map((w, i) => [w, ...weeklyStatusDatasets.map(d => d.data[i])])" />
+          <h3>{{ t("temporal.charts.weeklyStatus") }}</h3>
+          <CsvButton filename="hebdo-statuts" :headers="[t('temporal.csv.week'), ...weeklyStatusDatasets.map(d => d.label)]" :rows="weeklyStatusLabels.map((w, i) => [w, ...weeklyStatusDatasets.map(d => d.data[i])])" />
         </div>
         <StackedBarChart
           v-if="weeklyStatusLabels.length > 0"
@@ -99,7 +99,7 @@
           :datasets="weeklyStatusDatasets"
           :height="240"
         />
-        <p v-else class="empty-msg">Pas assez de données</p>
+        <p v-else class="empty-msg">{{ t("temporal.notEnoughData") }}</p>
       </div>
     </div>
   </div>
@@ -107,6 +107,7 @@
 
 <script setup>
 import { ref, computed } from "vue";
+import { useI18n } from "vue-i18n";
 import LineChart from "../charts/LineChart.vue";
 import HBarChart from "../charts/HBarChart.vue";
 import StackedBarChart from "../charts/StackedBarChart.vue";
@@ -114,7 +115,10 @@ import FilterBanner from "../FilterBanner.vue";
 import CsvButton from "../CsvButton.vue";
 import { useFilteredStats } from "../../composables/useFilteredStats.js";
 import { makeDateLabeler } from "../../utils/formatDateLabel.js";
+import { weekdayNames } from "@/i18n/labels.js";
 import { fmt } from "@/utils/formatters.js";
+
+const { t } = useI18n();
 
 const props = defineProps({ stats: Object, delegates: Array, dateRange: { type: Object, default: null } });
 
@@ -124,18 +128,20 @@ const {
 } = useFilteredStats(() => props.delegates);
 
 const selectedPeriod = ref("all");
-const periods = [
-  { value: "30", label: "30j" },
-  { value: "90", label: "90j" },
-  { value: "all", label: "Tout" },
-];
+const periods = computed(() => [
+  { value: "30", label: t("temporal.periods.d30") },
+  { value: "90", label: t("temporal.periods.d90") },
+  { value: "all", label: t("temporal.periods.all") },
+]);
 
 // --- Filtres ---
-const DAY_NAMES = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
-const ISO_TO_JS = { 0: 1, 1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 6: 0 }; // index in DAY_NAMES → JS getDay()
+// Jours localises (index 0 = Lundi ... 6 = Dimanche), via le meme util que
+// l'affichage : le clic renvoie le libelle localise, indexOf retrouve l'index.
+const dayNames = computed(() => weekdayNames());
+const ISO_TO_JS = { 0: 1, 1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 6: 0 }; // index in dayNames → JS getDay()
 
 function onDayOfWeekSelect(label) {
-  const dayIndex = DAY_NAMES.indexOf(label);
+  const dayIndex = dayNames.value.indexOf(label);
   const jsDay = ISO_TO_JS[dayIndex];
   toggleFilter("dayOfWeek", label, (d) => {
     if (!d.createdAt) return false;
@@ -165,7 +171,7 @@ const cumulDatasets = computed(() => {
   const cumulData = d.map((v) => { cumul += v.count; return cumul; });
   return [
     {
-      label: "Inscriptions cumulées",
+      label: t("temporal.datasets.cumulRegistrations"),
       data: cumulData,
       borderColor: "#1E4E66",
       backgroundColor: "rgba(30,78,102,0.08)",
@@ -175,7 +181,7 @@ const cumulDatasets = computed(() => {
       borderWidth: 2.5,
     },
     {
-      label: "Inscriptions/jour",
+      label: t("temporal.datasets.registrationsPerDay"),
       data: d.map((v) => v.count),
       borderColor: "#30DD92",
       backgroundColor: "rgba(48,221,146,0.4)",
@@ -195,7 +201,7 @@ const last30Labels = computed(() => {
 });
 const dailyBarDataset = computed(() => [
   {
-    label: "Inscriptions",
+    label: t("temporal.datasets.registrations"),
     data: last30.value.map((d) => d.count),
     borderColor: "#1E4E66",
     backgroundColor: "rgba(30,78,102,0.6)",
@@ -213,13 +219,10 @@ const cancellationRate = computed(() => {
   return total > 0 && cancelled ? ((cancelled.totalCount / total) * 100).toFixed(1) + "%" : "0%";
 });
 
-const dayOfWeekLabels = computed(() => {
-  const dist = fs.value?.temporal?.dayOfWeekDistribution || {};
-  return DAY_NAMES.filter((_, i) => (dist[i + 1] || 0) > 0 || true);
-});
+const dayOfWeekLabels = computed(() => dayNames.value);
 const dayOfWeekData = computed(() => {
   const dist = fs.value?.temporal?.dayOfWeekDistribution || {};
-  return DAY_NAMES.map((_, i) => dist[i + 1] || 0);
+  return dayNames.value.map((_, i) => dist[i + 1] || 0);
 });
 
 const TYPE_COLORS = ["#1E4E66", "#30DD92", "#FFA600", "#E53935", "#6F45FF", "#3b82f6", "#f59e0b", "#6366f1"];

@@ -7,9 +7,10 @@
         <span v-else class="topbar-logo-initials">{{ eventInitials }}</span>
       </div>
       <div class="topbar-titles">
-        <span class="topbar-name">{{ eventName || "Stats" }}</span>
-        <span class="topbar-meta">{{ stats.global.registeredCount }} inscrits<template v-if="compareEventName"> · comparé à {{ compareEventName }}</template></span>
+        <span class="topbar-name">{{ eventName || t("topbar.fallbackName") }}</span>
+        <span class="topbar-meta">{{ stats.global.registeredCount }} {{ t("topbar.registered") }}<template v-if="compareEventName"> · {{ t("common.comparedTo") }} {{ compareEventName }}</template></span>
       </div>
+      <LanguageToggle class="topbar-lang" />
     </header>
 
     <div class="layout-body">
@@ -49,24 +50,24 @@
 
       <div class="sidebar-footer">
         <div class="sidebar-actions">
-          <button class="btn-side btn-side-accent" @click="handleExportMarkdown" :disabled="exportingMd" title="Export Markdown — destiné à un LLM (Claude, ChatGPT)">
+          <button class="btn-side btn-side-accent" @click="handleExportMarkdown" :disabled="exportingMd" :title="t('exportBtn.tooltip')">
             <svg v-if="!exportingMd" width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 1v9M8 10L5 7M8 10l3-3M2 12v2h12v-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             <span v-if="exportingMd" class="spinner-small"></span>
-            {{ exportingMd ? "Export..." : "Export Markdown" }}
+            {{ exportingMd ? t("exportBtn.loading") : t("exportBtn.label") }}
           </button>
         </div>
         <div class="sidebar-refresh">
           <button class="btn-side btn-side-ghost" @click="confirmReload" :disabled="loading || refreshing">
-            {{ refreshing ? "⏳ Refresh..." : "↻ Rafraichir" }}
+            {{ refreshing ? t("refresh.refreshing") : t("refresh.refresh") }}
           </button>
-          <label class="auto-refresh-toggle" :title="autoRefreshEnabled ? 'Désactiver l’auto-refresh' : 'Activer l’auto-refresh toutes les 10 min'">
+          <label class="auto-refresh-toggle" :title="autoRefreshEnabled ? t('refresh.autoOff') : t('refresh.autoOn')">
             <input
               type="checkbox"
               :checked="autoRefreshEnabled"
               @change="toggleAutoRefresh"
             />
             <span class="toggle-track"><span class="toggle-thumb"></span></span>
-            <span class="toggle-label">Auto-refresh</span>
+            <span class="toggle-label">{{ t("refresh.autoLabel") }}</span>
           </label>
           <span v-if="!refreshing" class="refresh-timer">{{ nextRefreshLabel }}</span>
         </div>
@@ -77,18 +78,18 @@
     <main class="main-content">
       <div v-if="loading" class="loading-state">
         <div class="spinner"></div>
-        <p class="loading-label">Chargement des données...</p>
+        <p class="loading-label">{{ t("states.loading") }}</p>
         <div v-if="progress.total > 0" class="progress-wrapper">
           <div class="progress-bar">
             <div class="progress-fill" :style="{ width: progressPercent + '%' }"></div>
           </div>
-          <p class="progress-text">{{ progress.loaded }} / {{ progress.total }} inscrits (page {{ progress.page }})</p>
+          <p class="progress-text">{{ t("states.progress", { loaded: progress.loaded, total: progress.total, page: progress.page }) }}</p>
         </div>
       </div>
 
       <div v-else-if="error" class="error-state">
-        <p>Erreur : {{ error }}</p>
-        <button class="btn-side" @click="reload">Réessayer</button>
+        <p>{{ t("states.error", { message: error }) }}</p>
+        <button class="btn-side" @click="reload">{{ t("states.retry") }}</button>
       </div>
 
       <template v-else-if="stats">
@@ -97,24 +98,23 @@
             <div class="refresh-bar-fill" :style="{ width: progressPercent + '%' }"></div>
           </div>
           <p class="refresh-bar-text">
-            Rafraîchissement... {{ progress.loaded }} / {{ progress.total }}
-            ({{ progressPercent }}%)
+            {{ t("states.refreshingProgress", { loaded: progress.loaded, total: progress.total, percent: progressPercent }) }}
           </p>
         </div>
 
         <!-- Filtres GLOBAUX : persistent sur tous les onglets. -->
         <div class="global-filters">
           <div class="gf-dates">
-            <span class="gf-title" title="N'affecte que les statistiques de consultation : Live, Replay, Scans QR (salle / zone)">Plage de dates · consultation</span>
+            <span class="gf-title" :title="t('filters.dateTooltip')">{{ t("filters.dateTitle") }}</span>
             <label class="gf-field">
-              <span>Du</span>
+              <span>{{ t("filters.from") }}</span>
               <input type="date" v-model="startYMD" :max="endYMD" />
             </label>
             <label class="gf-field">
-              <span>au</span>
+              <span>{{ t("filters.to") }}</span>
               <input type="date" v-model="endYMD" :min="startYMD" />
             </label>
-            <button v-if="!isDateDefault" class="gf-reset" @click="resetDateRange" title="Réinitialiser la plage (tout l'historique → aujourd'hui)">↺</button>
+            <button v-if="!isDateDefault" class="gf-reset" @click="resetDateRange" :title="t('filters.resetTooltip')">↺</button>
           </div>
           <BadgeTypeFilter
             v-if="allBadgeTypes.length > 0"
@@ -210,6 +210,7 @@
 <script setup>
 import { ref, computed, onUnmounted, watch } from "vue";
 import { useRoute } from "vue-router";
+import { useI18n } from "vue-i18n";
 import { useStatistics } from "@/composables/useStatistics.js";
 import { useLive } from "@/composables/useLive.js";
 import { useReplay } from "@/composables/useReplay.js";
@@ -231,7 +232,9 @@ import ViewersTab from "../components/tabs/ViewersTab.vue";
 import ViewersComparisonTab from "../components/tabs/ViewersComparisonTab.vue";
 import ExportsTab from "../components/tabs/ExportsTab.vue";
 import BadgeTypeFilter from "../components/BadgeTypeFilter.vue";
+import LanguageToggle from "../components/LanguageToggle.vue";
 
+const { t, locale } = useI18n();
 const route = useRoute();
 const eventId = route.params.eventId;
 const compareEventId = route.query.compareWith || null;
@@ -339,12 +342,12 @@ const pageCompareStats = computed(() =>
 // GraphQL (config.branding). Fallback sur l'eventId tant que le nom n'est pas
 // charge, puis sur un libelle generique.
 watch(
-  [eventName, compareEventName],
+  [eventName, compareEventName, () => locale.value],
   ([name, compareName]) => {
-    const base = name || eventId || "Statistiques";
+    const base = name || eventId || t("topbar.fallbackName");
     document.title = compareName
-      ? `${base} vs ${compareName} — Stats CYIM`
-      : `${base} — Stats CYIM`;
+      ? t("doc.titleCompare", { name: base, compare: compareName })
+      : t("doc.titleSingle", { name: base });
   },
   { immediate: true },
 );
@@ -367,12 +370,12 @@ function toggleAutoRefresh() {
 }
 
 const nextRefreshLabel = computed(() => {
-  if (!autoRefreshEnabled.value) return "Auto-refresh en pause";
+  if (!autoRefreshEnabled.value) return t("refresh.autoPaused");
   const at = nextRefreshAt.value;
   if (!at) return "—";
   const remaining = Math.max(0, at - now.value);
   const totalSec = Math.round(remaining / COUNTDOWN_TICK_MS) * 10;
-  if (totalSec <= 0) return "Refresh imminent...";
+  if (totalSec <= 0) return t("refresh.imminent");
   const min = Math.floor(totalSec / 60);
   const sec = totalSec % 60;
   if (min > 0) return `${min}:${String(sec).padStart(2, "0")}`;
@@ -381,7 +384,7 @@ const nextRefreshLabel = computed(() => {
 const { exportingMd, exportToMarkdown } = useExportMarkdown();
 
 function confirmReload() {
-  if (confirm("Ne me surcharge pas inutilement mes efforts...\nTu es certain de vouloir les toutes dernieres données ?")) {
+  if (confirm(t("refresh.confirm"))) {
     reload();
   }
 }
@@ -433,43 +436,43 @@ const ICONS = {
 // navigable.
 const tabs = computed(() => {
   const registrationChildren = [
-    { id: "registrations", label: "Inscriptions", icon: ICONS.registrations },
-    { id: "temporal", label: "Dynamique", icon: ICONS.temporal },
-    { id: "badges", label: "Badges & Check-in", icon: ICONS.badges },
-    { id: "data", label: "Données", icon: ICONS.data },
+    { id: "registrations", label: t("nav.registrations"), icon: ICONS.registrations },
+    { id: "temporal", label: t("nav.temporal"), icon: ICONS.temporal },
+    { id: "badges", label: t("nav.badges"), icon: ICONS.badges },
+    { id: "data", label: t("nav.data"), icon: ICONS.data },
   ];
   if (compareEventId && compareStats.value) {
-    registrationChildren.push({ id: "comparison", label: "Comparatif", icon: ICONS.comparison });
+    registrationChildren.push({ id: "comparison", label: t("nav.comparison"), icon: ICONS.comparison });
   }
   // Live / Replay : leaf simple par defaut, groupe avec sous-onglet Comparatif
   // quand un compareWith est actif et que ses stats sont chargees.
   const hasCompare = compareEventId && compareStats.value;
   const liveNode = hasCompare
     ? {
-        id: "live", label: "Live", icon: ICONS.live,
+        id: "live", label: t("nav.live"), icon: ICONS.live,
         children: [
-          { id: "live", label: "Single", icon: ICONS.live },
-          { id: "liveCompare", label: "Comparatif", icon: ICONS.comparison },
+          { id: "live", label: t("nav.single"), icon: ICONS.live },
+          { id: "liveCompare", label: t("nav.comparison"), icon: ICONS.comparison },
         ],
       }
-    : { id: "live", label: "Live", icon: ICONS.live };
+    : { id: "live", label: t("nav.live"), icon: ICONS.live };
   const replayNode = hasCompare
     ? {
-        id: "replay", label: "Replay", icon: ICONS.replay,
+        id: "replay", label: t("nav.replay"), icon: ICONS.replay,
         children: [
-          { id: "replay", label: "Single", icon: ICONS.replay },
-          { id: "replayCompare", label: "Comparatif", icon: ICONS.comparison },
+          { id: "replay", label: t("nav.single"), icon: ICONS.replay },
+          { id: "replayCompare", label: t("nav.comparison"), icon: ICONS.comparison },
         ],
       }
-    : { id: "replay", label: "Replay", icon: ICONS.replay };
+    : { id: "replay", label: t("nav.replay"), icon: ICONS.replay };
   return [
-    { id: "overview", label: "Vue d'ensemble", icon: ICONS.overview },
-    { id: "demographics", label: "Démographie", icon: ICONS.demographics },
-    { id: "registration", label: "Registration", icon: ICONS.registration, children: registrationChildren },
+    { id: "overview", label: t("nav.overview"), icon: ICONS.overview },
+    { id: "demographics", label: t("nav.demographics"), icon: ICONS.demographics },
+    { id: "registration", label: t("nav.registration"), icon: ICONS.registration, children: registrationChildren },
     liveNode,
     replayNode,
-    { id: "scans", label: "Scans QR", icon: ICONS.scans },
-    { id: "exports", label: "Exports", icon: ICONS.exports },
+    { id: "scans", label: t("nav.scans"), icon: ICONS.scans },
+    { id: "exports", label: t("nav.exports"), icon: ICONS.exports },
   ];
 });
 
@@ -528,6 +531,7 @@ function toggleGroup(groupId) {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .topbar-meta { font-size: 12px; font-weight: 500; color: rgba(255,255,255,.7); }
+.topbar-lang { margin-left: auto; flex-shrink: 0; }
 
 /* ── Sidebar ── */
 .sidebar {

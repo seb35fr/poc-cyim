@@ -3,19 +3,18 @@
     <!-- Etat : chargement / erreur / refresh -->
     <div v-if="loading" class="scans-state">
       <div class="spinner"></div>
-      <p class="loading-label">Chargement des scans (audience, check-in congrès, zones)...</p>
+      <p class="loading-label">{{ t("scans.loading") }}</p>
       <p class="scans-progress">
-        {{ fmt(progress.audience) }} audience · {{ fmt(progress.checkin) }} check-in · {{ fmt(progress.zone) }} zones
+        {{ t("scans.progress", { audience: fmt(progress.audience), checkin: fmt(progress.checkin), zone: fmt(progress.zone) }) }}
       </p>
     </div>
 
     <div v-else-if="error" class="scans-state error-state">
-      <p><strong>Erreur Elasticsearch :</strong> {{ error }}</p>
+      <p><strong>{{ t("scans.esError") }}</strong> {{ error }}</p>
       <p class="scans-hint">
-        Vérifier que <code>VITE_ES_URL</code> est configure et que le proxy <code>/api/es</code> de Vite
-        atteint le cluster ES. En dev, le cluster doit etre accessible depuis ta machine.
+        {{ t("scans.esHintPre") }} <code>VITE_ES_URL</code> {{ t("scans.esHintMid") }} <code>/api/es</code> {{ t("scans.esHintPost") }}
       </p>
-      <button class="btn-side" @click="reload">Réessayer</button>
+      <button class="btn-side" @click="reload">{{ t("states.retry") }}</button>
     </div>
 
     <template v-else>
@@ -23,30 +22,30 @@
         <div class="refresh-bar">
           <div class="refresh-bar-fill" :style="{ width: '50%' }"></div>
         </div>
-        <p class="refresh-bar-text">Rafraîchissement des scans...</p>
+        <p class="refresh-bar-text">{{ t("scans.refreshing") }}</p>
       </div>
 
       <!-- KPI -->
       <div class="kpi-grid">
         <div class="kpi-card blue">
-          <div class="kpi-label">Vues en salle</div>
+          <div class="kpi-label">{{ t("scans.kpi.roomViews") }}</div>
           <div class="kpi-value">{{ fmt(g.audienceUniqueDelegateSessions) }}</div>
-          <div class="kpi-sub">cumul des présences par session (un délégué compte 1× par session suivie)</div>
+          <div class="kpi-sub">{{ t("scans.kpi.roomViewsSub") }}</div>
         </div>
         <div class="kpi-card green">
-          <div class="kpi-label">Délégués uniques scannes</div>
+          <div class="kpi-label">{{ t("scans.kpi.uniqueScanned") }}</div>
           <div class="kpi-value">{{ fmt(g.uniqueDelegatesAll) }}</div>
           <div class="kpi-sub">
-            dont {{ fmt(g.uniqueAudienceDelegates) }} en salle<template v-if="g.totalCheckinScans > 0"> · {{ fmt(g.uniqueCheckinDelegates) }} a l'entree</template><span v-else class="entree-note" title="Aucun scan de portique d'entree enregistre pour ce congres — flux dormant depuis avril 2025"> · entree non scannee</span>
+            {{ t("scans.kpi.subRoom", { n: fmt(g.uniqueAudienceDelegates) }) }}<template v-if="g.totalCheckinScans > 0">{{ t("scans.kpi.subEntrance", { n: fmt(g.uniqueCheckinDelegates) }) }}</template><span v-else class="entree-note" :title="t('scans.kpi.noEntranceTitle')">{{ t("scans.kpi.subNoEntrance") }}</span>
           </div>
         </div>
         <div class="kpi-card purple">
-          <div class="kpi-label">Sessions scannees</div>
+          <div class="kpi-label">{{ t("scans.kpi.sessionsScanned") }}</div>
           <div class="kpi-value">{{ fmt(g.distinctSessions) }}</div>
-          <div class="kpi-sub">{{ fmt(g.distinctRooms) }} salles distinctes</div>
+          <div class="kpi-sub">{{ t("scans.kpi.sessionsScannedSub", { n: fmt(g.distinctRooms) }) }}</div>
         </div>
         <div class="kpi-card orange">
-          <div class="kpi-label">Zones distinctes</div>
+          <div class="kpi-label">{{ t("scans.kpi.distinctZones") }}</div>
           <div class="kpi-value">{{ fmt(g.distinctZones) }}</div>
         </div>
       </div>
@@ -54,10 +53,10 @@
       <!-- Comparaison d'events : grille KPI A | Δ | B (si ?compareWith=) -->
       <div v-if="hasCompare" class="chart-card scans-compare-card">
         <div class="chart-header">
-          <h3>Comparaison des scans · {{ eventName }} vs {{ compareEventName }}</h3>
+          <h3>{{ t("scans.compareTitle", { a: eventName, b: compareEventName }) }}</h3>
         </div>
-        <div v-if="compareLoading" class="empty-msg">Chargement des scans de l'event comparé…</div>
-        <div v-else-if="!gB" class="empty-msg">Scans de l'event comparé indisponibles.</div>
+        <div v-if="compareLoading" class="empty-msg">{{ t("scans.compareLoading") }}</div>
+        <div v-else-if="!gB" class="empty-msg">{{ t("scans.compareUnavailable") }}</div>
         <KpiCompareGrid
           v-else
           :kpis="compareKpis"
@@ -69,10 +68,10 @@
       <!-- Delegues uniques scannes par jour -->
       <div class="chart-card">
         <div class="chart-header">
-          <h3>Délégués uniques scannes par jour</h3>
+          <h3>{{ t("scans.byDayTitle") }}</h3>
           <CsvButton
             filename="delegues-uniques-par-jour"
-            :headers="['Jour', 'Delegues uniques (total)', 'dont audience salle', 'dont entree congres', 'dont zones', ...uniqueByDay.badgeTypes]"
+            :headers="[t('scans.csv.day'), t('scans.csv.uniqueTotal'), t('scans.csv.ofAudience'), t('scans.csv.ofEntrance'), t('scans.csv.ofZones'), ...uniqueByDay.badgeTypes]"
             :rows="uniqueByDay.rows"
           />
         </div>
@@ -83,16 +82,16 @@
           :height="320"
           show-total
         />
-        <p v-else class="empty-msg">Aucun scan horodate</p>
+        <p v-else class="empty-msg">{{ t("scans.empty.noTimestamped") }}</p>
       </div>
 
       <!-- Top sessions -->
       <div class="chart-card">
         <div class="chart-header">
-          <h3>Top sessions par audience (entree de salle)</h3>
+          <h3>{{ t("scans.topSessionsTitle") }}</h3>
           <CsvButton
             filename="top-sessions"
-            :headers="['Session', 'Scans', 'Délégués uniques']"
+            :headers="[t('scans.csv.session'), t('scans.csv.scans'), t('scans.csv.uniqueDelegates')]"
             :rows="audience.topSessions.map(s => [s.label, s.count, s.uniqueDelegates])"
           />
         </div>
@@ -103,16 +102,16 @@
           :height="Math.max(220, audience.topSessions.length * 22 + 40)"
           color="#1E4E66"
         />
-        <p v-else class="empty-msg">Aucun scan d'audience pour ce congres</p>
+        <p v-else class="empty-msg">{{ t("scans.empty.noAudience") }}</p>
       </div>
 
       <!-- Timeline tri-source -->
       <div class="chart-card">
         <div class="chart-header">
-          <h3>Flux de scans par heure</h3>
+          <h3>{{ t("scans.flowTitle") }}</h3>
           <CsvButton
             filename="flux-scans-par-heure"
-            :headers="['Jour-Heure', 'Audience salle', 'Check-in entree', 'Zones']"
+            :headers="[t('scans.csv.dayHour'), t('scans.csv.audienceRoom'), t('scans.csv.checkinEntrance'), t('scans.csv.zones')]"
             :rows="timeline.rows"
           />
         </div>
@@ -122,13 +121,13 @@
           :datasets="timeline.datasets"
           :height="260"
         />
-        <p v-else class="empty-msg">Aucun scan horodate</p>
+        <p v-else class="empty-msg">{{ t("scans.empty.noTimestamped") }}</p>
       </div>
 
       <!-- Tableau detaille -->
       <div class="chart-card">
         <div class="chart-header">
-          <h3>Detail des scans ({{ fmt(stats.all.length) }} au total)</h3>
+          <h3>{{ t("scans.detailTitle", { n: fmt(stats.all.length) }) }}</h3>
           <div style="display: flex; gap: 8px; align-items: center;">
             <div class="period-selector">
               <button
@@ -140,7 +139,7 @@
             </div>
             <CsvButton
               filename="scans-detail"
-              :headers="['Type', 'Horodatage', 'delegateId', 'fullName', 'email', 'badgeType', 'sessionId', 'sessionTitle', 'sessionStart', 'roomName', 'industryName', 'Direction']"
+              :headers="[t('scans.csv.type'), t('scans.csv.timestamp'), 'delegateId', 'fullName', 'email', 'badgeType', 'sessionId', 'sessionTitle', 'sessionStart', 'roomName', 'industryName', t('scans.csv.direction')]"
               :rows="filteredScans.map(s => [s.kind, formatTimestamp(s.timestamp), s.delegateId || '', s.fullName, s.email, s.badgeType, s.sessionId || '', s.sessionTitle || '', formatTimestamp(s.sessionStart) || '', s.roomName || '', s.industryName || '', s.direction])"
             />
           </div>
@@ -149,8 +148,8 @@
           <table class="data-table scans-detail-table">
             <thead>
               <tr>
-                <th>Type</th>
-                <th>Horodatage</th>
+                <th>{{ t("scans.csv.type") }}</th>
+                <th>{{ t("scans.csv.timestamp") }}</th>
                 <th>delegateId</th>
                 <th>fullName</th>
                 <th>email</th>
@@ -160,7 +159,7 @@
                 <th>sessionStart</th>
                 <th>roomName</th>
                 <th>industryName</th>
-                <th>Direction</th>
+                <th>{{ t("scans.csv.direction") }}</th>
               </tr>
             </thead>
             <tbody>
@@ -181,10 +180,10 @@
             </tbody>
           </table>
           <p v-if="filteredScans.length > pageSize" class="scans-hint">
-            Affichage des {{ pageSize }} premiers scans (sur {{ fmt(filteredScans.length) }}). Utilisez le CSV pour tout exporter.
+            {{ t("scans.pageHint", { size: pageSize, total: fmt(filteredScans.length) }) }}
           </p>
         </div>
-        <p v-else class="empty-msg">Aucun scan correspondant au filtre</p>
+        <p v-else class="empty-msg">{{ t("scans.empty.noMatch") }}</p>
       </div>
     </template>
   </div>
@@ -192,6 +191,7 @@
 
 <script setup>
 import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import HBarChart from "../charts/HBarChart.vue";
 import LineChart from "../charts/LineChart.vue";
 import StackedBarChart from "../charts/StackedBarChart.vue";
@@ -200,6 +200,8 @@ import CsvButton from "../CsvButton.vue";
 import { parisDateParts } from "../../utils/parisTime.js";
 import { fmt } from "@/utils/formatters.js";
 import { getTypeColor } from "@/utils/typeColors.js";
+
+const { t } = useI18n();
 
 const props = defineProps({
   // Instance useRoomScans proprietee par StatisticsView (mutualisee avec ExportsTab + export MD).
@@ -245,12 +247,12 @@ const compareKpis = computed(() => {
     delta: buildDeltaAbs(a[key] || 0, b[key] || 0, "up"),
   });
   return [
-    mk("Vues en salle (présences cumulées / session)", "audienceUniqueDelegateSessions"),
-    mk("Délégués uniques scannés", "uniqueDelegatesAll"),
-    mk("Délégués uniques en salle", "uniqueAudienceDelegates"),
-    mk("Sessions scannées", "distinctSessions"),
-    mk("Salles distinctes", "distinctRooms"),
-    mk("Zones distinctes", "distinctZones"),
+    mk(t("scans.compareKpi.roomViews"), "audienceUniqueDelegateSessions"),
+    mk(t("scans.compareKpi.uniqueScanned"), "uniqueDelegatesAll"),
+    mk(t("scans.compareKpi.uniqueRoom"), "uniqueAudienceDelegates"),
+    mk(t("scans.compareKpi.sessions"), "distinctSessions"),
+    mk(t("scans.compareKpi.rooms"), "distinctRooms"),
+    mk(t("scans.compareKpi.zones"), "distinctZones"),
   ];
 });
 
@@ -322,7 +324,7 @@ const timeline = computed(() => {
     labels,
     datasets: [
       {
-        label: "Audience salle",
+        label: t("scans.datasets.audienceRoom"),
         data: audienceData,
         borderColor: "#1E4E66",
         backgroundColor: "rgba(30,78,102,0.15)",
@@ -332,7 +334,7 @@ const timeline = computed(() => {
         borderWidth: 2,
       },
       {
-        label: "Check-in entree",
+        label: t("scans.datasets.checkinEntrance"),
         data: checkinData,
         borderColor: "#30DD92",
         backgroundColor: "rgba(48,221,146,0.15)",
@@ -342,7 +344,7 @@ const timeline = computed(() => {
         borderWidth: 2,
       },
       {
-        label: "Zones",
+        label: t("scans.datasets.zones"),
         data: zoneData,
         borderColor: "#6F45FF",
         backgroundColor: "rgba(111,69,255,0.15)",
@@ -369,12 +371,12 @@ function flattenByHour(byDayHour) {
 
 // --- Tableau detaille ---
 const kindFilter = ref("all");
-const kindFilterOptions = [
-  { value: "all", label: "Tous" },
-  { value: "audience", label: "Salle" },
-  { value: "checkin", label: "Entree" },
-  { value: "zone", label: "Zone" },
-];
+const kindFilterOptions = computed(() => [
+  { value: "all", label: t("scans.kind.all") },
+  { value: "audience", label: t("scans.kind.room") },
+  { value: "checkin", label: t("scans.kind.entrance") },
+  { value: "zone", label: t("scans.kind.zone") },
+]);
 const pageSize = 200;
 
 const filteredScans = computed(() => {
@@ -388,17 +390,17 @@ const pagedScans = computed(() => filteredScans.value.slice(0, pageSize));
 function scanTarget(s) {
   if (s.kind === "audience") return s.sessionTitle || s.sessionId || "—";
   if (s.kind === "zone") return s.zoneId || "—";
-  return "Entree congres";
+  return t("scans.kind.congressEntrance");
 }
 function kindLabel(k) {
-  if (k === "audience") return "Salle";
-  if (k === "checkin") return "Entree";
-  if (k === "zone") return "Zone";
+  if (k === "audience") return t("scans.kind.room");
+  if (k === "checkin") return t("scans.kind.entrance");
+  if (k === "zone") return t("scans.kind.zone");
   return k;
 }
 function directionLabel(d) {
-  if (d === "in") return "Entree";
-  if (d === "out") return "Sortie";
+  if (d === "in") return t("scans.direction.in");
+  if (d === "out") return t("scans.direction.out");
   return "—";
 }
 

@@ -10,16 +10,19 @@
         <div class="diag-title">{{ d.title }}</div>
         <div class="diag-message">{{ d.message }}</div>
         <div class="diag-action">
-          Merci de prévenir l'équipe technique (Sébastien Méaudre).
+          {{ t("diagnostics.action") }}
         </div>
       </div>
-      <button class="diag-close" @click="dismiss(d.id)" title="Fermer">✕</button>
+      <button class="diag-close" @click="dismiss(d.id)" :title="t('diagnostics.close')">✕</button>
     </div>
   </div>
 </template>
 
 <script setup>
+import { useI18n } from "vue-i18n";
 import { useDiagnostics } from "@/composables/useDiagnostics.js";
+
+const { t } = useI18n();
 
 // Banniere fixe top-right qui affiche les diagnostics pousses par les
 // modules de calcul (jointure ES <-> delegates, etc.). Volontairement

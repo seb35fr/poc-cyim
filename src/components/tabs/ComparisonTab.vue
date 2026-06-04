@@ -5,15 +5,15 @@
       <div class="cmp-event cmp-event--current">
         <span class="cmp-event-dot" :style="{ background: COLORS.current }"></span>
         <div>
-          <div class="cmp-event-label">Événement sélectionné</div>
+          <div class="cmp-event-label">{{ t("comparison.currentEvent") }}</div>
           <div class="cmp-event-name">{{ eventName || "—" }}</div>
         </div>
       </div>
-      <div class="cmp-vs">vs</div>
+      <div class="cmp-vs">{{ t("comparison.vs") }}</div>
       <div class="cmp-event cmp-event--compare">
         <span class="cmp-event-dot" :style="{ background: COLORS.compare }"></span>
         <div>
-          <div class="cmp-event-label">Événement comparé</div>
+          <div class="cmp-event-label">{{ t("comparison.comparedEvent") }}</div>
           <div class="cmp-event-name">{{ compareEventName || "—" }}</div>
         </div>
       </div>
@@ -24,19 +24,19 @@
 
     <div v-if="compareLoading" class="cmp-loading">
       <div class="spinner"></div>
-      <p class="loading-label">Chargement de l'événement de comparaison...</p>
+      <p class="loading-label">{{ t("comparison.loading") }}</p>
       <div v-if="compareProgress?.total > 0" class="progress-wrapper">
         <div class="progress-bar">
           <div class="progress-fill" :style="{ width: compareProgressPercent + '%' }"></div>
         </div>
         <p class="progress-text">
-          {{ compareProgress.loaded }} / {{ compareProgress.total }} inscrits
+          {{ t("comparison.loadingProgress", { loaded: compareProgress.loaded, total: compareProgress.total }) }}
         </p>
       </div>
     </div>
 
     <div v-else-if="compareError" class="cmp-error">
-      Erreur sur l'événement comparé : {{ compareError }}
+      {{ t("comparison.error", { error: compareError }) }}
     </div>
 
     <template v-else-if="compareStats">
@@ -52,14 +52,14 @@
       <div class="charts-row">
         <div class="chart-card">
           <div class="chart-header">
-            <h3>Taux de conversion (% des registered)</h3>
+            <h3>{{ t("comparison.conversionTitle") }}</h3>
             <CsvButton
               filename="comparatif-conversion"
-              :headers="['Indicateur', eventName, compareEventName]"
+              :headers="[t('comparison.csv.indicator'), eventName, compareEventName]"
               :rows="[
-                ['Badges délivrés', currentMetrics.badgesDelivered, compareMetrics.badgesDelivered],
-                ['Check-in effectués', currentMetrics.checkedIn, compareMetrics.checkedIn],
-                ['Restants sans badge', currentMetrics.remainingNoBadge, compareMetrics.remainingNoBadge],
+                [t('comparison.conv.badgesDelivered'), currentMetrics.badgesDelivered, compareMetrics.badgesDelivered],
+                [t('comparison.conv.checkedIn'), currentMetrics.checkedIn, compareMetrics.checkedIn],
+                [t('comparison.conv.remainingNoBadge'), currentMetrics.remainingNoBadge, compareMetrics.remainingNoBadge],
               ]"
             />
           </div>
@@ -69,13 +69,13 @@
         </div>
         <div class="chart-card">
           <div class="chart-header">
-            <h3>Mix des types d'inscriptions (présents confirmés)</h3>
-            <span class="cmp-axis-hint">Population : <code>status = registered</code> ET <code>checkedInDate</code>.</span>
+            <h3>{{ t("comparison.typesMixTitle") }}</h3>
+            <span class="cmp-axis-hint">{{ t("comparison.typesMixHintPre") }} <code>status = registered</code> {{ t("comparison.typesMixHintAnd") }} <code>checkedInDate</code>{{ t("comparison.typesMixHintPost") }}</span>
           </div>
           <div v-if="typesMixChart.datasets.length > 0" :style="{ position: 'relative', height: typesMixHeight + 'px' }">
             <Bar :data="typesMixChart" :options="typesMixOptions" />
           </div>
-          <p v-else class="empty-msg">Aucun type d'inscription comparable</p>
+          <p v-else class="empty-msg">{{ t("comparison.typesMixEmpty") }}</p>
         </div>
       </div>
 
@@ -83,10 +83,10 @@
       <div class="charts-row" v-if="frRegionsCurrent.length > 0 || frRegionsCompare.length > 0">
         <div class="chart-card">
           <div class="chart-header">
-            <h3>Régions françaises — {{ shortName(eventName) }}</h3>
+            <h3>{{ t("comparison.frRegionsTitle", { name: shortName(eventName) }) }}</h3>
             <div style="display: flex; align-items: center; gap: 8px;">
-              <span class="cmp-axis-hint">Métropole · échelle partagée</span>
-              <CsvButton filename="comparatif-regions-fr-A" :headers="['Région', 'Inscrits']" :rows="frRegionsCurrent.map(r => [REGION_NAMES[r.code] || r.code, r.count])" />
+              <span class="cmp-axis-hint">{{ t("comparison.metroShared") }}</span>
+              <CsvButton filename="comparatif-regions-fr-A" :headers="[t('comparison.csv.region'), t('comparison.csv.registered')]" :rows="frRegionsCurrent.map(r => [REGION_NAMES[r.code] || r.code, r.count])" />
             </div>
           </div>
           <FrenchRegionMap
@@ -98,7 +98,7 @@
             :key="`fr-cmp-cur-${badgeFilterKey}`"
           />
           <div v-if="frRegionsCurrentOverseas.length > 0" class="dom-bar">
-            <span class="dom-bar-label">Outre-mer :</span>
+            <span class="dom-bar-label">{{ t("comparison.overseas") }}</span>
             <span v-for="r in frRegionsCurrentOverseas" :key="r.code" class="dom-pill">
               {{ REGION_NAMES[r.code] || r.code }} <strong>{{ r.count }}</strong>
             </span>
@@ -106,10 +106,10 @@
         </div>
         <div class="chart-card">
           <div class="chart-header">
-            <h3>Régions françaises — {{ shortName(compareEventName) }}</h3>
+            <h3>{{ t("comparison.frRegionsTitle", { name: shortName(compareEventName) }) }}</h3>
             <div style="display: flex; align-items: center; gap: 8px;">
-              <span class="cmp-axis-hint">Métropole · échelle partagée</span>
-              <CsvButton filename="comparatif-regions-fr-B" :headers="['Région', 'Inscrits']" :rows="frRegionsCompare.map(r => [REGION_NAMES[r.code] || r.code, r.count])" />
+              <span class="cmp-axis-hint">{{ t("comparison.metroShared") }}</span>
+              <CsvButton filename="comparatif-regions-fr-B" :headers="[t('comparison.csv.region'), t('comparison.csv.registered')]" :rows="frRegionsCompare.map(r => [REGION_NAMES[r.code] || r.code, r.count])" />
             </div>
           </div>
           <FrenchRegionMap
@@ -121,7 +121,7 @@
             :key="`fr-cmp-cmp-${badgeFilterKey}`"
           />
           <div v-if="frRegionsCompareOverseas.length > 0" class="dom-bar">
-            <span class="dom-bar-label">Outre-mer :</span>
+            <span class="dom-bar-label">{{ t("comparison.overseas") }}</span>
             <span v-for="r in frRegionsCompareOverseas" :key="r.code" class="dom-pill">
               {{ REGION_NAMES[r.code] || r.code }} <strong>{{ r.count }}</strong>
             </span>
@@ -133,20 +133,20 @@
       <div class="charts-row" v-if="countriesCurrent.length > 0 || countriesCompare.length > 0">
         <div class="chart-card">
           <div class="chart-header">
-            <h3>Répartition géographique — {{ shortName(eventName) }}</h3>
+            <h3>{{ t("comparison.geoTitle", { name: shortName(eventName) }) }}</h3>
             <div style="display: flex; align-items: center; gap: 8px;">
-              <span class="cmp-axis-hint">Monde · {{ uniqueCountriesCurrent }} pays</span>
-              <CsvButton filename="comparatif-pays-A" :headers="['Pays', 'Inscrits']" :rows="countriesCurrent.map(c => [c.value, c.totalCount])" />
+              <span class="cmp-axis-hint">{{ t("comparison.worldCountries", { n: uniqueCountriesCurrent }) }}</span>
+              <CsvButton filename="comparatif-pays-A" :headers="[t('comparison.csv.country'), t('comparison.csv.registered')]" :rows="countriesCurrent.map(c => [c.value, c.totalCount])" />
             </div>
           </div>
           <ChoroplethMap :countries="countriesCurrent" :height="320" :key="`world-cmp-cur-${badgeFilterKey}`" />
         </div>
         <div class="chart-card">
           <div class="chart-header">
-            <h3>Répartition géographique — {{ shortName(compareEventName) }}</h3>
+            <h3>{{ t("comparison.geoTitle", { name: shortName(compareEventName) }) }}</h3>
             <div style="display: flex; align-items: center; gap: 8px;">
-              <span class="cmp-axis-hint">Monde · {{ uniqueCountriesCompare }} pays</span>
-              <CsvButton filename="comparatif-pays-B" :headers="['Pays', 'Inscrits']" :rows="countriesCompare.map(c => [c.value, c.totalCount])" />
+              <span class="cmp-axis-hint">{{ t("comparison.worldCountries", { n: uniqueCountriesCompare }) }}</span>
+              <CsvButton filename="comparatif-pays-B" :headers="[t('comparison.csv.country'), t('comparison.csv.registered')]" :rows="countriesCompare.map(c => [c.value, c.totalCount])" />
             </div>
           </div>
           <ChoroplethMap :countries="countriesCompare" :height="320" :key="`world-cmp-cmp-${badgeFilterKey}`" />
@@ -157,25 +157,25 @@
       <div class="charts-row">
         <div class="chart-card">
           <div class="chart-header">
-            <h3>Progression du check-in par type — {{ shortName(eventName) }}</h3>
-            <span class="cmp-axis-hint">Couleur pleine = check-in · estompée = restants · couleur = type</span>
+            <h3>{{ t("comparison.checkinByTypeTitle", { name: shortName(eventName) }) }}</h3>
+            <span class="cmp-axis-hint">{{ t("comparison.checkinByTypeHint") }}</span>
           </div>
           <div v-if="checkinByTypeCurrent.labels.length > 0"
             :style="{ position: 'relative', height: checkinByTypeCurrent.height + 'px' }">
             <Bar :data="checkinByTypeCurrent.chartData" :options="checkinByTypeOptions" :plugins="[checkinByTypeTotalsPlugin]" />
           </div>
-          <p v-else class="empty-msg">Aucun délégué registered</p>
+          <p v-else class="empty-msg">{{ t("comparison.noRegistered") }}</p>
         </div>
         <div class="chart-card">
           <div class="chart-header">
-            <h3>Progression du check-in par type — {{ shortName(compareEventName) }}</h3>
-            <span class="cmp-axis-hint">Couleur pleine = check-in · estompée = restants · couleur = type</span>
+            <h3>{{ t("comparison.checkinByTypeTitle", { name: shortName(compareEventName) }) }}</h3>
+            <span class="cmp-axis-hint">{{ t("comparison.checkinByTypeHint") }}</span>
           </div>
           <div v-if="checkinByTypeCompare.labels.length > 0"
             :style="{ position: 'relative', height: checkinByTypeCompare.height + 'px' }">
             <Bar :data="checkinByTypeCompare.chartData" :options="checkinByTypeOptions" :plugins="[checkinByTypeTotalsPlugin]" />
           </div>
-          <p v-else class="empty-msg">Aucun délégué registered</p>
+          <p v-else class="empty-msg">{{ t("comparison.noRegistered") }}</p>
         </div>
       </div>
 
@@ -183,40 +183,40 @@
       <div class="charts-row">
         <div class="chart-card">
           <div class="chart-header">
-            <h3>Performance de check-in — {{ shortName(eventName) }}</h3>
+            <h3>{{ t("comparison.checkinPerfTitle", { name: shortName(eventName) }) }}</h3>
             <div style="display: flex; align-items: center; gap: 8px;">
-              <span class="cmp-axis-hint">Créneaux de 15 min</span>
-              <CsvButton v-if="checkinPerfCurrent.labels.length > 0" filename="comparatif-perf-checkin-A" :headers="['Créneau', 'Check-in']" :rows="checkinPerfCurrent.labels.map((l, i) => [l, checkinPerfCurrent.chartData.datasets[0]?.data[i] ?? 0])" />
+              <span class="cmp-axis-hint">{{ t("comparison.slots15") }}</span>
+              <CsvButton v-if="checkinPerfCurrent.labels.length > 0" filename="comparatif-perf-checkin-A" :headers="[t('comparison.csv.slot'), t('comparison.csv.checkin')]" :rows="checkinPerfCurrent.labels.map((l, i) => [l, checkinPerfCurrent.chartData.datasets[0]?.data[i] ?? 0])" />
             </div>
           </div>
           <div v-if="checkinPerfCurrent.labels.length > 0" :style="{ position: 'relative', height: '260px' }">
             <Bar :data="checkinPerfCurrent.chartData" :options="checkinPerfOptions" />
           </div>
           <div v-if="checkinPerfCurrent.labels.length > 0" class="perf-summary">
-            <span><strong>Moyenne :</strong> {{ checkinPerfCurrent.avg }} / 15 min</span>
-            <span><strong>Max :</strong> {{ checkinPerfCurrent.max }} / 15 min</span>
-            <span><strong>≈ {{ checkinPerfCurrent.max * 4 }} / h</strong></span>
+            <span><strong>{{ t("comparison.perfAvg") }} :</strong> {{ checkinPerfCurrent.avg }} {{ t("comparison.perf15") }}</span>
+            <span><strong>{{ t("comparison.perfMax") }} :</strong> {{ checkinPerfCurrent.max }} {{ t("comparison.perf15") }}</span>
+            <span><strong>{{ t("comparison.perfPerHour", { n: checkinPerfCurrent.max * 4 }) }}</strong></span>
           </div>
-          <p v-else class="empty-msg">Aucun check-in</p>
+          <p v-else class="empty-msg">{{ t("comparison.noCheckin") }}</p>
         </div>
 
         <div class="chart-card">
           <div class="chart-header">
-            <h3>Performance de check-in — {{ shortName(compareEventName) }}</h3>
+            <h3>{{ t("comparison.checkinPerfTitle", { name: shortName(compareEventName) }) }}</h3>
             <div style="display: flex; align-items: center; gap: 8px;">
-              <span class="cmp-axis-hint">Créneaux de 15 min</span>
-              <CsvButton v-if="checkinPerfCompare.labels.length > 0" filename="comparatif-perf-checkin-B" :headers="['Créneau', 'Check-in']" :rows="checkinPerfCompare.labels.map((l, i) => [l, checkinPerfCompare.chartData.datasets[0]?.data[i] ?? 0])" />
+              <span class="cmp-axis-hint">{{ t("comparison.slots15") }}</span>
+              <CsvButton v-if="checkinPerfCompare.labels.length > 0" filename="comparatif-perf-checkin-B" :headers="[t('comparison.csv.slot'), t('comparison.csv.checkin')]" :rows="checkinPerfCompare.labels.map((l, i) => [l, checkinPerfCompare.chartData.datasets[0]?.data[i] ?? 0])" />
             </div>
           </div>
           <div v-if="checkinPerfCompare.labels.length > 0" :style="{ position: 'relative', height: '260px' }">
             <Bar :data="checkinPerfCompare.chartData" :options="checkinPerfOptions" />
           </div>
           <div v-if="checkinPerfCompare.labels.length > 0" class="perf-summary">
-            <span><strong>Moyenne :</strong> {{ checkinPerfCompare.avg }} / 15 min</span>
-            <span><strong>Max :</strong> {{ checkinPerfCompare.max }} / 15 min</span>
-            <span><strong>≈ {{ checkinPerfCompare.max * 4 }} / h</strong></span>
+            <span><strong>{{ t("comparison.perfAvg") }} :</strong> {{ checkinPerfCompare.avg }} {{ t("comparison.perf15") }}</span>
+            <span><strong>{{ t("comparison.perfMax") }} :</strong> {{ checkinPerfCompare.max }} {{ t("comparison.perf15") }}</span>
+            <span><strong>{{ t("comparison.perfPerHour", { n: checkinPerfCompare.max * 4 }) }}</strong></span>
           </div>
-          <p v-else class="empty-msg">Aucun check-in</p>
+          <p v-else class="empty-msg">{{ t("comparison.noCheckin") }}</p>
         </div>
       </div>
 
@@ -224,27 +224,27 @@
       <div class="charts-row">
         <div class="chart-card">
           <div class="chart-header">
-            <h3>Check-in par jour (J0 = 1er check-in)</h3>
+            <h3>{{ t("comparison.checkinByDayTitle") }}</h3>
             <div style="display: flex; align-items: center; gap: 8px;">
-              <span class="cmp-axis-hint">Axe X : décalage en jours depuis le 1er check-in de chaque event</span>
-              <CsvButton v-if="checkinByDayBarChart.labels.length > 0" filename="comparatif-checkin-par-jour" :headers="['Jour', eventName, compareEventName]" :rows="checkinByDayBarChart.labels.map((l, i) => [l, checkinByDayBarChart.datasets[0]?.data[i] ?? 0, checkinByDayBarChart.datasets[1]?.data[i] ?? 0])" />
+              <span class="cmp-axis-hint">{{ t("comparison.checkinByDayHint") }}</span>
+              <CsvButton v-if="checkinByDayBarChart.labels.length > 0" filename="comparatif-checkin-par-jour" :headers="[t('comparison.csv.day'), eventName, compareEventName]" :rows="checkinByDayBarChart.labels.map((l, i) => [l, checkinByDayBarChart.datasets[0]?.data[i] ?? 0, checkinByDayBarChart.datasets[1]?.data[i] ?? 0])" />
             </div>
           </div>
           <div v-if="checkinByDayBarChart.labels.length > 0" :style="{ position: 'relative', height: '260px' }">
             <Bar :data="checkinByDayBarChart" :options="dayHistogramOptions" />
           </div>
-          <p v-else class="empty-msg">Aucun check-in enregistré sur l'un ou l'autre des événements</p>
+          <p v-else class="empty-msg">{{ t("comparison.noCheckinEither") }}</p>
         </div>
 
         <div class="chart-card">
           <div class="chart-header">
-            <h3>Badges imprimés par jour (J0 = 1er badge)</h3>
-            <span class="cmp-axis-hint">Axe X : décalage en jours depuis le 1er badge imprimé de chaque event</span>
+            <h3>{{ t("comparison.badgesByDayTitle") }}</h3>
+            <span class="cmp-axis-hint">{{ t("comparison.badgesByDayHint") }}</span>
           </div>
           <div v-if="badgesByDayBarChart.labels.length > 0" :style="{ position: 'relative', height: '260px' }">
             <Bar :data="badgesByDayBarChart" :options="dayHistogramOptions" />
           </div>
-          <p v-else class="empty-msg">Aucun badge délivré sur l'un ou l'autre des événements</p>
+          <p v-else class="empty-msg">{{ t("comparison.noBadgeEither") }}</p>
         </div>
       </div>
 
@@ -252,8 +252,8 @@
       <div class="charts-row">
         <div class="chart-card">
           <div class="chart-header">
-            <h3>Performance de check-in (créneaux de 15 min, cumul time-of-day)</h3>
-            <span class="cmp-axis-hint">Toutes les journées de chaque event sont agrégées par heure de la journée.</span>
+            <h3>{{ t("comparison.checkinPerfCumulTitle") }}</h3>
+            <span class="cmp-axis-hint">{{ t("comparison.perfCumulHint") }}</span>
           </div>
           <LineChart
             v-if="checkin15minChart.labels.length > 0"
@@ -261,13 +261,13 @@
             :datasets="checkin15minChart.datasets"
             :height="280"
           />
-          <p v-else class="empty-msg">Aucune donnée de check-in</p>
+          <p v-else class="empty-msg">{{ t("comparison.noCheckinData") }}</p>
         </div>
 
         <div class="chart-card">
           <div class="chart-header">
-            <h3>Performance de distribution (créneaux de 15 min, cumul time-of-day)</h3>
-            <span class="cmp-axis-hint">Toutes les journées de chaque event sont agrégées par heure de la journée.</span>
+            <h3>{{ t("comparison.distribPerfCumulTitle") }}</h3>
+            <span class="cmp-axis-hint">{{ t("comparison.perfCumulHint") }}</span>
           </div>
           <LineChart
             v-if="perf15minChart.labels.length > 0"
@@ -275,15 +275,15 @@
             :datasets="perf15minChart.datasets"
             :height="280"
           />
-          <p v-else class="empty-msg">Aucune donnée de distribution</p>
+          <p v-else class="empty-msg">{{ t("comparison.noDistributionData") }}</p>
         </div>
       </div>
 
       <!-- Pré-inscription cumulée (J-N relatif au 1er check-in) -->
       <div class="chart-card">
         <div class="chart-header">
-          <h3>Pré-inscription cumulée (% des inscrits)</h3>
-          <span class="cmp-axis-hint">Axe X : jours avant le 1ᵉʳ check-in de chaque event (J0 = ouverture). Compare la dynamique commerciale.</span>
+          <h3>{{ t("comparison.preRegTitle") }}</h3>
+          <span class="cmp-axis-hint">{{ t("comparison.preRegHint") }}</span>
         </div>
         <LineChart
           v-if="preRegChart.labels.length > 0"
@@ -292,7 +292,7 @@
           :height="260"
           :y-begin-at-zero="true"
         />
-        <p v-else class="empty-msg">Données insuffisantes pour tracer la pré-inscription</p>
+        <p v-else class="empty-msg">{{ t("comparison.preRegEmpty") }}</p>
       </div>
     </template>
   </div>
@@ -300,6 +300,7 @@
 
 <script setup>
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import { Bar } from "vue-chartjs";
 import LineChart from "../charts/LineChart.vue";
 import CsvButton from "../CsvButton.vue";
@@ -307,7 +308,17 @@ import { makeDateLabeler } from "../../utils/formatDateLabel.js";
 import { getTypeColor } from "../../utils/typeColors.js";
 import { computeAllStats } from "../../utils/computeStats.js";
 import { zipToRegion, REGION_NAMES } from "../../utils/frenchRegions.js";
+import { notSpecified } from "@/i18n/labels.js";
 import { fmt, pct, shortName as shortNameBase } from "@/utils/formatters.js";
+
+const { t } = useI18n();
+
+// Affichage des placeholders canoniques du mix de types (cle interne inchangee).
+const lbl = (v) => {
+  if (v === "Autres") return t("common.others");
+  if (v === "Non renseigne") return notSpecified();
+  return v;
+};
 import {
   buildCheckinByType,
   checkinByTypeOptions,
@@ -492,7 +503,7 @@ const kpis = computed(() => {
     const ap = ratePct(cm.checkedIn, cm.registered);
     const bp = ratePct(km.checkedIn, km.registered);
     list.push({
-      label: "Taux de présence",
+      label: t("comparison.kpi.presenceRate"),
       a: { display: ap != null ? `${ap.toFixed(1)}%` : "—", sub: `${fmt(cm.checkedIn)} / ${fmt(cm.registered)}` },
       b: { display: bp != null ? `${bp.toFixed(1)}%` : "—", sub: `${fmt(km.checkedIn)} / ${fmt(km.registered)}` },
       delta: buildDelta(ap, bp, "up"),
@@ -501,7 +512,7 @@ const kpis = computed(() => {
 
   // 2. Pic 15 min — check-in
   list.push({
-    label: "Pic check-in / 15 min",
+    label: t("comparison.kpi.peakCheckin15"),
     a: { display: cm.peakCheckin.count > 0 ? fmt(cm.peakCheckin.count) : "—", sub: cm.peakCheckin.time },
     b: { display: km.peakCheckin.count > 0 ? fmt(km.peakCheckin.count) : "—", sub: km.peakCheckin.time },
     delta: buildDeltaAbs(cm.peakCheckin.count, km.peakCheckin.count, "up"),
@@ -509,7 +520,7 @@ const kpis = computed(() => {
 
   // 3. Pic 15 min — badges
   list.push({
-    label: "Pic badges / 15 min",
+    label: t("comparison.kpi.peakBadges15"),
     a: { display: cm.peak.count > 0 ? fmt(cm.peak.count) : "—", sub: cm.peak.time },
     b: { display: km.peak.count > 0 ? fmt(km.peak.count) : "—", sub: km.peak.time },
     delta: buildDeltaAbs(cm.peak.count, km.peak.count, "up"),
@@ -520,7 +531,7 @@ const kpis = computed(() => {
     const ap = ratePct(cm.remainingNoBadge, cm.registered);
     const bp = ratePct(km.remainingNoBadge, km.registered);
     list.push({
-      label: "Restants sans badge",
+      label: t("comparison.kpi.remainingNoBadge"),
       a: { display: ap != null ? `${ap.toFixed(1)}%` : "—", sub: fmt(cm.remainingNoBadge) },
       b: { display: bp != null ? `${bp.toFixed(1)}%` : "—", sub: fmt(km.remainingNoBadge) },
       delta: buildDelta(ap, bp, "down"),
@@ -532,7 +543,7 @@ const kpis = computed(() => {
     const ap = ratePct(cm.onboarded, cm.total);
     const bp = ratePct(km.onboarded, km.total);
     list.push({
-      label: "Onboarding connecté",
+      label: t("comparison.kpi.onboardingConnected"),
       a: { display: ap != null ? `${ap.toFixed(1)}%` : "—", sub: `${fmt(cm.onboarded)} / ${fmt(cm.total)}` },
       b: { display: bp != null ? `${bp.toFixed(1)}%` : "—", sub: `${fmt(km.onboarded)} / ${fmt(km.total)}` },
       delta: buildDelta(ap, bp, "up"),
@@ -546,7 +557,7 @@ const kpis = computed(() => {
     const hasAny = cm.mobileApp > 0 || km.mobileApp > 0;
     if (hasAny) {
       list.push({
-        label: "App mobile active",
+        label: t("comparison.kpi.mobileActive"),
         a: { display: ap != null ? `${ap.toFixed(1)}%` : "—", sub: `${fmt(cm.mobileApp)} / ${fmt(cm.total)}` },
         b: { display: bp != null ? `${bp.toFixed(1)}%` : "—", sub: `${fmt(km.mobileApp)} / ${fmt(km.total)}` },
         delta: buildDelta(ap, bp, "up"),
@@ -556,14 +567,14 @@ const kpis = computed(() => {
 
   // 7. Pays uniques
   list.push({
-    label: "Diversité géographique",
+    label: t("comparison.kpi.geoDiversity"),
     a: {
       display: fmt(cm.uniqueCountries),
-      sub: cm.topCountries.length > 0 ? `pays · top : ${cm.topCountries.slice(0, 3).map((c) => c.value).join(", ")}` : "pays",
+      sub: cm.topCountries.length > 0 ? t("comparison.kpi.countriesTop", { top: cm.topCountries.slice(0, 3).map((c) => c.value).join(", ") }) : t("comparison.kpi.countries"),
     },
     b: {
       display: fmt(km.uniqueCountries),
-      sub: km.topCountries.length > 0 ? `pays · top : ${km.topCountries.slice(0, 3).map((c) => c.value).join(", ")}` : "pays",
+      sub: km.topCountries.length > 0 ? t("comparison.kpi.countriesTop", { top: km.topCountries.slice(0, 3).map((c) => c.value).join(", ") }) : t("comparison.kpi.countries"),
     },
     delta: buildDeltaAbs(cm.uniqueCountries, km.uniqueCountries, "up", ""),
   });
@@ -573,7 +584,7 @@ const kpis = computed(() => {
 
 // --- Taux de conversion ---
 const conversionChartData = computed(() => ({
-  labels: ["Badges délivrés", "Check-in effectués", "Restants sans badge"],
+  labels: [t("comparison.conv.badgesDelivered"), t("comparison.conv.checkedIn"), t("comparison.conv.remainingNoBadge")],
   datasets: [
     {
       label: shortName(props.eventName),
@@ -676,7 +687,7 @@ function buildRelativeDayDatasets(currentSeries, compareSeries) {
   const curData = [];
   const cmpData = [];
   for (let i = 0; i <= maxDay; i++) {
-    labels.push(`J${i}`);
+    labels.push(`${t("comparison.dayPrefix")}${i}`);
     curData.push(cur.map.get(i) ?? 0);
     cmpData.push(cmp.map.get(i) ?? 0);
   }
@@ -719,7 +730,7 @@ function buildRelativeDayBarDatasets(currentSeries, compareSeries) {
   const curData = [];
   const cmpData = [];
   for (let i = 0; i <= maxDay; i++) {
-    labels.push(`J${i}`);
+    labels.push(`${t("comparison.dayPrefix")}${i}`);
     curData.push(cur.map.get(i) ?? 0);
     cmpData.push(cmp.map.get(i) ?? 0);
   }
@@ -876,7 +887,7 @@ const typesMixChart = computed(() => {
 
   const segments = otherTypes.size > 0 ? [...topTypes, "Autres"] : topTypes;
   const datasets = segments.map((type) => ({
-    label: type,
+    label: lbl(type),
     data: [pctFor(cur, type), pctFor(cmp, type)],
     _counts: [countFor(cur, type), countFor(cmp, type)],
     backgroundColor: type === "Autres" ? OTHER_COLOR : getTypeColor(type),
@@ -969,7 +980,7 @@ const preRegChart = computed(() => {
       return last;
     });
   }
-  const labels = allOffsets.map((o) => (o === 0 ? "J0" : `J${o}`));
+  const labels = allOffsets.map((o) => `${t("comparison.dayPrefix")}${o}`);
   return {
     labels,
     datasets: [
@@ -1037,7 +1048,7 @@ function buildCheckinPerf(stats, color) {
     chartData: {
       labels,
       datasets: [{
-        label: "Check-in / 15 min",
+        label: t("comparison.datasets.checkinPer15"),
         data,
         backgroundColor: (ctx) => {
           const v = ctx.raw || 0;
@@ -1069,7 +1080,7 @@ const checkinPerfOptions = {
     legend: { display: false },
     datalabels: { display: false },
     tooltip: {
-      callbacks: { label: (ctx) => `${ctx.raw} check-in (≈ ${ctx.raw * 4}/h)` },
+      callbacks: { label: (ctx) => t("comparison.tooltip.checkinRate", { n: ctx.raw, rate: ctx.raw * 4 }) },
     },
   },
   scales: {

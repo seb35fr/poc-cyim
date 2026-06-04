@@ -1,11 +1,9 @@
 <template>
   <div class="exports-tab">
     <header class="exports-header">
-      <h2>Exports</h2>
+      <h2>{{ t("exports.title") }}</h2>
       <p class="exports-subtitle">
-        Téléchargez des extractions CSV à partager avec vos clients. Les sources
-        (scans physiques, live, replay) sont chargées automatiquement à l'ouverture
-        de cet onglet et se rafraîchissent toutes les 10 min.
+        {{ t("exports.subtitle") }}
       </p>
     </header>
 
@@ -17,10 +15,9 @@
     <section class="export-category" :class="{ open: openCategory === 'session-attendance' }">
       <header class="export-category-header" @click="toggleCategory('session-attendance')">
         <div>
-          <h3>Présence par session</h3>
+          <h3>{{ t("exports.session.title") }}</h3>
           <p>
-            Pour une session donnée : liste des personnes présentes physiquement,
-            en live et/ou en replay. Un CSV par session.
+            {{ t("exports.session.desc") }}
           </p>
         </div>
         <span class="chevron" :class="{ rotated: openCategory === 'session-attendance' }">▾</span>
@@ -29,16 +26,16 @@
       <div v-if="openCategory === 'session-attendance'" class="export-category-body">
         <div v-if="loading" class="loading-row">
           <div class="spinner-small-dark"></div>
-          <span>Chargement des sources (scans, live, replay)…</span>
+          <span>{{ t("exports.loadingSources") }}</span>
         </div>
         <template v-else>
           <div class="info-row">
             <div class="info-chip">
-              <span class="info-chip-label">Sessions détectées</span>
+              <span class="info-chip-label">{{ t("exports.session.detected") }}</span>
               <span class="info-chip-value">{{ sessions.length }}</span>
             </div>
             <div class="info-chip">
-              <span class="info-chip-label">Délégués chargés</span>
+              <span class="info-chip-label">{{ t("exports.session.delegatesLoaded") }}</span>
               <span class="info-chip-value">{{ (delegates || []).length }}</span>
             </div>
           </div>
@@ -47,7 +44,7 @@
             <input
               v-model="search"
               type="text"
-              placeholder="Rechercher une session par titre ou ID…"
+              :placeholder="t('exports.session.searchPlaceholder')"
               class="search-input"
             />
             <button
@@ -57,28 +54,28 @@
             >
               <span v-if="exportingAll" class="spinner-small-light"></span>
               {{ exportingAll
-                ? `Export ${exportAllProgress}/${filteredSessions.length}…`
-                : `Tout exporter (${filteredSessions.length} CSV)` }}
+                ? t("exports.session.exportAllProgress", { done: exportAllProgress, total: filteredSessions.length })
+                : t("exports.session.exportAll", { n: filteredSessions.length }) }}
             </button>
           </div>
 
           <div v-if="filteredSessions.length === 0" class="empty-msg">
-            Aucune session ne correspond à votre recherche.
+            {{ t("exports.session.noMatch") }}
           </div>
           <div v-else class="table-wrapper">
             <table class="data-table sessions-table">
               <thead>
                 <tr>
-                  <th>Session</th>
-                  <th>Début</th>
-                  <th class="num" title="Scans audience pour cette session (1 ligne = 1 scan)">
-                    Physique <span class="th-hint">(scans)</span>
+                  <th>{{ t("exports.session.colSession") }}</th>
+                  <th>{{ t("exports.session.colStart") }}</th>
+                  <th class="num" :title="t('exports.session.thPhysical')">
+                    {{ t("exports.session.colPhysical") }} <span class="th-hint">{{ t("exports.session.hintScans") }}</span>
                   </th>
-                  <th class="num" title="Vues live pour cette session">
-                    Live <span class="th-hint">(vues)</span>
+                  <th class="num" :title="t('exports.session.thLive')">
+                    {{ t("exports.session.colLive") }} <span class="th-hint">{{ t("exports.session.hintViews") }}</span>
                   </th>
-                  <th class="num" title="Vues replay pour cette session">
-                    Replay <span class="th-hint">(vues)</span>
+                  <th class="num" :title="t('exports.session.thReplay')">
+                    {{ t("exports.session.colReplay") }} <span class="th-hint">{{ t("exports.session.hintViews") }}</span>
                   </th>
                   <th></th>
                 </tr>
@@ -95,7 +92,7 @@
                   <td class="num">{{ fmt(s.replayCount) }}</td>
                   <td>
                     <button class="btn-export" @click="exportSessionCsv(s)">
-                      Exporter CSV
+                      {{ t("exports.session.exportCsv") }}
                     </button>
                   </td>
                 </tr>
@@ -103,13 +100,7 @@
             </table>
           </div>
 
-          <p class="footnote">
-            <strong>Présent physique</strong> = au moins un scan audience pour cette
-            session. <strong>Vu en live / replay</strong> = au moins une vue ES
-            associée à cette session. Les durées sont cumulées sur toutes les vues.
-            Les viewers ES non rapprochés d'un délégué (user_id Keycloak inconnu)
-            apparaissent en fin de liste avec leur fullName/email bruts.
-          </p>
+          <p class="footnote" v-html="t('exports.session.footnote')"></p>
         </template>
       </div>
     </section>
@@ -118,11 +109,9 @@
     <section class="export-category" :class="{ open: openCategory === 'delegate-journey' }">
       <header class="export-category-header" @click="toggleCategory('delegate-journey')">
         <div>
-          <h3>Parcours par personne</h3>
+          <h3>{{ t("exports.journey.title") }}</h3>
           <p>
-            À partir d'un email, retrouve toutes les sessions sur lesquelles la
-            personne a interagi : scan QR audience, visionnage live et/ou replay.
-            Un CSV par personne.
+            {{ t("exports.journey.desc") }}
           </p>
         </div>
         <span class="chevron" :class="{ rotated: openCategory === 'delegate-journey' }">▾</span>
@@ -131,19 +120,19 @@
       <div v-if="openCategory === 'delegate-journey'" class="export-category-body">
         <div v-if="loading" class="loading-row">
           <div class="spinner-small-dark"></div>
-          <span>Chargement des sources (scans, live, replay)…</span>
+          <span>{{ t("exports.loadingSources") }}</span>
         </div>
         <template v-else>
           <form class="journey-form" @submit.prevent="lookupJourney">
             <input
               v-model="journeyEmail"
               type="email"
-              placeholder="email@exemple.com"
+              :placeholder="t('exports.journey.emailPlaceholder')"
               class="search-input"
               autocomplete="off"
             />
             <button class="btn-primary" type="submit" :disabled="!journeyEmail.trim()">
-              Rechercher
+              {{ t("exports.journey.search") }}
             </button>
             <button
               v-if="journeyResult"
@@ -151,14 +140,13 @@
               class="btn-secondary"
               @click="resetJourney"
             >
-              Effacer
+              {{ t("exports.journey.clear") }}
             </button>
           </form>
 
           <div v-if="journeyResult" class="journey-result">
             <div v-if="!journeyResult.delegate && !journeyResult.esFallback" class="journey-empty">
-              ⚠ Aucune personne trouvée pour cet email (ni dans les délégués, ni
-              côté live/replay). Vérifie l'orthographe.
+              {{ t("exports.journey.notFound") }}
             </div>
 
             <template v-else>
@@ -168,7 +156,7 @@
                     <div class="journey-name">
                       {{ journeyDisplayName }}
                       <span v-if="!journeyResult.delegate" class="journey-pill warn">
-                        Non rapproché délégué
+                        {{ t("exports.journey.notMatched") }}
                       </span>
                     </div>
                     <div class="journey-sub">
@@ -180,61 +168,61 @@
                     :disabled="journeyResult.counts.sessions === 0"
                     @click="exportJourneyCsv"
                   >
-                    Exporter CSV
+                    {{ t("exports.journey.exportCsv") }}
                   </button>
                 </div>
 
                 <div class="journey-meta">
                   <span v-if="journeyResult.delegate?.id" class="meta-chip">
-                    <span class="meta-label">Délégué ID</span>
+                    <span class="meta-label">{{ t("exports.journey.delegateId") }}</span>
                     <code>{{ journeyResult.delegate.id }}</code>
                   </span>
                   <span v-if="journeyResult.keycloakId" class="meta-chip">
-                    <span class="meta-label">Keycloak ID</span>
+                    <span class="meta-label">{{ t("exports.journey.keycloakId") }}</span>
                     <code>{{ journeyResult.keycloakId }}</code>
                   </span>
                   <span v-if="journeyResult.delegate" class="meta-chip">
-                    <span class="meta-label">Type badge</span>
+                    <span class="meta-label">{{ t("exports.journey.badgeType") }}</span>
                     <span>{{ journeyBadgeType || "—" }}</span>
                   </span>
                   <span v-if="journeyResult.delegate" class="meta-chip">
-                    <span class="meta-label">Check-in congrès</span>
-                    <span>{{ journeyCheckin ? "Oui" : "Non" }}</span>
+                    <span class="meta-label">{{ t("exports.journey.congressCheckin") }}</span>
+                    <span>{{ journeyCheckin ? t("exports.journey.yes") : t("exports.journey.no") }}</span>
                   </span>
                 </div>
 
                 <div class="journey-counts">
                   <div class="count-box">
-                    <span class="count-label">Sessions interagies</span>
+                    <span class="count-label">{{ t("exports.journey.sessionsInteracted") }}</span>
                     <span class="count-value">{{ fmt(journeyResult.counts.sessions) }}</span>
                   </div>
                   <div class="count-box">
-                    <span class="count-label">Présence physique</span>
+                    <span class="count-label">{{ t("exports.journey.physicalPresence") }}</span>
                     <span class="count-value">{{ fmt(journeyResult.counts.physique) }}</span>
                   </div>
                   <div class="count-box">
-                    <span class="count-label">Live</span>
+                    <span class="count-label">{{ t("exports.journey.live") }}</span>
                     <span class="count-value">{{ fmt(journeyResult.counts.live) }}</span>
                   </div>
                   <div class="count-box">
-                    <span class="count-label">Replay</span>
+                    <span class="count-label">{{ t("exports.journey.replay") }}</span>
                     <span class="count-value">{{ fmt(journeyResult.counts.replay) }}</span>
                   </div>
                 </div>
 
                 <div v-if="journeyResult.counts.sessions === 0" class="journey-empty soft">
-                  Cette personne n'a interagi avec aucune session (ni scan, ni live, ni replay).
+                  {{ t("exports.journey.noInteraction") }}
                 </div>
 
                 <div v-else class="table-wrapper">
                   <table class="data-table sessions-table">
                     <thead>
                       <tr>
-                        <th>Session</th>
-                        <th>Début</th>
-                        <th class="num">Physique</th>
-                        <th class="num">Live</th>
-                        <th class="num">Replay</th>
+                        <th>{{ t("exports.journey.colSession") }}</th>
+                        <th>{{ t("exports.journey.colStart") }}</th>
+                        <th class="num">{{ t("exports.journey.colPhysical") }}</th>
+                        <th class="num">{{ t("exports.journey.colLive") }}</th>
+                        <th class="num">{{ t("exports.journey.colReplay") }}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -246,7 +234,7 @@
                         <td class="session-start">{{ r.sessionStart || "—" }}</td>
                         <td class="num">
                           <span v-if="r.physiquePresent === 'O'">
-                            {{ r.nbScansPhysiques }} scan{{ r.nbScansPhysiques > 1 ? "s" : "" }}
+                            {{ t("exports.journey.scanCount", r.nbScansPhysiques, { n: r.nbScansPhysiques }) }}
                           </span>
                           <span v-else class="muted">—</span>
                         </td>
@@ -266,13 +254,7 @@
             </template>
           </div>
 
-          <p class="footnote">
-            Jointure : l'email est cherché parmi les délégués (Mongo) pour
-            récupérer l'<code>id</code> (scans physiques) et le
-            <code>keycloakId</code> via <code>contact.emailAddresses</code> de type
-            <code>ACCOUNT</code> (vues live/replay). Si l'email n'est pas trouvé
-            dans les délégués, on tente un fallback côté viewers ES.
-          </p>
+          <p class="footnote" v-html="t('exports.journey.footnote')"></p>
         </template>
       </div>
     </section>
@@ -283,6 +265,7 @@
 
 <script setup>
 import { ref, computed } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import { downloadCsv } from "../../utils/exportCsv.js";
 import { fmt } from "@/utils/formatters.js";
@@ -308,6 +291,7 @@ const props = defineProps({
   scansApi: { type: Object, required: true },
 });
 
+const { t, locale } = useI18n();
 const route = useRoute();
 const eventId = route.params.eventId;
 
@@ -334,9 +318,9 @@ const loading = computed(
 
 const errors = computed(() => {
   const arr = [];
-  if (live.error.value) arr.push(`Live : ${live.error.value}`);
-  if (replay.error.value) arr.push(`Replay : ${replay.error.value}`);
-  if (scans.error.value) arr.push(`Scans : ${scans.error.value}`);
+  if (live.error.value) arr.push(t("exports.errLive", { msg: live.error.value }));
+  if (replay.error.value) arr.push(t("exports.errReplay", { msg: replay.error.value }));
+  if (scans.error.value) arr.push(t("exports.errScans", { msg: scans.error.value }));
   return arr;
 });
 
@@ -428,7 +412,7 @@ function exportSessionCsv(session) {
   });
 
   if (rows.length === 0) {
-    alert("Aucune personne n'a participé à cette session (audience, live ou replay).");
+    alert(t("exports.session.noParticipant"));
     return;
   }
 
@@ -516,7 +500,7 @@ function formatStart(iso) {
   if (!iso) return "—";
   const d = new Date(iso);
   if (!Number.isFinite(d.getTime())) return iso;
-  return d.toLocaleString("fr-FR", {
+  return d.toLocaleString(locale.value === "en" ? "en-GB" : "fr-FR", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",

@@ -4,6 +4,7 @@ import { fetchEventSessions } from "@/api/graphql.js";
 import { computeReplayStats } from "@/utils/computeReplayStats.js";
 import { debug } from "@/utils/debug.js";
 import { pushDiagnostic } from "@/composables/useDiagnostics.js";
+import { i18n } from "@/i18n/index.js";
 import { AUTO_REFRESH_MS } from "@/constants.js";
 
 // VOD replay views ES + enrichissement sessions GraphQL. Meme structure que
@@ -46,10 +47,8 @@ export function useReplay(eventId, options = {}) {
           console.warn("[Replay] Echec fetch sessions GraphQL :", e.message);
           pushDiagnostic({
             severity: "warn",
-            title: "Enrichissement Replay indisponible",
-            message:
-              "Impossible de récupérer la liste des sessions du congrès (GraphQL). " +
-              "Les titres, types et durées des sessions vont manquer dans l'onglet Replay.",
+            title: i18n.global.t("diagnostics.replayTitle"),
+            message: i18n.global.t("diagnostics.replayMessage"),
             fingerprint: `useReplay:sessions:${eventId}`,
           });
           return [];

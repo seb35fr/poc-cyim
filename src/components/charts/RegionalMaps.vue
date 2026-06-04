@@ -2,10 +2,10 @@
   <div class="charts-row">
     <div class="chart-card">
       <div class="chart-header">
-        <h3>Répartition géographique (monde)</h3>
+        <h3>{{ t("maps.worldTitle") }}</h3>
         <CsvButton
           :filename="`${filenamePrefix}-monde`"
-          :headers="['Code pays', 'Inscrits']"
+          :headers="[t('maps.csv.countryCode'), t('maps.csv.registered')]"
           :rows="geoCountries.map(c => [c.value, c.totalCount])"
         />
       </div>
@@ -13,10 +13,10 @@
     </div>
     <div class="chart-card">
       <div class="chart-header">
-        <h3>Répartition par région française</h3>
+        <h3>{{ t("maps.frTitle") }}</h3>
         <CsvButton
           :filename="`${filenamePrefix}-regions-fr`"
-          :headers="['Code région', 'Région', 'Inscrits']"
+          :headers="[t('maps.csv.regionCode'), t('maps.csv.region'), t('maps.csv.registered')]"
           :rows="frRegions.map(r => [r.code, REGION_NAMES[r.code] || r.code, r.count])"
         />
       </div>
@@ -28,7 +28,7 @@
         :key="`fr-metro-${cacheKey}`"
       />
       <div v-if="frRegionsOverseas.length > 0" class="dom-row">
-        <div class="dom-row-label">Outre-mer</div>
+        <div class="dom-row-label">{{ t("maps.overseas") }}</div>
         <div class="dom-row-maps">
           <div v-for="r in frRegionsOverseas" :key="r.code" class="dom-card">
             <FrenchRegionMap
@@ -52,10 +52,13 @@
 
 <script setup>
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import ChoroplethMap from "./ChoroplethMap.vue";
 import FrenchRegionMap from "./FrenchRegionMap.vue";
 import CsvButton from "../CsvButton.vue";
 import { zipToRegion, REGION_NAMES } from "../../utils/frenchRegions.js";
+
+const { t } = useI18n();
 
 // Carte monde + carte France metro + mini-cartes DOM. Composant reutilisable
 // par BadgesTab (mono-event) et ComparisonTab (2x cote a cote — appeler 2 fois).
