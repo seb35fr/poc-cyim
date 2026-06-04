@@ -25,7 +25,7 @@ Copy `.env.example` to `.env` with:
 
 ## Stack
 
-Vue 3 + Vite 6 + Vue Router + Chart.js 4 (vue-chartjs) + chartjs-chart-geo (world/FR maps) + d3-geo (Lambert projection FR, fallback mercator) + chartjs-plugin-datalabels + jspdf + pptxgenjs + html2canvas. No UI framework (custom CSS with CSS variables defined in `App.vue`).
+Vue 3 + Vite 6 + Vue Router + Chart.js 4 (vue-chartjs) + chartjs-chart-geo (world/FR maps) + d3-geo (Lambert projection FR, fallback mercator) + chartjs-plugin-datalabels. No UI framework (custom CSS with CSS variables defined in `App.vue`). **Seul export disponible : Markdown** (destiné aux LLM) — les exports PDF/PPTX ont été retirés.
 
 **Vite alias** : `@/` → `/src/` (configuré dans `vite.config.js`). Tous les nouveaux imports utilisent `@/utils/...` au lieu de `../../utils/...`. Les imports legacy `../../` restent valides — pas de migration forcée.
 
@@ -56,10 +56,8 @@ Sources de données :
 | | `src/composables/useBadgeTypeFilter.js` | Filtre **global** type de badge (lifté StatisticsView). Expose `selected` (Set), `allBadgeTypes`, `filteredDelegates`, `filteredCompareDelegates`, `toggle`, `clear`, `setSelection`. Persiste cross-tab. |
 | | `src/composables/useDateRangeFilter.js` | Filtre **global** plage de dates (lifté StatisticsView). Expose `startYMD`/`endYMD` (computed get/set), `range` ({start,end} ms), `isDefault`, `reset`. Défaut : début = inscription la plus ancienne (des 2 events), fin = aujourd'hui. |
 | | `src/composables/useDiagnostics.js` | Bus de diagnostics UI (`pushDiagnostic`, `dismissDiagnostic`). Affiche des toasts top-right pour les anomalies data actionnables par l'admin. |
-| | `src/composables/useExportPdf.js` | PDF jsPDF, layout maison (KPI compare 3 colonnes A∣Δ∣B, cartes map via html2canvas) |
-| | `src/composables/useExportPptx.js` | PPTX pptxgenjs (chart natifs quand possible, sinon image HD) |
-| | `src/composables/useExportMarkdown.js` | **Export MD destiné au LLM** (Claude/ChatGPT). Dump complet de toutes les données du dashboard (stats + live + replay + scans + comparaison) avec analyse textuelle. Lecture directe des stats objects, pas de DOM walking. |
-| View | `src/views/StatisticsView.vue` | Sidebar hiérarchique + **toolbar de filtres globaux** (plage de dates + type de badge). Propriétaire (lifted) de `liveApi`/`replayApi`/`scansApi` (+ `compareLiveApi`/`compareReplayApi`/`compareScansApi` si `?compareWith=`), `badgeFilter`, `dateFilter`. Calcule `pageStats`/`pageDelegates` (filtrés) passés aux tabs. Met à jour `document.title` selon l'event (et l'event comparé). Boutons export PDF/PPTX/MD. |
+| | `src/composables/useExportMarkdown.js` | **Export MD destiné au LLM** (Claude/ChatGPT) — **seul export du dashboard**. Dump complet de toutes les données du dashboard (stats + live + replay + scans + comparaison) avec analyse textuelle. Lecture directe des stats objects, pas de DOM walking. |
+| View | `src/views/StatisticsView.vue` | Sidebar hiérarchique + **toolbar de filtres globaux** (plage de dates + type de badge). Propriétaire (lifted) de `liveApi`/`replayApi`/`scansApi` (+ `compareLiveApi`/`compareReplayApi`/`compareScansApi` si `?compareWith=`), `badgeFilter`, `dateFilter`. Calcule `pageStats`/`pageDelegates` (filtrés) passés aux tabs. Met à jour `document.title` selon l'event (et l'event comparé). Bouton export Markdown. |
 | Tabs | `src/components/tabs/*.vue` | OverviewTab, DemographicsTab, RegistrationsTab, TemporalTab, BadgesTab, DataTab, ComparisonTab, ScansTab, **ViewersTab** (kind='live'\|'replay'), **ViewersComparisonTab** (générique), ExportsTab |
 | Charts | `src/components/charts/*.vue` | DoughnutChart, HBarChart, LineChart, StackedBarChart (avec `@select` + `activeLabel` + `showTotal`), ChoroplethMap, FrenchRegionMap. **Composants composites** : `RegionalMaps.vue` (monde + FR + DOM), `KpiCompareGrid.vue` (grille KPI 3-col A∣Δ∣B partagée ComparisonTab + ViewersComparisonTab) |
 | Filter UI | `src/components/FilterBanner.vue` | Filtres cross-clic actifs avec boutons d'effacement |
@@ -80,9 +78,7 @@ Sources de données :
 | | `src/utils/burndown.js` | Courbes de décroissance (restants à check-in) absolue/relative, paramétrable par step (15 min / 30 min) |
 | | `src/utils/checkinByType.js` | Bar horizontale stacked check-in/restants par type de badge (partagé BadgesTab + ComparisonTab) |
 | | `src/utils/buildSessionAttendance.js` | Croise scans audience + live + replay pour une session — utilisé par ExportsTab pour générer CSV par session |
-| | `src/utils/exportSpec.js` | DOM walker : extrait KPI cards + chart cards d'un onglet pour export PDF/PPTX |
-| | `src/utils/renderChartHD.js` | Re-render Chart.js sur canvas offscreen 1600×900 pour export |
-| | `src/utils/generateAnalysis.js` | Analyse textuelle (présence, no-show, mix, comparatif Δ pts, etc.) — utilisée dans PDF/PPTX/MD |
+| | `src/utils/generateAnalysis.js` | Analyse textuelle (présence, no-show, mix, comparatif Δ pts, etc.) — utilisée dans l'export MD |
 
 **Stats object structure** (returned by `computeAllStats`) — getters lazy : `{ global, demographics, registrations, temporal, checkinFlow, badges, onboarding, mobileApp }`. Chaque tab consomme un sous-ensemble (typiquement 2-3 sections), ce qui évite de recalculer les sections inutiles à chaque cross-filter.
 
@@ -95,13 +91,13 @@ Sources de données :
 - Scans QR (leaf)
 - Exports (leaf — interface de génération CSV par session)
 
-Le node "Registration" et "Exports" n'apparaissent pas dans les exports PDF/PPTX (cf. `exportTabs` qui aplatit les leaves et exclut "exports").
+Le node "Registration" est un simple groupe (header non cliquable). "Exports" est l'onglet de génération CSV par session.
 
 **Cross-filtering:** Each tab uses `useFilteredStats(getDelegates, getMobileAppId)` independently. Clicking a chart segment filters delegates and recomputes all stats within that tab. Charts accept `activeLabel` prop to dim non-selected segments. Filter state resets when switching tabs (v-if destroys/recreates components).
 
 ### Filtres globaux (toolbar persistante)
 
-Une **toolbar** en haut du contenu (`StatisticsView`, classe `.global-filters`, masquée pendant l'export PDF/PPTX) porte 2 filtres **liftés** et appliqués à la source, **persistants sur tous les onglets/sous-onglets** :
+Une **toolbar** en haut du contenu (`StatisticsView`, classe `.global-filters`) porte 2 filtres **liftés** et appliqués à la source, **persistants sur tous les onglets/sous-onglets** :
 
 **1. Type de badge** (`useBadgeTypeFilter`) — multi-select. Filtre la **population** de délégués (`delegateBadgeType(d)` = 1er badge en base, sinon 1ère registration). Propagé partout : tous les onglets registration reçoivent `pageDelegates`/`pageCompareDelegates` (déjà badge-filtrés) ; les scans sont filtrés par `badge_type` ; Live/Replay filtrent leur population de jointure. Le composant `<BadgeTypeFilter>` ne gère que l'UI ; l'état vit dans le composable.
 
@@ -163,13 +159,7 @@ Delegate fields : `givenName/familyName/email/status/gender/company/occupation/j
 
 ## Exports
 
-**PDF** (`useExportPdf.js`) :
-- Tous les onglets en A4 landscape avec sauts de page
-- Layout maison jsPDF : cover, page de titre par onglet, KPI grid, KPI compare grid 3 colonnes A∣Δ∣B, charts 4-up, analyse textuelle multi-pages
-- Maps choropleth : fallback **html2canvas** sur le chart-card entier (chartjs-chart-geo ne supporte pas le HD re-render à cause du GeoJSON fetch async)
-- Filename: `stats-{eventName}-{date}.pdf`
-
-**PPTX** (`useExportPptx.js`) : slides natives Chart.js quand possible, sinon image HD. Filename: `stats-{eventName}-{date}.pptx`
+> Les exports **PDF** (`useExportPdf.js`) et **PPTX** (`useExportPptx.js`) ont été **retirés** du PoC, ainsi que leurs utilitaires (`exportSpec.js` DOM walker, `renderChartHD.js`) et les dépendances `jspdf` / `pptxgenjs` / `html2canvas`. Le seul export du dashboard est désormais le **Markdown** (destiné aux LLM). Restent par ailleurs les CSV par session (onglet Exports) et par chart (`CsvButton`).
 
 **MD** (`useExportMarkdown.js`) — destiné aux LLM (Claude/ChatGPT/Gemini) :
 - Dump **complet** : métadonnées, chiffres clés, **total participants dédoublonné**, démographie, inscriptions (statuts/**statut par type**/types/catégories + décomposition physique/distanciel/no-show), temporel (+ **hebdo par statut**), check-in flow, badges (+ **check-in par type** + **mix des présents**), onboarding, mobile, live, replay, scans QR (+ **par jour/sens/type de badge**), comparaison, analyse textuelle, **annexe complète de l'event comparé**
@@ -180,9 +170,7 @@ Delegate fields : `givenName/familyName/email/status/gender/company/occupation/j
 
 **CSV par session** (`ExportsTab.vue` + `buildSessionAttendance.js`) : croise audience scans + live + replay pour produire 1 CSV par session avec colonnes `Profession / Fonction / Spécialité / Mode d'exercice / RPPS / Présent physique / Vu en live / Vu en replay / Durées`.
 
-**Extraction DOM** (`exportSpec.js`) : walker qui parcourt un onglet, identifie `.kpi-grid`, `.kpi-compare-grid`, `.chart-card`, `.charts-row`, `.table-container`. Détecte les choropleth et force la capture html2canvas. Cache le `.badge-type-filter` pendant la capture.
-
-**Analyse textuelle** (`generateAnalysis.js`) : bullet points par section, taux de présence, no-show, mix des présents, comparatif Δ pts, diversité géographique, mobile app, délai médian inscription→check-in. Réutilisée par PDF, PPTX et MD.
+**Analyse textuelle** (`generateAnalysis.js`) : bullet points par section, taux de présence, no-show, mix des présents, comparatif Δ pts, diversité géographique, mobile app, délai médian inscription→check-in. Réutilisée par l'export MD.
 
 **CSV par chart** (`CsvButton.vue` + `exportCsv.js`) : per-chart CSV export button. Semicolon-separated (`;`), FR locale, BOM UTF-8, escape `"` et `;`.
 
@@ -385,7 +373,7 @@ Les composables `useLive` et `useReplay` sont liftés au niveau `StatisticsView`
 
 Filename : `bilan-{eventName}-{date}.md`. Lecture **directe** des stats objects (pas DOM walking — plus propre, plus complet).
 
-Bouton "MD" couleur accent CYIM dans la sidebar, à côté de PDF / PPTX.
+Bouton "Export Markdown" couleur accent CYIM dans la sidebar (unique bouton d'export du dashboard).
 
 **Limites assumées** :
 - L'event comparé **charge désormais ses scans QR** (`compareScansApi` instancié quand `?compareWith=`) → l'annexe B inclut la section Scans (sauf si réellement aucun scan).

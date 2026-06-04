@@ -1,7 +1,7 @@
 <template>
-  <div class="layout" :class="{ 'pdf-mode': exporting || exportingPptx }">
+  <div class="layout">
     <!-- Top header bar : branding event (logo + nom + meta) -->
-    <header v-if="stats && !exporting && !exportingPptx" class="topbar">
+    <header v-if="stats" class="topbar">
       <div class="topbar-logo">
         <img v-if="eventLogo && !logoError" :src="eventLogo" :alt="eventName" @error="logoError = true" />
         <span v-else class="topbar-logo-initials">{{ eventInitials }}</span>
@@ -14,7 +14,7 @@
 
     <div class="layout-body">
     <!-- Sidebar -->
-    <aside v-if="stats && !exporting && !exportingPptx" class="sidebar">
+    <aside v-if="stats" class="sidebar">
       <nav class="sidebar-nav">
         <template v-for="node in tabs" :key="node.id">
           <!-- Leaf : tab navigable -->
@@ -49,18 +49,10 @@
 
       <div class="sidebar-footer">
         <div class="sidebar-actions">
-          <button class="btn-side" @click="handleExportPdf" :disabled="exporting || exportingPptx || exportingMd">
-            <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 1v9M8 10L5 7M8 10l3-3M2 12v2h12v-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <span v-if="exporting" class="spinner-small"></span>
-            {{ exporting ? "..." : "PDF" }}
-          </button>
-          <button class="btn-side btn-side-purple" @click="handleExportPptx" :disabled="exporting || exportingPptx || exportingMd">
-            <span v-if="exportingPptx" class="spinner-small"></span>
-            {{ exportingPptx ? "..." : "PPTX" }}
-          </button>
-          <button class="btn-side btn-side-accent" @click="handleExportMarkdown" :disabled="exporting || exportingPptx || exportingMd" title="Export Markdown — destiné à un LLM (Claude, ChatGPT)">
+          <button class="btn-side btn-side-accent" @click="handleExportMarkdown" :disabled="exportingMd" title="Export Markdown — destiné à un LLM (Claude, ChatGPT)">
+            <svg v-if="!exportingMd" width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 1v9M8 10L5 7M8 10l3-3M2 12v2h12v-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             <span v-if="exportingMd" class="spinner-small"></span>
-            {{ exportingMd ? "..." : "MD" }}
+            {{ exportingMd ? "Export..." : "Export Markdown" }}
           </button>
         </div>
         <div class="sidebar-refresh">
@@ -110,9 +102,8 @@
           </p>
         </div>
 
-        <!-- Filtres GLOBAUX : persistent sur tous les onglets. Masques pendant
-             l'export (PDF/PPTX rendent tous les tabs hors interaction). -->
-        <div v-if="!exporting && !exportingPptx" class="global-filters">
+        <!-- Filtres GLOBAUX : persistent sur tous les onglets. -->
+        <div class="global-filters">
           <div class="gf-dates">
             <span class="gf-title" title="N'affecte que les statistiques de consultation : Live, Replay, Scans QR (salle / zone)">Plage de dates · consultation</span>
             <label class="gf-field">
@@ -135,79 +126,7 @@
           />
         </div>
 
-        <div id="pdf-content" class="tab-content" :class="{ 'pdf-exporting': exporting || exportingPptx }">
-          <template v-if="exporting || exportingPptx">
-            <div v-for="tab in exportTabs" :key="'pdf-' + tab.id" :data-tab-id="tab.id">
-              <div class="pdf-page-break"></div>
-              <h2 class="pdf-tab-title">{{ tab.label }}</h2>
-              <OverviewTab
-                v-if="tab.id === 'overview'"
-                :stats="stats"
-                :delegates="pageDelegates"
-                :mobile-app-id="mobileAppId"
-                :event-name="eventName"
-                :compare-delegates="pageCompareDelegates"
-                :compare-event-name="compareEventName"
-                :live-api="liveApi"
-                :replay-api="replayApi"
-                :compare-live-api="compareLiveApi"
-                :compare-replay-api="compareReplayApi"
-                :scans-api="scansApi"
-                :compare-scans-api="compareScansApi"
-                :badge-filter="badgeFilter"
-                :date-range="effectiveDateRange"
-              />
-              <DemographicsTab v-if="tab.id === 'demographics'" :stats="pageStats" :delegates="pageDelegates" :mobile-app-id="mobileAppId" :event-name="eventName" :date-range="effectiveDateRange" />
-              <RegistrationsTab v-if="tab.id === 'registrations'" :stats="pageStats" :delegates="pageDelegates" :mobile-app-id="mobileAppId" :event-name="eventName" :date-range="effectiveDateRange" />
-              <TemporalTab v-if="tab.id === 'temporal'" :stats="pageStats" :delegates="pageDelegates" :mobile-app-id="mobileAppId" :event-name="eventName" :date-range="effectiveDateRange" />
-              <BadgesTab v-if="tab.id === 'badges'" :stats="pageStats" :delegates="pageDelegates" :mobile-app-id="mobileAppId" :event-name="eventName" :date-range="effectiveDateRange" :badge-filter="badgeFilter" />
-              <ScansTab
-                v-if="tab.id === 'scans'"
-                :scans-api="scansApi"
-                :compare-scans-api="compareScansApi"
-                :event-name="eventName"
-                :compare-event-name="compareEventName"
-              />
-              <ViewersTab v-if="tab.id === 'live'" kind="live" :delegates="pageDelegates" :viewer-api="liveApi" :badge-filter-active="selectedBadgeTypes.size > 0" />
-              <ViewersComparisonTab
-                v-if="tab.id === 'liveCompare'"
-                kind="live"
-                :delegates="pageDelegates"
-                :compare-delegates="pageCompareDelegates"
-                :event-name="eventName"
-                :compare-event-name="compareEventName"
-                :viewer-api="liveApi"
-                :compare-viewer-api="compareLiveApi"
-              />
-              <ViewersTab v-if="tab.id === 'replay'" kind="replay" :delegates="pageDelegates" :viewer-api="replayApi" />
-              <ViewersComparisonTab
-                v-if="tab.id === 'replayCompare'"
-                kind="replay"
-                :delegates="pageDelegates"
-                :compare-delegates="pageCompareDelegates"
-                :event-name="eventName"
-                :compare-event-name="compareEventName"
-                :viewer-api="replayApi"
-                :compare-viewer-api="compareReplayApi"
-              />
-              <DataTab v-if="tab.id === 'data'" :stats="pageStats" :delegates="pageDelegates" :mobile-app-id="mobileAppId" :event-name="eventName" :date-range="effectiveDateRange" />
-              <ComparisonTab
-                v-if="tab.id === 'comparison'"
-                :stats="stats"
-                :delegates="pageDelegates"
-                :event-name="eventName"
-                :compare-stats="compareStats"
-                :compare-delegates="pageCompareDelegates"
-                :compare-event-name="compareEventName"
-                :compare-loading="false"
-                :compare-error="null"
-                :compare-progress="{ loaded: 0, total: 0, page: 0 }"
-                :badge-filter="badgeFilter"
-                :date-range="effectiveDateRange"
-              />
-            </div>
-          </template>
-          <template v-else>
+        <div class="tab-content">
             <OverviewTab
               v-if="activeTab === 'overview'"
               :stats="stats"
@@ -281,7 +200,6 @@
               :badge-filter="badgeFilter"
               :date-range="effectiveDateRange"
             />
-          </template>
         </div>
       </template>
     </main>
@@ -290,7 +208,7 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onUnmounted, watch } from "vue";
+import { ref, computed, onUnmounted, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useStatistics } from "@/composables/useStatistics.js";
 import { useLive } from "@/composables/useLive.js";
@@ -299,8 +217,6 @@ import { useRoomScans } from "@/composables/useRoomScans.js";
 import { useBadgeTypeFilter } from "@/composables/useBadgeTypeFilter.js";
 import { useDateRangeFilter } from "@/composables/useDateRangeFilter.js";
 import { computeAllStats } from "@/utils/computeStats.js";
-import { useExportPdf } from "@/composables/useExportPdf.js";
-import { useExportPptx } from "@/composables/useExportPptx.js";
 import { useExportMarkdown } from "@/composables/useExportMarkdown.js";
 import { COUNTDOWN_TICK_MS } from "@/constants.js";
 import OverviewTab from "../components/tabs/OverviewTab.vue";
@@ -462,46 +378,12 @@ const nextRefreshLabel = computed(() => {
   if (min > 0) return `${min}:${String(sec).padStart(2, "0")}`;
   return `${sec}s`;
 });
-const { exporting, exportToPdf } = useExportPdf();
-const { exportingPptx, exportToPptx } = useExportPptx();
 const { exportingMd, exportToMarkdown } = useExportMarkdown();
-
-const registeredCount = computed(() =>
-  (pageDelegates.value || []).filter((d) => d.status?.toLowerCase() === "registered").length
-);
 
 function confirmReload() {
   if (confirm("Ne me surcharge pas inutilement mes efforts...\nTu es certain de vouloir les toutes dernieres données ?")) {
     reload();
   }
-}
-
-async function waitForCharts() {
-  // Laisse Vue monter tous les tabs, puis attend que Chart.js ait fini de
-  // rendre (resize listener + animations). 1500ms couvre le pire cas
-  // (changement de layout pdf-mode + animation par défaut ~1000ms).
-  await nextTick();
-  await new Promise((r) => setTimeout(r, 1500));
-}
-
-async function handleExportPdf() {
-  await waitForCharts();
-  const el = document.getElementById("pdf-content");
-  await exportToPdf(
-    el, exportTabs.value, pageStats.value, registeredCount.value, eventName.value,
-    pageCompareStats.value, compareEventName.value,
-    pageDelegates.value, pageCompareDelegates.value,
-  );
-}
-
-async function handleExportPptx() {
-  await waitForCharts();
-  const el = document.getElementById("pdf-content");
-  await exportToPptx(
-    el, exportTabs.value, pageStats.value, registeredCount.value, eventName.value,
-    pageCompareStats.value, compareEventName.value,
-    pageDelegates.value, pageCompareDelegates.value,
-  );
 }
 
 async function handleExportMarkdown() {
@@ -548,7 +430,7 @@ const ICONS = {
 
 // Structure de navigation hierarchique. Les nodes avec `children` sont des
 // groupes (header non cliquable + enfants indentes). Sans `children` = leaf
-// navigable. `exportTabs` aplatit pour les exports PDF/PPTX.
+// navigable.
 const tabs = computed(() => {
   const registrationChildren = [
     { id: "registrations", label: "Inscriptions", icon: ICONS.registrations },
@@ -591,19 +473,6 @@ const tabs = computed(() => {
   ];
 });
 
-// exportTabs : aplatissement des leaves (Registration n'est pas exporte en tant
-// que page — c'est juste un regroupement). Ordre = ordre d'apparition.
-// L'onglet "Exports" est exclu : c'est l'interface des exports CSV, pas une
-// page de statistiques a inclure dans le PDF/PPTX.
-const exportTabs = computed(() => {
-  const flat = [];
-  for (const node of tabs.value) {
-    if (node.children) flat.push(...node.children);
-    else flat.push(node);
-  }
-  return flat.filter((t) => t.id !== "exports");
-});
-
 function isGroupActive(node) {
   return node.children?.some((c) => c.id === activeTab.value) || false;
 }
@@ -633,9 +502,7 @@ function toggleGroup(groupId) {
 .layout {
   display: flex; flex-direction: column; min-height: 100vh;
 }
-.layout.pdf-mode { display: block; }
 .layout-body { display: flex; flex: 1; min-height: 0; }
-.layout.pdf-mode .layout-body { display: block; }
 
 /* ── Top header bar (branding event) ── */
 .topbar {
@@ -1001,16 +868,6 @@ function toggleGroup(groupId) {
   text-align: center; padding: 16px; font-size: 14px;
   color: var(--text-muted); font-style: italic;
 }
-
-/* ── PDF Export ── */
-.pdf-exporting .pdf-tab-title {
-  font-size: 21px; font-weight: 600; color: var(--primary);
-  margin-bottom: 16px; padding-bottom: 8px;
-  border-bottom: 2px solid var(--primary);
-}
-.pdf-exporting .pdf-page-break:first-child { display: none; }
-.pdf-page-break { page-break-before: always; margin-top: 8px; }
-.pdf-mode .main-content { padding: 20px; }
 
 /* ═══════════════════════════════════════════
    RESPONSIVE

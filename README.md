@@ -7,7 +7,7 @@ Dashboard de statistiques pour les organisateurs de congrès. Application standa
 - Vue 3 + Vite 6 + Vue Router
 - Chart.js 4 + vue-chartjs (Doughnut, Bar, Line, Stacked, Choropleth)
 - chartjs-chart-geo (carte du monde)
-- html2pdf.js (export PDF client-side)
+- Export Markdown client-side (destiné aux LLM) — seul export du dashboard
 
 ## Installation
 
@@ -50,7 +50,7 @@ src/
 │   └── graphql.js            # Couche fetch GraphQL (pagination curseur)
 ├── composables/
 │   ├── useStatistics.js      # Chargement des données + calcul des stats
-│   └── useExportPdf.js       # Export PDF via html2pdf.js
+│   └── useExportMarkdown.js  # Export Markdown (destiné aux LLM)
 ├── utils/
 │   ├── computeStats.js       # Calcul client-side de toutes les statistiques
 │   └── countries.js           # Mapping pays / continents / drapeaux
