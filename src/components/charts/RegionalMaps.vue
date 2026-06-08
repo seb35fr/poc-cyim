@@ -9,7 +9,7 @@
           :rows="geoCountries.map(c => [c.value, c.totalCount])"
         />
       </div>
-      <ChoroplethMap :countries="geoCountries" :height="380" :key="`world-${cacheKey}`" />
+      <ChoroplethMap :countries="geoCountries" :height="380" :show-legend="showScaleLegend" :key="`world-${cacheKey}`" />
     </div>
     <div class="chart-card">
       <div class="chart-header">
@@ -25,6 +25,7 @@
         :region-codes="METRO_REGION_CODES_ARR"
         :global-max="frGlobalMax"
         :height="380"
+        :show-legend="!showScaleLegend"
         :key="`fr-metro-${cacheKey}`"
       />
       <div v-if="frRegionsOverseas.length > 0" class="dom-row">
@@ -45,6 +46,16 @@
             </div>
           </div>
         </div>
+      </div>
+      <!-- Échelle relative des couleurs (dégradé), comme la carte monde. -->
+      <div v-if="showScaleLegend && frGlobalMax > 1" class="map-legend">
+        <div class="map-legend-bar"></div>
+        <div class="map-legend-marks">
+          <span>0</span>
+          <span>{{ Math.round(frGlobalMax / 4).toLocaleString("fr-FR") }}</span>
+          <span>{{ frGlobalMax.toLocaleString("fr-FR") }}</span>
+        </div>
+        <div class="map-legend-note">{{ t("maps.legendNoteRegion") }}</div>
       </div>
     </div>
   </div>
@@ -74,6 +85,9 @@ const props = defineProps({
   // Prefixe des noms de fichiers CSV exportes. Utile pour distinguer
   // "badges-répartition-monde" vs "comparison-current-monde" par exemple.
   filenamePrefix: { type: String, default: "répartition" },
+  // Affiche l'echelle de couleur (degrade vert->orange->rouge) sous chaque carte,
+  // comme dans la Vue d'ensemble. Remplace la legende liste-de-regions du FR.
+  showScaleLegend: { type: Boolean, default: false },
 });
 
 // Codes regions metropolitaines (13 regions) — utilise pour separer DOM dans l'affichage.
@@ -135,4 +149,19 @@ const frGlobalMax = computed(() => Math.max(1, ...frRegions.value.map((r) => r.c
   margin-top: 2px; font-size: 13px; color: #414141; padding: 0 4px;
 }
 .dom-card-caption strong { color: #1E4E66; font-size: 15px; }
+
+/* Échelle de couleur (dégradé) — identique à celle de ChoroplethMap. */
+.map-legend { margin-top: 6px; padding: 0 4px; }
+.map-legend-bar {
+  height: 10px; border-radius: 5px;
+  background: linear-gradient(to right, #30DD92 0%, #FFA600 50%, #E53935 100%);
+}
+.map-legend-marks {
+  display: flex; justify-content: space-between;
+  font-size: 11px; color: var(--text-muted); margin-top: 2px;
+}
+.map-legend-note {
+  font-size: 10px; color: var(--text-muted); font-style: italic;
+  text-align: center; margin-top: 2px;
+}
 </style>

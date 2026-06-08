@@ -11,6 +11,20 @@
 
     <!-- Le filtre par type de badge est desormais GLOBAL (toolbar StatisticsView). -->
 
+    <!-- Filtre "Modalité de participation" — PAGE-LEVEL : pilote la decomposition
+         "Total participants", les cartes geographiques ET l'engagement. -->
+    <div class="page-mode-filter">
+      <span class="mode-filter-label">{{ t("overview.participation.modeFilterLabel") }}</span>
+      <button
+        v-for="m in ['PHYSIQUE', 'LIVE', 'REPLAY']"
+        :key="m"
+        type="button"
+        class="mode-pill"
+        :class="{ on: isModeOn(m) }"
+        @click="toggleMode(m)"
+      >{{ modeLabel(m) }}</button>
+    </div>
+
     <div class="kpi-grid kpi-overview">
       <div class="kpi-card blue">
         <div class="kpi-label">{{ t("overview.kpi.totalRegistered") }}</div>
@@ -67,17 +81,6 @@
     <div class="chart-card participation-card" v-if="!liveLoading && !replayLoading">
       <div class="chart-header">
         <h3>{{ t("overview.participation.decompositionTitle") }}</h3>
-      </div>
-      <div class="mode-filter">
-        <span class="mode-filter-label">{{ t("overview.participation.modeFilterLabel") }}</span>
-        <button
-          v-for="m in ['PHYSIQUE', 'LIVE', 'REPLAY']"
-          :key="m"
-          type="button"
-          class="mode-pill"
-          :class="{ on: isModeOn(m) }"
-          @click="toggleMode(m)"
-        >{{ modeLabel(m) }}</button>
       </div>
 
       <!-- 3 grands modes de participation : Physique / Live distanciel /
@@ -216,6 +219,35 @@
 
     <!-- Charts de synthese participation (comparatif si ?compareWith=) -->
     <div v-if="!liveLoading && !replayLoading">
+      <!-- Engagement : nb de sessions consultees par delegue, empile par
+           modalite (presentiel / live / replay). Mode decoche => serie masquee. -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <h3>{{ t("overview.charts.engagementTitle") }}</h3>
+          <span class="chart-hint">{{ t("overview.charts.engagementHint") }}</span>
+          <CsvButton
+            filename="engagement-distribution"
+            :label="t('overview.csv.distribution')"
+            :headers="[t('overview.csv.bucket'), t('overview.csv.delegates')]"
+            :rows="engagementCsvRows"
+          />
+          <CsvButton
+            filename="engagement-detail-par-delegue"
+            :label="t('overview.csv.perDelegate')"
+            :primary="true"
+            :headers="[t('overview.csv.delegateId'), t('overview.csv.name'), t('overview.csv.firstName'), t('overview.csv.email'), t('overview.csv.badgeType'), t('overview.csv.uniqueSessions'), t('overview.csv.bucket')]"
+            :rows="engagementDetailRows"
+          />
+        </div>
+        <StackedBarChart
+          :labels="engagementChart.labels"
+          :datasets="engagementChart.datasets"
+          :show-total="true"
+          :height="300"
+          legend-position="bottom"
+        />
+      </div>
+
       <div class="charts-row cols-3">
         <!-- Chart 1 : Participants vs Inscrits, groupe par event -->
         <div class="chart-card">
@@ -337,16 +369,36 @@
       </div>
     </div>
 
-    <!-- Cumul replay (single event, hors comparaison). Les graphes "uniques par
-         jour" et "cumulés — comparé" ont été retirés de la vue d'ensemble. -->
-    <div class="chart-card" v-if="!hasCompare && replayCumulativeByDay.length > 0">
-      <div class="chart-header">
-        <h3>{{ t("overview.charts.replayCumul") }}</h3>
-        <CsvButton filename="replay-cumul-delegues" :headers="[t('overview.csv.day'), t('overview.csv.delegatesCumul')]" :rows="replayCumulativeByDay.map(d => [d.day, d.count])" />
+    <!-- Repartition geographique des participants (monde | Europe), filtree par
+         la modalite de participation. Placee sous onboarding / mobile. -->
+    <div class="charts-row" v-if="!liveLoading && !replayLoading">
+      <div class="chart-card">
+        <div class="chart-header">
+          <h3>{{ t("maps.worldTitle") }}</h3>
+          <span class="chart-hint">{{ t("overview.charts.geoHint") }}</span>
+          <CsvButton
+            filename="participants-par-pays-monde"
+            :headers="[t('overview.csv.countryCode'), t('overview.csv.delegates')]"
+            :rows="geoCountries.map(c => [c.value, c.totalCount])"
+          />
+        </div>
+        <ChoroplethMap :key="`world-${geoCacheKey}`" :countries="geoCountries" scope="world" :show-legend="true" :height="420" />
       </div>
-      <LineChart :labels="replayDayLabels" :datasets="replayCumulativeDatasets" :height="260" />
-      <p class="chart-hint">{{ t("overview.charts.replayCumulHint") }}</p>
+      <div class="chart-card">
+        <div class="chart-header">
+          <h3>{{ t("maps.europeTitle") }}</h3>
+          <span class="chart-hint">{{ t("overview.charts.geoHint") }}</span>
+          <CsvButton
+            filename="participants-par-pays-europe"
+            :headers="[t('overview.csv.countryCode'), t('overview.csv.delegates')]"
+            :rows="geoCountriesEurope.map(c => [c.value, c.totalCount])"
+          />
+        </div>
+        <ChoroplethMap :key="`europe-${geoCacheKey}`" :countries="geoCountries" scope="europe" :show-legend="true" :height="420" />
+      </div>
     </div>
+
+    <!-- Le cumul des délégués replay a été déplacé sur l'onglet Replay. -->
 
   </div>
 </template>
@@ -357,13 +409,16 @@ import { useI18n } from "vue-i18n";
 import { Bar } from "vue-chartjs";
 import StackedBarChart from "../charts/StackedBarChart.vue";
 import LineChart from "../charts/LineChart.vue";
+import ChoroplethMap from "../charts/ChoroplethMap.vue";
 import FilterBanner from "../FilterBanner.vue";
 import CsvButton from "../CsvButton.vue";
+import { COUNTRY_CONTINENTS } from "@/utils/countries.js";
 import { useFilteredStats } from "../../composables/useFilteredStats.js";
 import { makeDateLabeler } from "../../utils/formatDateLabel.js";
 import { getTypeColor, getTypeColors } from "../../utils/typeColors.js";
 import { delegateBadgeType } from "@/utils/checkinByType.js";
 import { computeParticipation } from "@/utils/participation.js";
+import { buildDelegateLookup } from "@/utils/viewerJoin.js";
 import { computeAllStats } from "@/utils/computeStats.js";
 import { fmt, pct } from "@/utils/formatters.js";
 
@@ -993,27 +1048,172 @@ const onboardingDatasets = computed(() => {
   ];
 });
 
-// --- Replay sur la Vue d'ensemble : delegues uniques/jour (barre) + cumul de
-// delegues distincts ayant deja consulte du replay (courbe croissante). Donnees
-// issues de computeReplayStats (uniqueByDay + cumulativeUniqueByDay). Bucke sur
-// l'horodatage de la VUE (date de visionnage), pas la date de session.
-const replayUniqueByDay = computed(() => replayStats.value?.uniqueByDay || []);
-const replayCumulativeByDay = computed(() => replayStats.value?.cumulativeUniqueByDay || []);
-const replayDayLabels = computed(() => {
-  const dates = replayUniqueByDay.value.map((d) => d.day);
-  const labelFor = makeDateLabeler(dates);
-  return dates.map(labelFor);
+// (Le cumul des délégués replay a été déplacé sur l'onglet Replay.)
+
+// ─── Filtrage des délégués par MODALITÉ DE PARTICIPATION ───────────────────
+// Un délégué est inclus si sa catégorie de participation (parmi les 7
+// disjointes de computeParticipation) implique AU MOINS UN mode sélectionné —
+// même sémantique que le bloc "Total participants" (CATEGORY_MODES). Alimente
+// les cartes géographiques et l'engagement.
+const PARTICIPATION_CATEGORIES = [
+  "checkedInOnly", "checkedInLive", "checkedInReplay", "checkedInLiveReplay",
+  "liveOnly", "both", "replayOnly",
+];
+const modeMatchedDelegateIds = computed(() => {
+  const p = participation.value;
+  const ids = new Set();
+  for (const cat of PARTICIPATION_CATEGORIES) {
+    if (!CATEGORY_MODES[cat].some((m) => selectedModes.value.has(m))) continue;
+    for (const id of p[cat] || []) ids.add(id);
+  }
+  return ids;
 });
-const replayCumulativeDatasets = computed(() => [{
-  label: t("overview.datasets.delegatesCumulReplay"),
-  data: replayCumulativeByDay.value.map((d) => d.count),
-  borderColor: "#6F45FF",
-  backgroundColor: "rgba(111,69,255,0.10)",
-  fill: true,
-  tension: 0.3,
-  pointRadius: 0,
-  borderWidth: 2.5,
-}]);
+const participantDelegates = computed(() =>
+  pageFilteredDelegates.value.filter((d) => d.id && modeMatchedDelegateIds.value.has(d.id)),
+);
+// Signature qui change avec les filtres (modalité + population) -> force le
+// remount des ChoroplethMap (construites au mount, cf. composant).
+const geoCacheKey = computed(
+  () => `${[...selectedModes.value].sort().join("-")}-${participantDelegates.value.length}`,
+);
+
+// Répartition géographique (par code pays alpha2) des participants filtrés.
+const geoCountries = computed(() => {
+  const map = {};
+  for (const d of participantDelegates.value) {
+    const code = d.primaryAddress?.countryCode || d.primaryAddress?.country?.code;
+    if (!code) continue;
+    map[code] = (map[code] || 0) + 1;
+  }
+  return Object.entries(map)
+    .map(([value, totalCount]) => ({ value, totalCount }))
+    .sort((a, b) => b.totalCount - a.totalCount);
+});
+// Sous-ensemble européen (pour le CSV de la carte Europe ; la carte se recadre
+// elle-même sur l'Europe).
+const geoCountriesEurope = computed(() =>
+  geoCountries.value.filter((c) => COUNTRY_CONTINENTS[(c.value || "").toUpperCase()] === "Europe"),
+);
+
+// ─── Engagement : nb de sessions consultées par délégué, empilé par modalité ─
+// Présentiel : sessions distinctes scannées en salle / délégué (scansApi audience).
+// Live / Replay : sessionsPerUserBuckets déjà calculés (computeLive/ReplayStats).
+// Une modalité décochée masque sa série (cohérent avec le filtre page-level).
+const BUCKETS = ["1", "2-5", "6-10", "11-15", "16-20", "21-25", "26-30", "30+"];
+function bucketOf(n) {
+  if (n <= 1) return "1";
+  if (n <= 5) return "2-5";
+  if (n <= 10) return "6-10";
+  if (n <= 15) return "11-15";
+  if (n <= 20) return "16-20";
+  if (n <= 25) return "21-25";
+  if (n <= 30) return "26-30";
+  return "30+"; // strictement > 30 (>= 31)
+}
+// Nombre de sessions UNIQUES consultées par un délégué, tous canaux confondus :
+// union dédupliquée des sessionId (présentiel ∪ live ∪ replay), restreinte aux
+// modalités sélectionnées. Une même session vue en salle ET en replay compte 1.
+function uniqueSessions(r) {
+  const s = new Set();
+  if (selectedModes.value.has("PHYSIQUE")) for (const id of r.pres) s.add(id);
+  if (selectedModes.value.has("LIVE")) for (const id of r.live) s.add(id);
+  if (selectedModes.value.has("REPLAY")) for (const id of r.replay) s.add(id);
+  return s.size;
+}
+
+// Répartition des DÉLÉGUÉS UNIQUES par nombre de sessions UNIQUES consultées.
+// Chaque délégué compté 1 seule fois -> hauteur d'une barre = nb de délégués de
+// la tranche (réconcilié avec l'export "Détails" : colonnes Sessions uniques /
+// Tranche). Pas de découpage par canal.
+const engagementByBucket = computed(() => {
+  const buckets = Object.fromEntries(BUCKETS.map((b) => [b, 0]));
+  for (const r of engagementDetail.value) {
+    const n = uniqueSessions(r);
+    if (n <= 0) continue;
+    buckets[bucketOf(n)]++;
+  }
+  return buckets;
+});
+const engagementChart = computed(() => {
+  const b = engagementByBucket.value;
+  return {
+    labels: BUCKETS,
+    datasets: [{
+      label: t("overview.engagement.delegates"),
+      data: BUCKETS.map((k) => b[k]),
+      backgroundColor: "#1E4E66",
+      borderRadius: 4,
+    }],
+  };
+});
+const engagementCsvRows = computed(() => {
+  const b = engagementByBucket.value;
+  return BUCKETS.map((k) => [k, b[k]]);
+});
+
+// --- Export DÉTAILLÉ par délégué : nb de sessions DISTINCTES consultées en
+// présentiel / live / replay. Présentiel = sessions scannées en salle (jointure
+// delegateId Mongo). Live/Replay = sessions vues (jointure user_id Keycloak ->
+// délégué via buildDelegateLookup). Les viewers ES non rapprochés d'un délégué
+// apparaissent avec leur email/nom bruts.
+const engagementDetail = computed(() => {
+  const lookup = buildDelegateLookup(pageFilteredDelegates.value, { datasetLabel: "overview-engagement" });
+  const byId = new Map(pageFilteredDelegates.value.filter((d) => d.id).map((d) => [d.id, d]));
+  const rows = new Map();
+  const ensure = (delegate, fallbackKey, info = {}) => {
+    const key = delegate?.id ? `id:${delegate.id}` : fallbackKey;
+    let r = rows.get(key);
+    if (!r) {
+      r = {
+        delegate: delegate || null,
+        delegateId: delegate?.id || info.delegateId || "",
+        email: delegate?.email || info.email || "",
+        fullName: info.fullName || "",
+        pres: new Set(), live: new Set(), replay: new Set(),
+      };
+      rows.set(key, r);
+    } else if (delegate && !r.delegate) {
+      r.delegate = delegate;
+      r.delegateId = delegate.id;
+      r.email = delegate.email || r.email;
+    }
+    return r;
+  };
+  for (const s of props.scansApi?.stats?.value?.audience?.scans || []) {
+    if (!s.delegateId || s.delegateId === "-" || !s.sessionId) continue;
+    const r = ensure(byId.get(s.delegateId) || null, `id:${s.delegateId}`, { delegateId: s.delegateId, email: s.email });
+    r.pres.add(s.sessionId);
+  }
+  for (const it of liveStats.value?.items || []) {
+    if (!it.userId || !it.sessionId) continue;
+    const r = ensure(lookup.get(it.userId)?.delegate || null, `kc:${it.userId}`, { email: it.email, fullName: it.fullName });
+    r.live.add(it.sessionId);
+  }
+  for (const it of replayStats.value?.items || []) {
+    if (!it.userId || !it.sessionId) continue;
+    const r = ensure(lookup.get(it.userId)?.delegate || null, `kc:${it.userId}`, { email: it.email, fullName: it.fullName });
+    r.replay.add(it.sessionId);
+  }
+  return [...rows.values()];
+});
+const engagementDetailRows = computed(() =>
+  engagementDetail.value
+    .map((r) => {
+      const d = r.delegate;
+      const uniq = uniqueSessions(r);
+      return {
+        delegateId: r.delegateId,
+        nom: d?.familyName || r.fullName || "",
+        prenom: d?.givenName || "",
+        email: d?.email || r.email || "",
+        badge: d ? (delegateBadgeType(d) || "") : "",
+        uniq, bucket: bucketOf(uniq),
+      };
+    })
+    .filter((r) => r.uniq > 0)
+    .sort((a, b) => b.uniq - a.uniq)
+    .map((r) => [r.delegateId, r.nom, r.prenom, r.email, r.badge, r.uniq, r.bucket]),
+);
 
 </script>
 
@@ -1039,6 +1239,13 @@ const replayCumulativeDatasets = computed(() => [{
 
 /* Filtre "Modalité de participation" (pills PHYSIQUE / LIVE / REPLAY) */
 .mode-filter { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 2px 0 14px; }
+/* Version page-level : barre/carte en tete de la Vue d'ensemble, pilote la
+   decomposition participants + les cartes geo + l'engagement. */
+.page-mode-filter {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  padding: 10px 16px; margin-bottom: 16px;
+  background: var(--card); border-radius: 10px; box-shadow: var(--shadow);
+}
 .mode-filter-label {
   font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
   color: var(--text-muted); margin-right: 2px;

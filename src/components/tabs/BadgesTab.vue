@@ -225,6 +225,7 @@
       :delegates="filteredDelegates"
       :cache-key="badgeFilterKey"
       filename-prefix="repartition"
+      :show-scale-legend="true"
     />
 
     <!-- Flux par jour et heure : check-in (gauche) / badges (droite) -->

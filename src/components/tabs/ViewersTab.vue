@@ -50,7 +50,29 @@
           <div class="kpi-value">{{ formatDuration(g.avgViewDurationSec) }}</div>
           <div class="kpi-sub">{{ t("viewers.kpi.totalDuration", { dur: formatDuration(g.totalDurationSec) }) }}</div>
         </div>
-        <div class="kpi-card blue" v-if="stats.origins && stats.origins.length > 0">
+        <!-- Live : "Vues totales par origine" sous forme de doughnut + legende
+             (% et absolu) directement dans l'indicateur. Replay : resume texte. -->
+        <div class="kpi-card blue kpi-origin" v-if="kind === 'live' && stats.origins && stats.origins.length > 0">
+          <div class="kpi-label">{{ t("viewers.charts.byOrigin") }}</div>
+          <div class="kpi-origin-body">
+            <div class="kpi-origin-pie">
+              <DoughnutChart
+                :labels="stats.origins.map(o => o.origin)"
+                :data="stats.origins.map(o => o.views)"
+                :colors="ORIGIN_COLORS"
+              />
+            </div>
+            <div class="kpi-origin-legend">
+              <div v-for="(o, i) in stats.origins" :key="o.origin" class="kpi-origin-row">
+                <span class="origin-swatch" :style="{ background: ORIGIN_COLORS[i % ORIGIN_COLORS.length] }"></span>
+                <span class="kpi-origin-name">{{ o.origin }}</span>
+                <strong>{{ fmt(o.views) }}</strong>
+                <span class="kpi-origin-pct">{{ pctOf(o.views, totalOriginViews) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="kpi-card blue" v-else-if="stats.origins && stats.origins.length > 0">
           <div class="kpi-label">{{ t("viewers.kpi.byOrigin") }}</div>
           <div class="kpi-value" style="font-size: 25px">{{ originSummary.topOrigin }} · {{ originSummary.topPct }}</div>
           <div class="kpi-sub">{{ originSummary.breakdown }}</div>
@@ -215,22 +237,57 @@
         </div>
       </div>
 
-      <!-- Top sessions par audience unique -->
-      <div class="chart-card" v-if="stats.topSessions.length > 0">
+      <!-- Replay : cumul des délégués distincts ayant consulté du replay
+           (déplacé depuis la Vue d'ensemble), au-dessus du top sessions. -->
+      <div class="chart-card" v-if="kind === 'replay' && replayCumulByDay.length > 0">
         <div class="chart-header">
-          <h3>{{ L.topSessionsTitle }}</h3>
+          <h3>{{ t("viewers.charts.replayCumul") }}</h3>
           <CsvButton
-            :filename="`${kind}-top-sessions`"
-            :headers="[t('viewers.csv.session'), t('viewers.csv.uniqueDelegates'), t('viewers.csv.views'), t('viewers.csv.avgDurationS')]"
-            :rows="stats.topSessions.slice(0, topN).map(s => [s.title, s.uniqueUsers, s.views, Math.round(s.avgDuration)])"
+            filename="replay-cumul-delegues"
+            :headers="[t('viewers.csv.day'), t('viewers.csv.cumulDelegates')]"
+            :rows="replayCumulByDay.map(d => [d.day, d.count])"
           />
         </div>
-        <HBarChart
-          :labels="stats.topSessions.slice(0, topN).map(s => truncate(s.title, 60))"
-          :data="stats.topSessions.slice(0, topN).map(s => s.uniqueUsers)"
-          :height="Math.max(220, Math.min(topN, stats.topSessions.length) * 22 + 40)"
-          color="#6F45FF"
-        />
+        <div :style="{ position: 'relative', height: '260px' }">
+          <Bar :data="replayCumulChart" :options="replayCumulOptions" />
+        </div>
+        <p class="viewers-hint">{{ t("viewers.charts.replayCumulHint") }}</p>
+      </div>
+
+      <!-- Top sessions : par délégués uniques (+ par vues côte à côte en replay) -->
+      <div :class="{ 'charts-row': kind === 'replay' }" v-if="stats.topSessions.length > 0">
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3>{{ L.topSessionsTitle }}</h3>
+            <CsvButton
+              :filename="`${kind}-top-sessions`"
+              :headers="[t('viewers.csv.session'), t('viewers.csv.uniqueDelegates'), t('viewers.csv.views'), t('viewers.csv.avgDurationS')]"
+              :rows="stats.topSessions.slice(0, topN).map(s => [s.title, s.uniqueUsers, s.views, Math.round(s.avgDuration)])"
+            />
+          </div>
+          <HBarChart
+            :labels="stats.topSessions.slice(0, topN).map(s => truncate(s.title, 60))"
+            :data="stats.topSessions.slice(0, topN).map(s => s.uniqueUsers)"
+            :height="Math.max(220, Math.min(topN, stats.topSessions.length) * 22 + 40)"
+            color="#6F45FF"
+          />
+        </div>
+        <div class="chart-card" v-if="kind === 'replay'">
+          <div class="chart-header">
+            <h3>{{ t("viewers.charts.topSessionsViews") }}</h3>
+            <CsvButton
+              filename="replay-top-sessions-vues"
+              :headers="[t('viewers.csv.session'), t('viewers.csv.views'), t('viewers.csv.uniqueDelegates'), t('viewers.csv.avgDurationS')]"
+              :rows="topSessionsByViews.slice(0, topN).map(s => [s.title, s.views, s.uniqueUsers, Math.round(s.avgDuration)])"
+            />
+          </div>
+          <HBarChart
+            :labels="topSessionsByViews.slice(0, topN).map(s => truncate(s.title, 60))"
+            :data="topSessionsByViews.slice(0, topN).map(s => s.views)"
+            :height="Math.max(220, Math.min(topN, topSessionsByViews.length) * 22 + 40)"
+            color="#1E4E66"
+          />
+        </div>
       </div>
 
       <!-- Engagement : standalone (live ET replay) — en replay la colonne droite
@@ -382,6 +439,46 @@ const { loading, refreshing, error, progress, stats, reload } = props.viewerApi;
 const g = computed(() => stats.value.global);
 const topN = 15;
 const pageSize = 200;
+
+// --- Top sessions par VUES (replay) : même liste que topSessions mais triée
+// par nombre de vues (s.views) au lieu des délégués uniques. Affiché à droite
+// du "Top sessions par délégués uniques". ---
+const topSessionsByViews = computed(() =>
+  [...(stats.value.topSessions || [])].sort((a, b) => b.views - a.views),
+);
+
+// --- Cumul des délégués distincts ayant consulté du replay (déplacé depuis la
+// Vue d'ensemble). Chaque délégué compté 1× au jour de sa 1ʳᵉ consultation. ---
+const replayCumulByDay = computed(() => stats.value.cumulativeUniqueByDay || []);
+const replayCumulChart = computed(() => ({
+  labels: replayCumulByDay.value.map((d) => d.day),
+  datasets: [{
+    type: "line",
+    label: t("viewers.charts.replayCumul"),
+    data: replayCumulByDay.value.map((d) => d.count),
+    borderColor: "#6F45FF",
+    backgroundColor: "rgba(111,69,255,0.10)",
+    fill: true,
+    tension: 0.3,
+    pointRadius: 0,
+    borderWidth: 2.5,
+  }],
+}));
+const replayCumulOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: { display: false },
+    datalabels: { display: false },
+    tooltip: {
+      callbacks: { label: (ctx) => t("viewers.tooltip.cumulDelegates", { n: ctx.raw.toLocaleString("fr-FR") }) },
+    },
+  },
+  scales: {
+    x: { grid: { display: false }, ticks: { font: { size: 13 } } },
+    y: { grid: { color: "#f3f4f6" }, ticks: { font: { size: 13 }, precision: 0 }, beginAtZero: true },
+  },
+};
 
 // --- Filtre par session_type (live uniquement) ---
 const selectedSessionType = ref(null);
@@ -1119,6 +1216,25 @@ function detailCsvRow(it) {
   font-size: 12px; font-weight: 600;
   border-radius: 8px; background: #6F45FF; color: #fff;
 }
+
+/* Indicateur "Vues totales par origine" (doughnut + legende) en KPI. */
+.kpi-origin { grid-column: span 2; }
+.kpi-origin-body { display: flex; align-items: center; gap: 12px; margin-top: 6px; }
+.kpi-origin-pie { width: 84px; height: 84px; flex-shrink: 0; }
+.kpi-origin-legend {
+  display: flex; flex-direction: column; gap: 3px;
+  font-size: 12px; min-width: 0; flex: 1;
+}
+.kpi-origin-row {
+  display: grid; grid-template-columns: 12px 1fr auto auto;
+  align-items: center; gap: 6px;
+}
+.kpi-origin-name {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--text-secondary);
+}
+.kpi-origin-row strong { color: var(--text); font-variant-numeric: tabular-nums; }
+.kpi-origin-pct { color: var(--text-muted); min-width: 42px; text-align: right; }
 
 .origin-legend-row.clickable {
   cursor: pointer; padding: 3px 6px; border-radius: 6px;
