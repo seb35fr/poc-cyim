@@ -2,3 +2,6 @@ node_modules/
 dist/
 .env
 bash.exe.stackdump
+
+# Artefacts d'export generes localement (md/json/pptx, scripts scratch)
+exports/

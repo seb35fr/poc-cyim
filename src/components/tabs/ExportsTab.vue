@@ -47,6 +47,10 @@
               :placeholder="t('exports.session.searchPlaceholder')"
               class="search-input"
             />
+            <select v-if="sessionTypes.length > 0" v-model="selectedSessionType" class="type-select">
+              <option value="">{{ t("exports.presence.allTypes") }}</option>
+              <option v-for="ty in sessionTypes" :key="ty" :value="ty">{{ ty }}</option>
+            </select>
             <button
               class="btn-primary"
               :disabled="filteredSessions.length === 0 || exportingAll"
@@ -104,6 +108,45 @@
         </template>
       </div>
     </section>
+
+    <!-- ═══ Catégorie : Présence par session en présentiel ═══ -->
+    <SessionPresenceExport
+      :open="openCategory === 'physical-attendance'"
+      :loading="loading"
+      :title="t('exports.physical.title')"
+      :desc="t('exports.physical.desc')"
+      :sessions="physicalSessions"
+      :count-label="t('exports.physical.colCount')"
+      :count-hint="t('exports.presence.hintScans')"
+      :export-fn="exportPhysicalCsv"
+      @toggle="toggleCategory('physical-attendance')"
+    />
+
+    <!-- ═══ Catégorie : Présence par session en Live ═══ -->
+    <SessionPresenceExport
+      :open="openCategory === 'live-attendance'"
+      :loading="loading"
+      :title="t('exports.live.title')"
+      :desc="t('exports.live.desc')"
+      :sessions="liveSessions"
+      :count-label="t('exports.live.colCount')"
+      :count-hint="t('exports.presence.hintViews')"
+      :export-fn="exportLiveCsv"
+      @toggle="toggleCategory('live-attendance')"
+    />
+
+    <!-- ═══ Catégorie : Présence par session en Replay ═══ -->
+    <SessionPresenceExport
+      :open="openCategory === 'replay-attendance'"
+      :loading="loading"
+      :title="t('exports.replay.title')"
+      :desc="t('exports.replay.desc')"
+      :sessions="replaySessions"
+      :count-label="t('exports.replay.colCount')"
+      :count-hint="t('exports.presence.hintViews')"
+      :export-fn="exportReplayCsv"
+      @toggle="toggleCategory('replay-attendance')"
+    />
 
     <!-- ═══ Catégorie : Parcours par personne ═══ -->
     <section class="export-category" :class="{ open: openCategory === 'delegate-journey' }">
@@ -269,10 +312,18 @@ import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import { downloadCsv } from "../../utils/exportCsv.js";
 import { fmt } from "@/utils/formatters.js";
+import SessionPresenceExport from "../SessionPresenceExport.vue";
 import {
   buildSessionAttendance,
   ATTENDANCE_HEADERS,
   attendanceRowToCsv,
+  PHYSICAL_ATTENDANCE_HEADERS,
+  physicalAttendanceRowToCsv,
+  LIVE_ATTENDANCE_HEADERS,
+  liveAttendanceRowToCsv,
+  REPLAY_ATTENDANCE_HEADERS,
+  replayAttendanceRowToCsv,
+  filterAttendanceBySource,
 } from "../../utils/buildSessionAttendance.js";
 import {
   buildDelegateJourney,
@@ -301,6 +352,7 @@ const scans = props.scansApi;
 
 const openCategory = ref(null); // tous les volets replies par defaut
 const search = ref("");
+const selectedSessionType = ref(""); // "" = tous les types (filtre categorie "Presence par session")
 const exportingAll = ref(false);
 const exportAllProgress = ref(0);
 
@@ -322,6 +374,26 @@ const errors = computed(() => {
   if (replay.error.value) arr.push(t("exports.errReplay", { msg: replay.error.value }));
   if (scans.error.value) arr.push(t("exports.errScans", { msg: scans.error.value }));
   return arr;
+});
+
+// Type de session par sessionId. Source prioritaire : les sessions GraphQL
+// exposees par useLive / useReplay (champ `type`). Repli : le `sessionType`
+// porte par les items ES live/replay (enrichi via le meme sessionMap GraphQL).
+// Les scans audience n'exposent pas le type — d'ou la jointure par sessionId.
+const sessionTypeById = computed(() => {
+  const map = new Map();
+  const addList = (arr) => {
+    for (const s of arr || []) if (s?.id && s.type && !map.has(s.id)) map.set(s.id, s.type);
+  };
+  addList(live.sessions?.value);
+  addList(replay.sessions?.value);
+  for (const it of live.stats.value.items || []) {
+    if (it.sessionId && it.sessionType && !map.has(it.sessionId)) map.set(it.sessionId, it.sessionType);
+  }
+  for (const it of replay.stats.value.items || []) {
+    if (it.sessionId && it.sessionType && !map.has(it.sessionId)) map.set(it.sessionId, it.sessionType);
+  }
+  return map;
 });
 
 // Union des sessions detectees dans les 3 sources. Compteurs bruts (1 scan = 1 unite).
@@ -373,59 +445,121 @@ const sessions = computed(() => {
     e.replayCount += 1;
   }
 
-  // Tri par date de debut puis titre
-  return [...map.values()].sort((a, b) => {
-    const sa = a.start || "";
-    const sb = b.start || "";
-    if (sa !== sb) return sa.localeCompare(sb);
-    return (a.title || "").localeCompare(b.title || "");
-  });
+  // Tri par date de debut puis titre. On attache le type de session resolu.
+  return [...map.values()]
+    .map((e) => ({ ...e, type: sessionTypeById.value.get(e.id) || "" }))
+    .sort((a, b) => {
+      const sa = a.start || "";
+      const sb = b.start || "";
+      if (sa !== sb) return sa.localeCompare(sb);
+      return (a.title || "").localeCompare(b.title || "");
+    });
+});
+
+// Types de session distincts (pour le filtre deroulant de "Presence par session").
+const sessionTypes = computed(() => {
+  const set = new Set();
+  for (const s of sessions.value) if (s.type) set.add(s.type);
+  return [...set].sort((a, b) => a.localeCompare(b));
 });
 
 const filteredSessions = computed(() => {
   const q = search.value.trim().toLowerCase();
-  if (!q) return sessions.value;
-  return sessions.value.filter(
-    (s) =>
-      (s.title || "").toLowerCase().includes(q) ||
-      s.id.toLowerCase().includes(q)
-  );
+  return sessions.value.filter((s) => {
+    if (selectedSessionType.value && s.type !== selectedSessionType.value) return false;
+    if (!q) return true;
+    return (s.title || "").toLowerCase().includes(q) || s.id.toLowerCase().includes(q);
+  });
 });
 
-function exportSessionCsv(session) {
+// ─── Listes par source pour les exports mono-source ────────────────────────
+// Chaque entree expose le compteur pertinent (count) consomme par
+// SessionPresenceExport. Filtrees aux sessions ayant au moins 1 unite.
+const physicalSessions = computed(() =>
+  sessions.value
+    .filter((s) => s.audienceCount > 0)
+    .map((s) => ({ id: s.id, title: s.title, start: s.start, type: s.type, count: s.audienceCount }))
+);
+const liveSessions = computed(() =>
+  sessions.value
+    .filter((s) => s.liveCount > 0)
+    .map((s) => ({ id: s.id, title: s.title, start: s.start, type: s.type, count: s.liveCount }))
+);
+const replaySessions = computed(() =>
+  sessions.value
+    .filter((s) => s.replayCount > 0)
+    .map((s) => ({ id: s.id, title: s.title, start: s.start, type: s.type, count: s.replayCount }))
+);
+
+// Construit les lignes (3 sources croisees) d'UNE session — base commune des
+// exports combine + mono-source.
+function buildRowsForSession(session) {
   const audienceScans = (scans.stats.value.audience.scans || []).filter(
     (s) => s.sessionId === session.id
   );
-  const liveItems = (live.stats.value.items || []).filter(
-    (it) => it.sessionId === session.id
-  );
-  const replayItems = (replay.stats.value.items || []).filter(
-    (it) => it.sessionId === session.id
-  );
-
-  const rows = buildSessionAttendance({
+  const liveItems = (live.stats.value.items || []).filter((it) => it.sessionId === session.id);
+  const replayItems = (replay.stats.value.items || []).filter((it) => it.sessionId === session.id);
+  return buildSessionAttendance({
     session,
     audienceScans,
     liveItems,
     replayItems,
     delegates: props.delegates,
   });
+}
 
+function slug(str, n) {
+  return (str || "")
+    .replace(/[^\p{L}\p{N}_-]+/gu, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, n);
+}
+
+function buildFilename(prefix, session) {
+  return `${prefix}_${slug(props.eventName || eventId, 40)}-${slug(session.title || session.id, 60)}`;
+}
+
+function exportSessionCsv(session) {
+  const rows = buildRowsForSession(session);
   if (rows.length === 0) {
     alert(t("exports.session.noParticipant"));
     return;
   }
-
-  const safeTitle = (session.title || session.id)
-    .replace(/[^\p{L}\p{N}_-]+/gu, "_")
-    .replace(/^_+|_+$/g, "")
-    .slice(0, 60);
-  const safeEvent = (props.eventName || eventId)
-    .replace(/[^\p{L}\p{N}_-]+/gu, "_")
-    .slice(0, 40);
-  const filename = `audiance_${safeEvent}-${safeTitle}`;
-  downloadCsv(filename, ATTENDANCE_HEADERS, rows.map(attendanceRowToCsv));
+  downloadCsv(buildFilename("audiance", session), ATTENDANCE_HEADERS, rows.map(attendanceRowToCsv));
 }
+
+// Export mono-source (presentiel / live / replay) : memes lignes filtrees sur
+// la seule source demandee, serialisees avec ses colonnes propres.
+function exportSourceCsv(session, { source, headers, rowToCsv, prefix }) {
+  const rows = filterAttendanceBySource(buildRowsForSession(session), source);
+  if (rows.length === 0) {
+    alert(t("exports.presence.noParticipant"));
+    return;
+  }
+  downloadCsv(buildFilename(prefix, session), headers, rows.map(rowToCsv));
+}
+
+const exportPhysicalCsv = (session) =>
+  exportSourceCsv(session, {
+    source: "physique",
+    headers: PHYSICAL_ATTENDANCE_HEADERS,
+    rowToCsv: physicalAttendanceRowToCsv,
+    prefix: "presentiel",
+  });
+const exportLiveCsv = (session) =>
+  exportSourceCsv(session, {
+    source: "live",
+    headers: LIVE_ATTENDANCE_HEADERS,
+    rowToCsv: liveAttendanceRowToCsv,
+    prefix: "live",
+  });
+const exportReplayCsv = (session) =>
+  exportSourceCsv(session, {
+    source: "replay",
+    headers: REPLAY_ATTENDANCE_HEADERS,
+    rowToCsv: replayAttendanceRowToCsv,
+    prefix: "replay",
+  });
 
 async function exportAllSessionsCsv() {
   if (exportingAll.value) return;
@@ -608,6 +742,12 @@ function formatStart(iso) {
   outline: none; border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(30, 78, 102, .12);
 }
+.type-select {
+  padding: 7px 10px; font-size: 14px; font-family: inherit;
+  border: 1px solid var(--border); border-radius: 6px;
+  background: #fff; color: var(--text); cursor: pointer; max-width: 220px;
+}
+.type-select:focus { outline: none; border-color: var(--primary); }
 .btn-primary {
   padding: 7px 14px; border: none; border-radius: 6px;
   background: var(--primary); color: #fff;

@@ -120,6 +120,15 @@ function formatDuration(seconds) {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
+// Les indicateurs de presence sont stockes en interne "O"/"N" (concis pour la
+// logique + l'UI). Dans les CSV livres aux clients on expose YES/NO (demande
+// explicite). Une valeur vide (viewer ES non rapproche) reste vide.
+function yesNo(v) {
+  if (v === "O") return "YES";
+  if (v === "N") return "NO";
+  return v || "";
+}
+
 /**
  * Construit la liste des "presents" pour UNE session.
  * @param {object} args
@@ -266,15 +275,106 @@ export function attendanceRowToCsv(row) {
     row.rpps,
     row.pays,
     row.typeBadge,
-    row.checkInCongres,
-    row.physiquePresent,
+    yesNo(row.checkInCongres),
+    yesNo(row.physiquePresent),
     row.nbScansPhysiques || "",
     row.premierScanPhysique,
-    row.live,
+    yesNo(row.live),
     row.nbVuesLive || "",
     formatDuration(row.dureeLiveSec),
-    row.replay,
+    yesNo(row.replay),
     row.nbVuesReplay || "",
     formatDuration(row.dureeReplaySec),
   ];
+}
+
+// ─── Exports mono-source (presentiel / live / replay) ──────────────────────
+// Memes lignes que buildSessionAttendance, mais filtrees sur UNE source de
+// presence et serialisees avec les seules colonnes pertinentes pour celle-ci.
+// On reutilise buildSessionAttendance (qui croise deja les 3 sources) puis on
+// filtre : evite de dupliquer la logique de jointure delegate/keycloak.
+
+// Champs d'identite communs a tous les exports mono-source.
+const IDENTITY_HEADERS = [
+  "Session ID",
+  "Session titre",
+  "Session début",
+  "Session fin",
+  "Délégué ID",
+  "Civilité",
+  "Prénom",
+  "Nom",
+  "Email",
+  "Société",
+  "Profession (occupation)",
+  "Fonction (jobTitle)",
+  "Spécialité (qualification)",
+  "Mode d'exercice (practiceModes)",
+  "RPPS",
+  "Pays",
+  "Type badge",
+  "Check-in congrès",
+];
+
+function identityCols(row) {
+  return [
+    row.sessionId,
+    row.sessionTitle,
+    row.sessionStart,
+    row.sessionEnd,
+    row.delegateId,
+    row.civilite,
+    row.prenom,
+    row.nom,
+    row.email,
+    row.societe,
+    row.occupation,
+    row.jobTitle,
+    row.qualification,
+    row.practiceModes,
+    row.rpps,
+    row.pays,
+    row.typeBadge,
+    yesNo(row.checkInCongres),
+  ];
+}
+
+// Présentiel (présence physique en salle) : uniquement les personnes scannées.
+export const PHYSICAL_ATTENDANCE_HEADERS = [
+  ...IDENTITY_HEADERS,
+  "Nb scans physiques",
+  "1er scan physique",
+];
+
+export function physicalAttendanceRowToCsv(row) {
+  return [...identityCols(row), row.nbScansPhysiques || "", row.premierScanPhysique];
+}
+
+// Live : uniquement les personnes ayant consulté du live.
+export const LIVE_ATTENDANCE_HEADERS = [
+  ...IDENTITY_HEADERS,
+  "Nb vues live",
+  "Durée live cumulée (mm:ss)",
+];
+
+export function liveAttendanceRowToCsv(row) {
+  return [...identityCols(row), row.nbVuesLive || "", formatDuration(row.dureeLiveSec)];
+}
+
+// Replay : uniquement les personnes ayant consulté du replay.
+export const REPLAY_ATTENDANCE_HEADERS = [
+  ...IDENTITY_HEADERS,
+  "Nb vues replay",
+  "Durée replay cumulée (mm:ss)",
+];
+
+export function replayAttendanceRowToCsv(row) {
+  return [...identityCols(row), row.nbVuesReplay || "", formatDuration(row.dureeReplaySec)];
+}
+
+// Filtre les lignes d'une session sur une seule source de présence.
+//   source = "physique" | "live" | "replay"
+export function filterAttendanceBySource(rows, source) {
+  const flag = source === "live" ? "live" : source === "replay" ? "replay" : "physiquePresent";
+  return (rows || []).filter((r) => r[flag] === "O");
 }

@@ -42,6 +42,13 @@ function formatDuration(seconds) {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
+// Présence stockée "O"/"N" en interne, exposée YES/NO dans les CSV clients.
+function yesNo(v) {
+  if (v === "O") return "YES";
+  if (v === "N") return "NO";
+  return v || "";
+}
+
 /**
  * Resout les identifiants d'une personne a partir d'un email.
  * 1) cherche un delegue dont d.email matche (case-insensitive)
@@ -284,18 +291,18 @@ export function journeyRowToCsv(row) {
     row.rpps,
     row.pays,
     row.typeBadge,
-    row.checkInCongres,
+    yesNo(row.checkInCongres),
     row.sessionId,
     row.sessionTitle,
     row.sessionStart,
     row.sessionEnd,
-    row.physiquePresent,
+    yesNo(row.physiquePresent),
     row.nbScansPhysiques || "",
     row.premierScanPhysique,
-    row.live,
+    yesNo(row.live),
     row.nbVuesLive || "",
     formatDuration(row.dureeLiveSec),
-    row.replay,
+    yesNo(row.replay),
     row.nbVuesReplay || "",
     formatDuration(row.dureeReplaySec),
   ];

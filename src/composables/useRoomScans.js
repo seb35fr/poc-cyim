@@ -4,6 +4,7 @@ import {
   fetchCongressCheckin,
   fetchZoneAccess,
 } from "@/api/elasticsearch.js";
+import { fetchLocationNames } from "@/api/graphql.js";
 import { computeAllScanStats } from "@/utils/computeScanStats.js";
 import { debug } from "@/utils/debug.js";
 import { AUTO_REFRESH_MS } from "@/constants.js";
@@ -19,6 +20,9 @@ export function useRoomScans(eventId, options = {}) {
   const audience = ref([]);
   const checkin = ref([]);
   const zone = ref([]);
+  // Map<zone_id (= location.id), name> resolue via le gateway GraphQL.
+  // Cache cross-refresh : on ne re-resout que les ids inconnus.
+  const zoneNames = ref(new Map());
 
   // Les 3 index ES (audience / checkin / zone) ecrivent tous le meme
   // identifiant cote Flink : delegate.id Mongo. Donc l'unicite se fait
@@ -53,6 +57,38 @@ export function useRoomScans(eventId, options = {}) {
       audience.value = a;
       checkin.value = c;
       zone.value = z;
+      // Dump explicite (always-on) du contenu ES brut des scans de salle (audience),
+      // pour inspecter les champs disponibles (session_id, room_name, badge_type, ...).
+      console.log(`[Scans][salle/audience] ${a.length} hit(s) ES — _source :`, a.map((h) => h._source));
+      if (a.length > 0) {
+        console.log("[Scans][salle/audience] champs du 1er hit :", Object.keys(a[0]._source || {}));
+        console.table(a.map((h) => h._source));
+      }
+      // Dump explicite (always-on) du contenu ES brut des scans de zone, pour
+      // inspecter les champs disponibles (zone_id, direction, delegate_id, ...).
+      console.log(`[Scans][zone] ${z.length} hit(s) ES — _source :`, z.map((h) => h._source));
+      if (z.length > 0) {
+        console.log("[Scans][zone] champs du 1er hit :", Object.keys(z[0]._source || {}));
+        console.table(z.map((h) => h._source));
+      }
+      // Resolution des noms de zone (zone_id = location.id) via le gateway.
+      // Best-effort, hors du chemin critique : on ne bloque/echoue jamais le
+      // chargement des scans si la resolution plante. On ne resout que les ids
+      // pas encore en cache.
+      const zoneIds = [...new Set(z.map((h) => h._source?.zone_id).filter((id) => id && id !== "-"))];
+      const missing = zoneIds.filter((id) => !zoneNames.value.has(id));
+      if (missing.length > 0) {
+        try {
+          const resolved = await fetchLocationNames(missing);
+          if (resolved.size > 0) {
+            const merged = new Map(zoneNames.value);
+            for (const [k, v] of resolved) merged.set(k, v);
+            zoneNames.value = merged; // nouvelle ref -> reactivite
+          }
+        } catch (e) {
+          debug.log("[Scans][zone] resolution noms de zone echouee:", e?.message || e);
+        }
+      }
       // Dump complet des hits ES (_source) pour les 3 index, pour verification
       // jointure / structure des champs (notamment user_id keycloak vs delegate_id Mongo).
       if (a.length > 0) {
@@ -125,6 +161,7 @@ export function useRoomScans(eventId, options = {}) {
     audience: readonly(audience),
     checkin: readonly(checkin),
     zone: readonly(zone),
+    zoneNames: readonly(zoneNames),
     stats,
     nextRefreshAt: readonly(nextRefreshAt),
     autoRefreshEnabled: readonly(autoRefreshEnabled),

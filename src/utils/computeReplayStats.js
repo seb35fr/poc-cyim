@@ -148,6 +148,9 @@ export function computeReplayStats(rawHits, sessionMap = null, dateRange = null)
   }
   const newByDay = new Map(); // jour -> nb de delegues vus pour la 1ere fois
   for (const day of firstDayByUser.values()) newByDay.set(day, (newByDay.get(day) || 0) + 1);
+  // Nouveaux delegues par jour (1ere consultation ce jour-la) : le delta
+  // journalier du cumul. Aligne sur l'ordre des jours de uniqueByDay.
+  const newUniqueByDay = uniqueByDay.map(({ day }) => ({ day, count: newByDay.get(day) || 0 }));
   let running = 0;
   const cumulativeUniqueByDay = uniqueByDay.map(({ day }) => {
     running += newByDay.get(day) || 0;
@@ -186,6 +189,7 @@ export function computeReplayStats(rawHits, sessionMap = null, dateRange = null)
     sessionsPerUserBuckets,
     origins,
     uniqueByDay,
+    newUniqueByDay,
     cumulativeUniqueByDay,
     viewsByDay,
     cumulativeViewsByDay,

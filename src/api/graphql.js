@@ -271,6 +271,40 @@ export async function fetchEventSessions(eventId, onProgress) {
   return all;
 }
 
+// Resout des location.id -> name via la query racine fédérée `location(id){name}`
+// (meme mécanisme que xlsx-stats getRoomName). Utilise pour donner un libellé
+// lisible aux scans de zone : le `zone_id` ES EST un location.id, mais l'index
+// de scans ne porte que l'id, pas le nom. Best-effort : un id non résolu (zone
+// supprimée, "-", erreur) est simplement absent de la Map -> fallback sur l'id.
+// Batch aliasé (1 requête / chunk de 50) avec variables typées pour éviter
+// toute injection. Retourne Map<id, name>.
+export async function fetchLocationNames(ids) {
+  const unique = [...new Set((ids || []).filter((x) => x && x !== "-"))];
+  const out = new Map();
+  if (unique.length === 0) return out;
+  const CHUNK = 50;
+  for (let i = 0; i < unique.length; i += CHUNK) {
+    const chunk = unique.slice(i, i + CHUNK);
+    const varDefs = chunk.map((_, j) => `$id${j}: ID!`).join(", ");
+    const fields = chunk.map((_, j) => `l${j}: location(id: $id${j}) { id name }`).join("\n      ");
+    const query = `query ZoneNames(${varDefs}) {\n      ${fields}\n    }`;
+    const variables = {};
+    chunk.forEach((id, j) => { variables[`id${j}`] = id; });
+    try {
+      const data = await gqlFetch(query, variables);
+      chunk.forEach((id, j) => {
+        const name = data?.[`l${j}`]?.name;
+        if (name) out.set(id, name);
+      });
+    } catch (e) {
+      // Resolution best-effort : on n'echoue jamais le chargement des scans
+      // pour un nom de zone manquant. On garde les ids bruts en fallback.
+      console.warn(`[GraphQL] fetchLocationNames — chunk ${i / CHUNK} échoué:`, e?.message || e);
+    }
+  }
+  return out;
+}
+
 export async function fetchEventConfig(eventId) {
   const query = `
     query GetConfig($eventId: ID!) {

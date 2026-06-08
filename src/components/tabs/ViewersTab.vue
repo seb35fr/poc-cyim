@@ -65,10 +65,10 @@
             <CsvButton
               :filename="`${kind}-delegues-uniques-par-jour`"
               :headers="kind === 'replay'
-                ? [t('viewers.csv.day'), t('viewers.csv.uniqueDelegates'), t('viewers.csv.cumulDelegates')]
+                ? [t('viewers.csv.day'), t('viewers.csv.uniqueDelegates'), t('viewers.csv.newDelegates'), t('viewers.csv.cumulDelegates')]
                 : [t('viewers.csv.day'), t('viewers.csv.uniqueDelegates'), ...byDayByBadgeType.types.map(viewerTypeLbl)]"
               :rows="kind === 'replay'
-                ? stats.uniqueByDay.map((d, i) => [d.day, d.count, stats.cumulativeUniqueByDay[i]?.count ?? ''])
+                ? stats.uniqueByDay.map((d, i) => [d.day, d.count, stats.newUniqueByDay[i]?.count ?? '', stats.cumulativeUniqueByDay[i]?.count ?? ''])
                 : byDayByBadgeType.labels.map((day, i) => [day, byDayByBadgeType.types.reduce((s, t) => s + (byDayByBadgeType.perDayType[i][t] || 0), 0), ...byDayByBadgeType.types.map(t => byDayByBadgeType.perDayType[i][t] || 0)])"
             />
           </div>
@@ -710,6 +710,28 @@ const byDayChart = computed(() => {
     yAxisID: "y",
     order: 2,
   }];
+  // Replay : courbe des NOUVEAUX delegues par jour (1ere consultation ce
+  // jour-la). Meme echelle que les barres (sous-ensemble des uniques du jour)
+  // => axe gauche "y". _metric pilote le libelle du tooltip.
+  if (props.kind === "replay" && (stats.value.newUniqueByDay || []).length > 0) {
+    datasets.push({
+      type: "line",
+      label: t("viewers.datasets.newDelegates"),
+      _metric: "new",
+      data: stats.value.newUniqueByDay.map((d) => d.count),
+      borderColor: "#FFA600",
+      backgroundColor: "rgba(255,166,0,0.10)",
+      fill: false,
+      tension: 0.3,
+      pointRadius: 3,
+      pointHoverRadius: 5,
+      pointBackgroundColor: "#FFA600",
+      borderWidth: 2.5,
+      yAxisID: "y",
+      order: 1,
+      datalabels: { display: false },
+    });
+  }
   // Replay : courbe de delegues uniques CUMULES (chaque delegue compte 1x au
   // jour de sa 1ere consultation). 2e axe car la courbe croit jusqu'au total.
   if (props.kind === "replay" && (stats.value.cumulativeUniqueByDay || []).length > 0) {
@@ -838,10 +860,12 @@ const byDayOptions = computed(() => {
       },
       tooltip: {
         callbacks: {
-          label: (ctx) =>
-            ctx.dataset.yAxisID === "y1"
-              ? t("viewers.tooltip.cumulDelegates", { n: ctx.raw.toLocaleString("fr-FR") })
-              : t("viewers.tooltip.uniqueDelegates", { n: ctx.raw.toLocaleString("fr-FR") }),
+          label: (ctx) => {
+            const n = ctx.raw.toLocaleString("fr-FR");
+            if (ctx.dataset.yAxisID === "y1") return t("viewers.tooltip.cumulDelegates", { n });
+            if (ctx.dataset._metric === "new") return t("viewers.tooltip.newDelegates", { n });
+            return t("viewers.tooltip.uniqueDelegates", { n });
+          },
         },
       },
     },

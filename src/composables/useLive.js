@@ -116,6 +116,9 @@ export function useLive(eventId, options = {}) {
     error: readonly(error),
     progress: readonly(progress),
     hits: readonly(hits),
+    // Sessions GraphQL (id, title, type, start, end, duration) — exposees pour
+    // que l'onglet Exports puisse filtrer par type de session.
+    sessions: readonly(sessions),
     stats,
     nextRefreshAt: readonly(nextRefreshAt),
     autoRefreshEnabled: readonly(autoRefreshEnabled),

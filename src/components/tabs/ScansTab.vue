@@ -65,24 +65,47 @@
         />
       </div>
 
-      <!-- Delegues uniques scannes par jour -->
-      <div class="chart-card">
-        <div class="chart-header">
-          <h3>{{ t("scans.byDayTitle") }}</h3>
-          <CsvButton
-            filename="delegues-uniques-par-jour"
-            :headers="[t('scans.csv.day'), t('scans.csv.uniqueTotal'), t('scans.csv.ofAudience'), t('scans.csv.ofEntrance'), t('scans.csv.ofZones'), ...uniqueByDay.badgeTypes]"
-            :rows="uniqueByDay.rows"
+      <!-- Delegues uniques scannes par jour (gauche) / Scans par zone (droite) -->
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3>{{ t("scans.byDayTitle") }}</h3>
+            <CsvButton
+              filename="delegues-uniques-par-jour"
+              :headers="[t('scans.csv.day'), t('scans.csv.uniqueTotal'), t('scans.csv.ofAudience'), t('scans.csv.ofEntrance'), t('scans.csv.ofZones'), ...uniqueByDay.badgeTypes]"
+              :rows="uniqueByDay.rows"
+            />
+          </div>
+          <StackedBarChart
+            v-if="uniqueByDay.labels.length > 0"
+            :labels="uniqueByDay.labels"
+            :datasets="uniqueByDay.chartData.datasets"
+            :height="320"
+            show-total
           />
+          <p v-else class="empty-msg">{{ t("scans.empty.noTimestamped") }}</p>
         </div>
-        <StackedBarChart
-          v-if="uniqueByDay.labels.length > 0"
-          :labels="uniqueByDay.labels"
-          :datasets="uniqueByDay.chartData.datasets"
-          :height="320"
-          show-total
-        />
-        <p v-else class="empty-msg">{{ t("scans.empty.noTimestamped") }}</p>
+
+        <!-- Scans de zone par jour : 1 barre / jour, empilee par zone. -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3>{{ t("scans.byZoneTitle") }}</h3>
+            <CsvButton
+              filename="scans-par-zone-par-jour"
+              :headers="zoneByDay.csvHeaders"
+              :rows="zoneByDay.rows"
+            />
+          </div>
+          <StackedBarChart
+            v-if="zoneByDay.labels.length > 0"
+            :labels="zoneByDay.labels"
+            :datasets="zoneByDay.datasets"
+            :height="320"
+            show-total
+            legend-position="bottom"
+          />
+          <p v-else class="empty-msg">{{ t("scans.empty.noZone") }}</p>
+        </div>
       </div>
 
       <!-- Top sessions -->
@@ -139,8 +162,8 @@
             </div>
             <CsvButton
               filename="scans-detail"
-              :headers="[t('scans.csv.type'), t('scans.csv.timestamp'), 'delegateId', 'fullName', 'email', 'badgeType', 'sessionId', 'sessionTitle', 'sessionStart', 'roomName', 'industryName', t('scans.csv.direction')]"
-              :rows="filteredScans.map(s => [s.kind, formatTimestamp(s.timestamp), s.delegateId || '', s.fullName, s.email, s.badgeType, s.sessionId || '', s.sessionTitle || '', formatTimestamp(s.sessionStart) || '', s.roomName || '', s.industryName || '', s.direction])"
+              :headers="[t('scans.csv.type'), t('scans.csv.timestamp'), 'delegateId', 'fullName', 'email', 'badgeType', 'sessionId', 'sessionTitle', 'sessionStart', 'roomName', 'industryName', t('scans.csv.zone'), t('scans.csv.direction')]"
+              :rows="filteredScans.map(s => [s.kind, formatTimestamp(s.timestamp), s.delegateId || '', s.fullName, s.email, s.badgeType, s.sessionId || '', s.sessionTitle || '', formatTimestamp(s.sessionStart) || '', s.roomName || '', s.industryName || '', s.kind === 'zone' ? zoneName(s.zoneId) : '', s.direction])"
             />
           </div>
         </div>
@@ -159,6 +182,7 @@
                 <th>sessionStart</th>
                 <th>roomName</th>
                 <th>industryName</th>
+                <th>{{ t("scans.csv.zone") }}</th>
                 <th>{{ t("scans.csv.direction") }}</th>
               </tr>
             </thead>
@@ -175,6 +199,7 @@
                 <td>{{ formatTimestamp(s.sessionStart) || '—' }}</td>
                 <td>{{ s.roomName || '—' }}</td>
                 <td>{{ s.industryName || '—' }}</td>
+                <td>{{ s.kind === 'zone' ? (zoneName(s.zoneId) || '—') : '—' }}</td>
                 <td>{{ directionLabel(s.direction) }}</td>
               </tr>
             </tbody>
@@ -212,10 +237,17 @@ const props = defineProps({
   compareEventName: { type: String, default: "" },
 });
 
-const { loading, refreshing, error, progress, stats, reload } = props.scansApi;
+const { loading, refreshing, error, progress, stats, reload, zoneNames } = props.scansApi;
 
 const g = computed(() => stats.value.global);
 const audience = computed(() => stats.value.audience);
+
+// Nom lisible d'une zone : zone_id (= location.id) resolu via le gateway
+// (cf. useRoomScans.zoneNames). Fallback sur l'id brut si non resolu.
+function zoneName(id) {
+  if (!id) return "";
+  return zoneNames.value.get(id) || id;
+}
 
 // --- Comparaison d'events (optionnelle) ---
 // On affiche un KpiCompareGrid A | Δ | B des que compareScansApi est fourni et
@@ -304,6 +336,62 @@ const uniqueByDay = computed(() => {
       ...badgeTypes.map((t) => byType[l]?.[t] || 0),
     ]),
   };
+});
+
+// --- Scans de zone par jour ---
+// { day: { zoneId: count } } a partir des scans de zone bruts. 1 barre par jour,
+// empilee par zone. On limite aux zones les plus actives (legende lisible) et
+// on agrege le reste dans un segment "Autres".
+const ZONE_DAY_TOP = 12;
+const zoneByDay = computed(() => {
+  const scans = stats.value.zone.scans || [];
+  const byDay = {}; // day -> { zoneId: count }
+  const zoneTotals = {}; // zoneId -> total
+  for (const s of scans) {
+    if (!s.zoneId) continue;
+    let parsed = s.timestamp;
+    if (typeof parsed === "number" && parsed < 10 ** 12) parsed = parsed * 1000;
+    const p = parisDateParts(parsed);
+    if (!p) continue;
+    const day = p.ymd;
+    if (!byDay[day]) byDay[day] = {};
+    byDay[day][s.zoneId] = (byDay[day][s.zoneId] || 0) + 1;
+    zoneTotals[s.zoneId] = (zoneTotals[s.zoneId] || 0) + 1;
+  }
+
+  const labels = Object.keys(byDay).sort();
+  const sortedZones = Object.keys(zoneTotals).sort((a, b) => zoneTotals[b] - zoneTotals[a]);
+  const topZoneIds = sortedZones.slice(0, ZONE_DAY_TOP);
+  const otherZoneIds = sortedZones.slice(ZONE_DAY_TOP);
+  const sumOthers = (day) => otherZoneIds.reduce((sum, zid) => sum + (byDay[day]?.[zid] || 0), 0);
+
+  const datasets = topZoneIds.map((zid) => ({
+    label: truncate(zoneName(zid), 30),
+    data: labels.map((d) => byDay[d]?.[zid] || 0),
+    backgroundColor: getTypeColor(zoneName(zid)),
+    borderRadius: 3,
+    stack: "zones",
+  }));
+  if (otherZoneIds.length > 0) {
+    datasets.push({
+      label: t("scans.zoneByDay.others"),
+      data: labels.map((d) => sumOthers(d)),
+      backgroundColor: "#9CA3AF",
+      borderRadius: 3,
+      stack: "zones",
+    });
+  }
+
+  // CSV : 1 ligne par jour, 1 colonne par zone (+ "Autres" si tronquage).
+  const csvHeaders = [t("scans.csv.day"), ...topZoneIds.map((zid) => zoneName(zid))];
+  if (otherZoneIds.length > 0) csvHeaders.push(t("scans.zoneByDay.others"));
+  const rows = labels.map((d) => {
+    const row = [d, ...topZoneIds.map((zid) => byDay[d]?.[zid] || 0)];
+    if (otherZoneIds.length > 0) row.push(sumOthers(d));
+    return row;
+  });
+
+  return { labels, datasets, csvHeaders, rows };
 });
 
 // Timeline tri-source : on bucke par "YYYY-MM-DD HH" et on aligne les 3 series.

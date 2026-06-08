@@ -3,6 +3,7 @@ import { generateAnalysis } from "@/utils/generateAnalysis.js";
 import { buildCheckinByType } from "@/utils/checkinByType.js";
 import { buildDelegateLookup, getRemoteOnlyDelegateIds } from "@/utils/viewerJoin.js";
 import { computeParticipation } from "@/utils/participation.js";
+import { zipToRegion, REGION_NAMES } from "@/utils/frenchRegions.js";
 import { i18n } from "@/i18n/index.js";
 import { weekdayNames } from "@/i18n/labels.js";
 
@@ -155,16 +156,36 @@ function sectionTotalParticipants(delegates, liveItems, replayItems, label = "md
   return out;
 }
 
-function sectionDemographics(stats) {
+// Repartition par region francaise INSEE — replique la logique de
+// RegionalMaps.vue (zip -> region) pour que la carte France soit representee
+// dans le markdown. Calcule a partir des delegues FR avec un zipCode resolu.
+function frenchRegionRows(delegates) {
+  const counts = new Map();
+  for (const d of delegates || []) {
+    const addr = d.primaryAddress;
+    if (!addr) continue;
+    const country = addr.countryCode || addr.country?.code;
+    if (country && country !== "FR") continue;
+    const region = zipToRegion(addr.zipCode);
+    if (!region) continue;
+    counts.set(region, (counts.get(region) || 0) + 1);
+  }
+  return [...counts.entries()]
+    .map(([code, count]) => ({ code, name: REGION_NAMES[code] || code, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
+function sectionDemographics(stats, delegates = []) {
   const d = stats?.demographics;
   if (!d) return "";
   let out = h(2, t("md.demo.title"));
 
+  // --- Geographie : tous les pays (aucun plafond), continents, regions FR ---
   out += h(3, t("md.demo.countriesTop"));
   const totalCountries = (d.countries || []).reduce((s, c) => s + c.totalCount, 0);
   out += mdTable(
     [t("md.demo.colCountry"), t("md.demo.colDelegates"), t("md.demo.colPct")],
-    (d.countries || []).slice(0, 20).map((c) => [c.value, fmtNum(c.totalCount), fmtPct(c.totalCount, totalCountries)]),
+    (d.countries || []).map((c) => [c.value, fmtNum(c.totalCount), fmtPct(c.totalCount, totalCountries)]),
   );
   out += `${t("md.demo.countriesSummary", { unique: d.uniqueCountries || 0, total: (d.countries || []).length })}\n\n`;
 
@@ -176,6 +197,16 @@ function sectionDemographics(stats) {
     continents.map(([k, v]) => [k, fmtNum(v), fmtPct(v, totalContinents)]),
   );
 
+  const regions = frenchRegionRows(delegates);
+  if (regions.length > 0) {
+    out += h(3, t("md.demo.regionsFr"));
+    const totalReg = regions.reduce((s, r) => s + r.count, 0);
+    out += mdTable(
+      [t("md.demo.colRegion"), t("md.demo.colRegionCode"), t("md.demo.colDelegates"), t("md.demo.colPct")],
+      regions.map((r) => [r.name, r.code, fmtNum(r.count), fmtPct(r.count, totalReg)]),
+    );
+  }
+
   out += h(3, t("md.demo.gender"));
   const totalGender = (d.genders || []).reduce((s, g) => s + g.totalCount, 0);
   out += mdTable(
@@ -183,28 +214,30 @@ function sectionDemographics(stats) {
     (d.genders || []).map((g) => [g.value, fmtNum(g.totalCount), fmtPct(g.totalCount, totalGender)]),
   );
 
+  // Professions / qualifications / civilites / societes : exhaustif (pas de
+  // plafond top-N) — l'export doit contenir l'integralite des indicateurs.
   out += h(3, t("md.demo.occupations"));
   out += mdTable(
     [t("md.demo.colOccupation"), t("md.demo.colDelegates")],
-    (d.occupations || []).slice(0, 15).map((o) => [o.value, fmtNum(o.totalCount)]),
+    (d.occupations || []).map((o) => [o.value, fmtNum(o.totalCount)]),
   );
 
   out += h(3, t("md.demo.qualifications"));
   out += mdTable(
     [t("md.demo.colQualification"), t("md.demo.colDelegates")],
-    (d.qualifications || []).slice(0, 15).map((q) => [q.value, fmtNum(q.totalCount)]),
+    (d.qualifications || []).map((q) => [q.value, fmtNum(q.totalCount)]),
   );
 
   out += h(3, t("md.demo.titles"));
   out += mdTable(
     [t("md.demo.colTitle"), t("md.demo.colDelegates")],
-    (d.titles || []).slice(0, 10).map((x) => [x.value, fmtNum(x.totalCount)]),
+    (d.titles || []).map((x) => [x.value, fmtNum(x.totalCount)]),
   );
 
   out += h(3, t("md.demo.companies"));
   out += mdTable(
     [t("md.demo.colCompany"), t("md.demo.colDelegates")],
-    (d.companies || []).slice(0, 20).map((c) => [c.value, fmtNum(c.totalCount)]),
+    (d.companies || []).map((c) => [c.value, fmtNum(c.totalCount)]),
   );
 
   return out;
@@ -569,11 +602,49 @@ function sectionLiveReplay(label, viewerStats, delegates, labelKey) {
   }
 
   if ((viewerStats.uniqueByDay || []).length > 0) {
-    out += h(3, t("md.viewers.uniqueByDay"));
+    // Replay : table enrichie (uniques + nouveaux + cumul) alignee sur l'ordre
+    // des jours de uniqueByDay. Live : table simple.
+    if (labelKey === "replay") {
+      const newByDay = viewerStats.newUniqueByDay || [];
+      const cumul = viewerStats.cumulativeUniqueByDay || [];
+      out += h(3, t("md.viewers.uniqueByDay"));
+      out += mdTable(
+        [t("md.viewers.colDay"), t("md.viewers.colUniqueDelegates"), t("md.viewers.colNewDelegates"), t("md.viewers.colCumulDelegates")],
+        viewerStats.uniqueByDay.map((d, i) => [
+          d.day, fmtNum(d.count),
+          fmtNum(newByDay[i]?.count ?? 0),
+          fmtNum(cumul[i]?.count ?? 0),
+        ]),
+      );
+    } else {
+      out += h(3, t("md.viewers.uniqueByDay"));
+      out += mdTable(
+        [t("md.viewers.colDay"), t("md.viewers.colUniqueDelegates")],
+        viewerStats.uniqueByDay.map((d) => [d.day, fmtNum(d.count)]),
+      );
+    }
+  }
+
+  // Replay : nombre de vues par jour (+ cumul).
+  if (labelKey === "replay" && (viewerStats.viewsByDay || []).length > 0) {
+    const cumulViews = viewerStats.cumulativeViewsByDay || [];
+    out += h(3, t("md.viewers.viewsByDay"));
     out += mdTable(
-      [t("md.viewers.colDay"), t("md.viewers.colUniqueDelegates")],
-      viewerStats.uniqueByDay.map((d) => [d.day, fmtNum(d.count)]),
+      [t("md.viewers.colDay"), t("md.viewers.colViews"), t("md.viewers.colCumulViews")],
+      viewerStats.viewsByDay.map((d, i) => [d.day, fmtNum(d.count), fmtNum(cumulViews[i]?.count ?? 0)]),
     );
+  }
+
+  // Live : delegues uniques par jour ET par chaine de diffusion.
+  if (labelKey === "live") {
+    const ch = viewerStats.uniqueByDayByChannel;
+    if (ch && (ch.channels || []).length > 0 && (ch.days || []).length > 0) {
+      out += h(3, t("md.viewers.byDayChannel"));
+      out += mdTable(
+        [t("md.viewers.colDay"), ...ch.channels.map((c) => c.label || c.id)],
+        ch.days.map((day) => [day, ...ch.channels.map((c) => fmtNum(ch.byDay?.[day]?.[c.id] || 0))]),
+      );
+    }
   }
 
   if ((viewerStats.sessionTypes || []).length > 0) {
@@ -651,10 +722,67 @@ function sectionScans(scanStats) {
     );
   }
 
-  const byDay = Object.entries(scanStats.combined?.uniqueDelegatesByDay || {}).sort((a, b) => a[0].localeCompare(b[0]));
+  // Delegues uniques par jour, ventiles par source (audience / check-in / zones).
+  const combined = scanStats.combined || {};
+  const byDay = Object.entries(combined.uniqueDelegatesByDay || {}).sort((a, b) => a[0].localeCompare(b[0]));
   if (byDay.length > 0) {
+    const aud = combined.uniqueDelegatesByDayAudience || {};
+    const chk = combined.uniqueDelegatesByDayCheckin || {};
+    const zon = combined.uniqueDelegatesByDayZone || {};
     out += h(3, t("md.scans.uniqueByDay"));
-    out += mdTable([t("md.scans.colDay"), t("md.scans.colUniqueDelegates")], byDay.map(([day, count]) => [day, fmtNum(count)]));
+    out += mdTable(
+      [t("md.scans.colDay"), t("md.scans.colUniqueDelegates"), t("md.scans.dirAudience"), t("md.scans.dirCheckin"), t("md.scans.dirZones")],
+      byDay.map(([day, count]) => [day, fmtNum(count), fmtNum(aud[day] || 0), fmtNum(chk[day] || 0), fmtNum(zon[day] || 0)]),
+    );
+  }
+
+  // Scans de zone PAR JOUR : { jour: { zoneId: count } } reconstruit depuis les
+  // scans bruts (cf. graphe "Scans par zone (par jour)" de l'onglet Scans).
+  const zoneScans = scanStats.zone?.scans || [];
+  if (zoneScans.length > 0) {
+    const byDayZone = {}; // day -> { zoneId: count }
+    const zoneTotals = {};
+    for (const s of zoneScans) {
+      if (!s.zoneId) continue;
+      let parsed = s.timestamp;
+      if (typeof parsed === "number" && parsed < 10 ** 12) parsed = parsed * 1000;
+      const dt = new Date(parsed);
+      if (Number.isNaN(dt.getTime())) continue;
+      const day = dt.toISOString().slice(0, 10);
+      if (!byDayZone[day]) byDayZone[day] = {};
+      byDayZone[day][s.zoneId] = (byDayZone[day][s.zoneId] || 0) + 1;
+      zoneTotals[s.zoneId] = (zoneTotals[s.zoneId] || 0) + 1;
+    }
+    const days = Object.keys(byDayZone).sort();
+    const zoneIds = Object.keys(zoneTotals).sort((a, b) => zoneTotals[b] - zoneTotals[a]);
+    if (days.length > 0 && zoneIds.length > 0) {
+      out += h(3, t("md.scans.zoneByDay"));
+      out += mdTable(
+        [t("md.scans.colDay"), ...zoneIds],
+        days.map((day) => [day, ...zoneIds.map((zid) => fmtNum(byDayZone[day]?.[zid] || 0))]),
+      );
+    }
+  }
+
+  // Flux de scans par heure : 3 series (audience / check-in / zones) alignees
+  // sur "jour HHh" (cf. timeline tri-source de l'onglet Scans).
+  const flatten = (byDayHour) => {
+    const map = new Map();
+    for (const [day, hours] of Object.entries(byDayHour || {})) {
+      for (const [hour, count] of Object.entries(hours)) map.set(`${day} ${hour}h`, count);
+    }
+    return map;
+  };
+  const audH = flatten(scanStats.audience?.byHour);
+  const chkH = flatten(scanStats.checkin?.byHour);
+  const zonH = flatten(scanStats.zone?.byHour);
+  const slots = [...new Set([...audH.keys(), ...chkH.keys(), ...zonH.keys()])].sort();
+  if (slots.length > 0) {
+    out += h(3, t("md.scans.hourlyFlow"));
+    out += mdTable(
+      [t("md.scans.colDayHour"), t("md.scans.dirAudience"), t("md.scans.dirCheckin"), t("md.scans.dirZones")],
+      slots.map((s) => [s, fmtNum(audH.get(s) || 0), fmtNum(chkH.get(s) || 0), fmtNum(zonH.get(s) || 0)]),
+    );
   }
 
   const dirRows = [
@@ -768,7 +896,7 @@ function renderEventBody({ stats, delegates = [], liveStats = null, replayStats 
   let out = "";
   out += sectionGlobal(stats, delegates);
   out += sectionTotalParticipants(delegates, liveItems, replayItems, participationLabel);
-  out += sectionDemographics(stats);
+  out += sectionDemographics(stats, delegates);
   out += sectionRegistrations(stats, delegates, liveItems, replayItems, participationLabel);
   out += sectionTemporal(stats);
   out += sectionCheckinFlow(stats);
@@ -781,6 +909,88 @@ function renderEventBody({ stats, delegates = [], liveStats = null, replayStats 
   return out;
 }
 
+// --- Dump JSON integral ------------------------------------------------------
+// Objectif : un fichier JSON contenant 100% des donnees ayant servi a produire
+// les stats — pour rejouer / auditer / recalculer hors de l'app. On serialise :
+//   - delegates : objets delegues BRUTS (GraphQL), tels que chargés
+//   - stats : tous les indicateurs calcules (computeAllStats, toutes sections)
+//   - live / replay / scans : stats ES incluant les items/scans normalises bruts
+// Les sections de `stats` sont des getters lazy -> on les lit explicitement pour
+// forcer leur materialisation avant serialisation.
+function materializeStats(stats) {
+  if (!stats) return null;
+  return {
+    global: stats.global,
+    demographics: stats.demographics,
+    registrations: stats.registrations,
+    temporal: stats.temporal,
+    checkinFlow: stats.checkinFlow,
+    badges: stats.badges,
+    onboarding: stats.onboarding,
+    mobileApp: stats.mobileApp,
+  };
+}
+
+// Replacer JSON : convertit Set -> Array, Map -> Object, BigInt -> string.
+// (Les structures de stats sont normalement deja plates ; filet de securite.)
+function jsonReplacer(key, value) {
+  if (value instanceof Set) return [...value];
+  if (value instanceof Map) return Object.fromEntries(value);
+  if (typeof value === "bigint") return value.toString();
+  return value;
+}
+
+function buildDataDump(opts) {
+  const {
+    eventId,
+    eventName,
+    delegates = [],
+    stats = null,
+    liveStats = null,
+    replayStats = null,
+    scanStats = null,
+    compareStats = null,
+    compareEventName = null,
+    compareDelegates = null,
+    compareLiveStats = null,
+    compareReplayStats = null,
+    compareScanStats = null,
+    badgeFilterTypes = [],
+  } = opts;
+
+  const dump = {
+    meta: {
+      schema: "cyim-statistics-reg/full-dump@1",
+      eventId: eventId || null,
+      eventName: eventName || null,
+      generatedAt: new Date().toISOString(),
+      locale: i18n.global.locale.value,
+      badgeTypeFilter: badgeFilterTypes,
+      delegatesCount: delegates.length,
+    },
+    event: {
+      delegates,
+      stats: materializeStats(stats),
+      live: liveStats,
+      replay: replayStats,
+      scans: scanStats,
+    },
+  };
+
+  if (compareStats && compareEventName) {
+    dump.compare = {
+      eventName: compareEventName,
+      delegates: compareDelegates || [],
+      stats: materializeStats(compareStats),
+      live: compareLiveStats,
+      replay: compareReplayStats,
+      scans: compareScanStats,
+    };
+  }
+
+  return dump;
+}
+
 // --- Composable principal ---------------------------------------------------
 
 export function useExportMarkdown() {
@@ -788,6 +998,16 @@ export function useExportMarkdown() {
 
   function safeFileName(name) {
     return (name || "event").replace(/[^a-zA-Z0-9-_]/g, "_").slice(0, 60);
+  }
+
+  function downloadBlob(content, mime, filename) {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   function buildMarkdown(opts) {
@@ -857,15 +1077,25 @@ export function useExportMarkdown() {
     if (exportingMd.value) return;
     exportingMd.value = true;
     try {
-      const md = buildMarkdown(opts);
-      const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
       const dateStr = new Date().toISOString().slice(0, 10);
-      a.download = `bilan-${safeFileName(opts.eventName || opts.eventId)}-${dateStr}.md`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const base = safeFileName(opts.eventName || opts.eventId);
+
+      // 1) Markdown (bilan lisible + LLM-ready).
+      const md = buildMarkdown(opts);
+      downloadBlob(md, "text/markdown;charset=utf-8", `bilan-${base}-${dateStr}.md`);
+
+      // 2) Dump JSON integral des donnees source (100% des donnees ayant servi
+      // a produire les stats). Petit delai pour ne pas que le navigateur bloque
+      // le 2e telechargement declenche dans le meme tick.
+      try {
+        const dump = buildDataDump(opts);
+        const json = JSON.stringify(dump, jsonReplacer, 2);
+        await new Promise((r) => setTimeout(r, 300));
+        downloadBlob(json, "application/json;charset=utf-8", `donnees-${base}-${dateStr}.json`);
+      } catch (e) {
+        // Le dump JSON ne doit jamais faire echouer l'export MD principal.
+        console.error("JSON dump export failed:", e);
+      }
     } catch (e) {
       console.error("MD export failed:", e);
       throw e;
