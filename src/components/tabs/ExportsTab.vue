@@ -208,7 +208,7 @@
                   </div>
                   <button
                     class="btn-export big"
-                    :disabled="journeyResult.counts.sessions === 0"
+                    :disabled="journeyResult.rows.length === 0"
                     @click="exportJourneyCsv"
                   >
                     {{ t("exports.journey.exportCsv") }}
@@ -240,8 +240,12 @@
                     <span class="count-value">{{ fmt(journeyResult.counts.sessions) }}</span>
                   </div>
                   <div class="count-box">
-                    <span class="count-label">{{ t("exports.journey.physicalPresence") }}</span>
-                    <span class="count-value">{{ fmt(journeyResult.counts.physique) }}</span>
+                    <span class="count-label">{{ t("exports.journey.physicalRoom") }}</span>
+                    <span class="count-value">{{ fmt(journeyResult.counts.physiqueSalle) }}</span>
+                  </div>
+                  <div class="count-box">
+                    <span class="count-label">{{ t("exports.journey.physicalZone") }}</span>
+                    <span class="count-value">{{ fmt(journeyResult.counts.zones) }}</span>
                   </div>
                   <div class="count-box">
                     <span class="count-label">{{ t("exports.journey.live") }}</span>
@@ -253,7 +257,7 @@
                   </div>
                 </div>
 
-                <div v-if="journeyResult.counts.sessions === 0" class="journey-empty soft">
+                <div v-if="journeyResult.rows.length === 0" class="journey-empty soft">
                   {{ t("exports.journey.noInteraction") }}
                 </div>
 
@@ -271,8 +275,11 @@
                     <tbody>
                       <tr v-for="r in journeyResult.rows" :key="r.sessionId">
                         <td>
-                          <div class="session-title">{{ r.sessionTitle || r.sessionId }}</div>
-                          <code class="session-id">{{ r.sessionId }}</code>
+                          <div class="session-title">
+                            <span v-if="r.kind === 'zone'" class="zone-tag">{{ t("exports.journey.zoneTag") }}</span>
+                            {{ r.sessionTitle || r.sessionId }}
+                          </div>
+                          <code class="session-id">{{ r.kind === 'zone' ? r.sessionId.replace(/^zone:/, '') : r.sessionId }}</code>
                         </td>
                         <td class="session-start">{{ r.sessionStart || "—" }}</td>
                         <td class="num">
@@ -607,6 +614,9 @@ function lookupJourney() {
     audienceScans: scans.stats.value.audience.scans || [],
     liveItems: live.stats.value.items || [],
     replayItems: replay.stats.value.items || [],
+    // Scans de zone (stands, lounges...) : comptent comme présence physique.
+    zoneScans: scans.stats.value.zone?.scans || [],
+    zoneNames: scans.zoneNames?.value || null,
   });
 }
 
@@ -880,7 +890,7 @@ function formatStart(iso) {
 }
 
 .journey-counts {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px;
   margin-bottom: 14px;
 }
 .count-box {
@@ -898,4 +908,12 @@ function formatStart(iso) {
 }
 
 .sessions-table .muted { color: var(--text-muted); }
+
+/* Tag "Zone" dans le parcours : distingue une présence en zone d'une session. */
+.zone-tag {
+  display: inline-block; margin-right: 6px;
+  padding: 1px 6px; border-radius: 6px;
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px;
+  background: #6F45FF; color: #fff; vertical-align: 1px;
+}
 </style>

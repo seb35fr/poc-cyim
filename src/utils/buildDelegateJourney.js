@@ -99,6 +99,8 @@ export function buildDelegateJourney({
   audienceScans = [],
   liveItems = [],
   replayItems = [],
+  zoneScans = [],
+  zoneNames = null,
 } = {}) {
   const resolved = resolveByEmail(email, { delegates, liveItems, replayItems });
   const { delegate, delegateId, keycloakId, esFallback } = resolved;
@@ -153,6 +155,7 @@ export function buildDelegateJourney({
     }
     r = {
       ...personFields,
+      kind: "session",
       sessionId,
       sessionTitle: title || "",
       _rawStart: start || null,
@@ -218,13 +221,53 @@ export function buildDelegateJourney({
     }
   }
 
-  // Tri par debut de session puis titre (sur ISO brut, AVANT formatage Paris)
-  const list = [...rows.values()].sort((a, b) => {
+  // 4) Zones (presence physique HORS session : stands, lounges, espaces...) -
+  // jointure delegateId Mongo, comme l'audience. 1 ligne par zone distincte.
+  // Une personne scannee dans une zone EST physiquement presente, meme sans
+  // avoir suivi de session en salle -> compte dans "Presence physique".
+  const zoneRows = new Map();
+  if (delegateId) {
+    for (const z of zoneScans || []) {
+      if (z.delegateId !== delegateId || !z.zoneId) continue;
+      let zr = zoneRows.get(z.zoneId);
+      if (!zr) {
+        zr = {
+          ...personFields,
+          kind: "zone",
+          sessionId: `zone:${z.zoneId}`,
+          sessionTitle: (zoneNames && zoneNames.get && zoneNames.get(z.zoneId)) || z.zoneId,
+          _rawStart: null,
+          _rawEnd: null,
+          physiquePresent: "O",
+          nbScansPhysiques: 0,
+          premierScanPhysique: "",
+          live: "N",
+          nbVuesLive: 0,
+          dureeLiveSec: 0,
+          replay: "N",
+          nbVuesReplay: 0,
+          dureeReplaySec: 0,
+        };
+        zoneRows.set(z.zoneId, zr);
+      }
+      zr.nbScansPhysiques += 1;
+      const ts = fmtParis(z.timestamp);
+      if (ts && (!zr.premierScanPhysique || ts < zr.premierScanPhysique)) zr.premierScanPhysique = ts;
+    }
+  }
+
+  // Tri : sessions par debut puis titre (sur ISO brut), puis zones (pas de date
+  // de session) triees par libelle, ajoutees a la suite.
+  const sessionList = [...rows.values()].sort((a, b) => {
     const sa = a._rawStart || "";
     const sb = b._rawStart || "";
     if (sa !== sb) return sa.localeCompare(sb);
     return (a.sessionTitle || "").localeCompare(b.sessionTitle || "");
   });
+  const zoneList = [...zoneRows.values()].sort((a, b) =>
+    (a.sessionTitle || "").localeCompare(b.sessionTitle || ""),
+  );
+  const list = [...sessionList, ...zoneList];
 
   // Format final : dates Paris, on retire les champs internes
   const out = list.map((r) => {
@@ -237,7 +280,12 @@ export function buildDelegateJourney({
   });
 
   const counts = {
-    sessions: out.length,
+    // "Sessions interagies" = sessions du programme uniquement (hors zones).
+    sessions: out.filter((r) => r.kind !== "zone").length,
+    // Presence physique DISSOCIEE : salle (sessions suivies en salle) vs zones
+    // (stands, lounges...). `physique` = total des deux (conserve pour compat).
+    physiqueSalle: out.filter((r) => r.kind !== "zone" && r.physiquePresent === "O").length,
+    zones: out.filter((r) => r.kind === "zone").length,
     physique: out.filter((r) => r.physiquePresent === "O").length,
     live: out.filter((r) => r.live === "O").length,
     replay: out.filter((r) => r.replay === "O").length,
@@ -261,11 +309,12 @@ export const JOURNEY_HEADERS = [
   "Pays",
   "Type badge",
   "Check-in congrès",
-  "Session ID",
-  "Session titre",
+  "Nature",
+  "Session/Zone ID",
+  "Session/Zone",
   "Session début",
   "Session fin",
-  "Présent physique (session)",
+  "Présent physique",
   "Nb scans physiques",
   "1er scan physique",
   "Vu en live",
@@ -292,6 +341,7 @@ export function journeyRowToCsv(row) {
     row.pays,
     row.typeBadge,
     yesNo(row.checkInCongres),
+    row.kind === "zone" ? "Zone" : "Session",
     row.sessionId,
     row.sessionTitle,
     row.sessionStart,
