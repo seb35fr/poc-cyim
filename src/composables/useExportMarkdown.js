@@ -3,6 +3,7 @@ import { generateAnalysis } from "@/utils/generateAnalysis.js";
 import { buildCheckinByType } from "@/utils/checkinByType.js";
 import { buildDelegateLookup, getRemoteOnlyDelegateIds } from "@/utils/viewerJoin.js";
 import { computeParticipation } from "@/utils/participation.js";
+import { toEpochMs } from "@/utils/parisTime.js";
 import { zipToRegion, REGION_NAMES } from "@/utils/frenchRegions.js";
 import { i18n } from "@/i18n/index.js";
 import { weekdayNames } from "@/i18n/labels.js";
@@ -744,11 +745,9 @@ function sectionScans(scanStats) {
     const zoneTotals = {};
     for (const s of zoneScans) {
       if (!s.zoneId) continue;
-      let parsed = s.timestamp;
-      if (typeof parsed === "number" && parsed < 10 ** 12) parsed = parsed * 1000;
-      const dt = new Date(parsed);
-      if (Number.isNaN(dt.getTime())) continue;
-      const day = dt.toISOString().slice(0, 10);
+      const ms = toEpochMs(s.timestamp);
+      if (ms == null) continue;
+      const day = new Date(ms).toISOString().slice(0, 10);
       if (!byDayZone[day]) byDayZone[day] = {};
       byDayZone[day][s.zoneId] = (byDayZone[day][s.zoneId] || 0) + 1;
       zoneTotals[s.zoneId] = (zoneTotals[s.zoneId] || 0) + 1;

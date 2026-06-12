@@ -11,15 +11,15 @@
 // Les viewers ES sans delegate matchant sont conserves (info ES brute).
 
 import { delegateBadgeType } from "./checkinByType.js";
-import { parisDateTime } from "./parisTime.js";
+import { parisDateTime, toEpochMs } from "./parisTime.js";
+import { hasValidCheckin, getRpps } from "./viewerJoin.js";
 
-function hasValidCheckin(d) {
-  if (!d?.checkedInDate) return false;
-  return Number.isFinite(Date.parse(d.checkedInDate));
-}
+// Re-export pour compat (buildScanExport importe getRpps/delegateCoreFields ici).
+export { getRpps };
 
 // Le keycloakId est stocke dans contact.emailAddresses[i].source.id quand
-// source.type === "ACCOUNT". Source de verite la plus fiable (cf. LiveTab).
+// source.type === "ACCOUNT". Variante volontairement restreinte (ACCOUNT only,
+// cf. getKeycloakId large de viewerJoin qui couvre aussi les externalIds).
 function getKeycloakId(d) {
   const emails = d?.contact?.emailAddresses;
   if (!Array.isArray(emails)) return null;
@@ -36,16 +36,6 @@ function buildDelegateLookup(delegates) {
     if (kc) byKeycloakId.set(kc, d);
   }
   return { byMongoId, byKeycloakId };
-}
-
-// RPPS stocke comme externalId sur le Contact (Person), type "RPPS"
-// (case-insensitive — cf. DataTab.getRpps).
-export function getRpps(d) {
-  const externalIds = d?.contact?.externalIds || [];
-  const rpps = externalIds.find(
-    (e) => e?.type?.toUpperCase() === "RPPS" || e?.type?.toLowerCase().includes("rpps")
-  );
-  return rpps?.value || "";
 }
 
 export function delegateCoreFields(d) {
@@ -91,25 +81,10 @@ function unmatchedCoreFields(es) {
   };
 }
 
-// Formatage unifie en heure de Paris (CET/CEST gere) pour les CSV livres aux
-// clients. Les dates en entree peuvent etre :
-//   - ISO string "...Z" (GraphQL sessions, deliveredAt, checkedInDate)
-//   - numerique en ms ou en secondes (timestamps Flink)
-// On normalise tout vers une Date puis on delegue a parisDateTime.
+// Formatage unifie en heure de Paris pour les CSV : ISO "...Z" (GraphQL/Mongo) ou
+// epoch Flink (ms/secondes). `toEpochMs` normalise, `parisDateTime` formate.
 function fmtParis(ts) {
-  if (ts == null || ts === "") return "";
-  if (typeof ts === "number") {
-    // Heuristique Flink ms vs secondes : < 10^12 -> secondes.
-    const ms = ts < 10 ** 12 ? ts * 1000 : ts;
-    return parisDateTime(new Date(ms));
-  }
-  // Une chaine numerique (rare mais possible cote ES) : meme heuristique.
-  if (typeof ts === "string" && /^\d+$/.test(ts)) {
-    const n = Number(ts);
-    const ms = n < 10 ** 12 ? n * 1000 : n;
-    return parisDateTime(new Date(ms));
-  }
-  return parisDateTime(ts);
+  return parisDateTime(toEpochMs(ts));
 }
 
 function formatDuration(seconds) {

@@ -8,18 +8,8 @@
 // coherent (RPPS via contact.externalIds, type badge via delegateBadgeType...).
 
 import { delegateBadgeType } from "./checkinByType.js";
-import { hasValidCheckin } from "./viewerJoin.js";
+import { hasValidCheckin, getRpps } from "./viewerJoin.js";
 import { parisDateTime } from "./parisTime.js";
-
-// RPPS stocke comme externalId sur le Contact (Person), type "RPPS"
-// (case-insensitive — cf. DataTab.getRpps).
-function getRpps(d) {
-  const externalIds = d?.contact?.externalIds || [];
-  const rpps = externalIds.find(
-    (e) => e?.type?.toUpperCase() === "RPPS" || e?.type?.toLowerCase().includes("rpps")
-  );
-  return rpps?.value || "";
-}
 
 function fmtParis(ts) {
   if (ts == null || ts === "") return "";

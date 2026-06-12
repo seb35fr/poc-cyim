@@ -402,7 +402,7 @@ import StackedBarChart from "../charts/StackedBarChart.vue";
 import ChoroplethMap from "../charts/ChoroplethMap.vue";
 import CsvButton from "../CsvButton.vue";
 import InfoTooltip from "../InfoTooltip.vue";
-import { parisDateParts } from "../../utils/parisTime.js";
+import { parisDateParts, toEpochMs } from "../../utils/parisTime.js";
 import { fmt } from "@/utils/formatters.js";
 import { getTypeColor } from "@/utils/typeColors.js";
 import { COUNTRY_CONTINENTS } from "@/utils/countries.js";
@@ -1299,9 +1299,7 @@ function formatDuration(sec) {
 
 function formatTimestamp(ts) {
   if (!ts) return "—";
-  let parsed = ts;
-  if (typeof ts === "number" && ts < 10 ** 12) parsed = ts * 1000;
-  const p = parisDateParts(parsed);
+  const p = parisDateParts(toEpochMs(ts));
   if (!p) return String(ts);
   return `${p.ymd} ${String(p.hour).padStart(2, "0")}:${String(p.minute).padStart(2, "0")}`;
 }

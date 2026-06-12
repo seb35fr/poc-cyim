@@ -422,7 +422,8 @@ import KpiCompareGrid from "../charts/KpiCompareGrid.vue";
 import CsvButton from "../CsvButton.vue";
 import InfoTooltip from "../InfoTooltip.vue";
 import { COUNTRY_CONTINENTS } from "../../utils/countries.js";
-import { parisDateParts } from "../../utils/parisTime.js";
+import { parisDateParts, toEpochMs } from "../../utils/parisTime.js";
+import { qrKeys } from "../../utils/computeScanStats.js";
 import { fmt } from "@/utils/formatters.js";
 import { getTypeColor } from "@/utils/typeColors.js";
 
@@ -645,9 +646,7 @@ const zoneByDay = computed(() => {
   const zoneTotals = {}; // zoneId -> total
   for (const s of scans) {
     if (!s.zoneId) continue;
-    let parsed = s.timestamp;
-    if (typeof parsed === "number" && parsed < 10 ** 12) parsed = parsed * 1000;
-    const p = parisDateParts(parsed);
+    const p = parisDateParts(toEpochMs(s.timestamp));
     if (!p) continue;
     const day = p.ymd;
     if (!byDay[day]) byDay[day] = {};
@@ -809,15 +808,15 @@ const detailRow = ref(null);
 function openDetail(scan) {
   const delegate = scan.delegateId ? delegateById.value.get(scan.delegateId) || null : null;
   // Badge correspondant : par badge_id ES si dispo, sinon 1er badge dont le QR
-  // matche le raw_qr_code, sinon 1er badge du delegue.
+  // matche le raw_qr_code (mêmes clés que la ré-association), sinon 1er badge.
   let badge = null;
   if (delegate?.badges?.length) {
+    const scanKeys = new Set(qrKeys(scan.rawQrCode));
     badge =
       (scan.badgeId && delegate.badges.find((b) => b.id === scan.badgeId)) ||
       delegate.badges.find((b) =>
-        [b.qrCode?.value, b.qrCode?.decodedValue].some(
-          (q) => q && String(q).toLowerCase().replace(/[^a-z0-9]/g, "") ===
-            String(scan.rawQrCode || "").toLowerCase().replace(/[^a-z0-9]/g, ""),
+        [b.qrCode?.value, b.qrCode?.decodedValue].some((q) =>
+          qrKeys(q).some((k) => scanKeys.has(k)),
         ),
       ) ||
       delegate.badges[0];
@@ -847,13 +846,9 @@ function clearQrFilter() {
   qrFilter.value = "";
 }
 
-// Jour Paris (YMD) d'un scan, avec l'heuristique ms/secondes habituelle.
+// Jour Paris (YMD) d'un scan.
 function scanDay(ts) {
-  if (!ts) return null;
-  let parsed = ts;
-  if (typeof ts === "number" && ts < 10 ** 12) parsed = ts * 1000;
-  const p = parisDateParts(parsed);
-  return p ? p.ymd : null;
+  return parisDateParts(toEpochMs(ts))?.ymd ?? null;
 }
 
 const filteredScans = computed(() => {
@@ -902,9 +897,7 @@ function truncate(s, n) {
 }
 function formatTimestamp(ts) {
   if (!ts) return "—";
-  let parsed = ts;
-  if (typeof ts === "number" && ts < 10 ** 12) parsed = ts * 1000;
-  const p = parisDateParts(parsed);
+  const p = parisDateParts(toEpochMs(ts));
   if (!p) return String(ts);
   return `${p.ymd} ${String(p.hour).padStart(2, "0")}:${String(p.minute).padStart(2, "0")}`;
 }

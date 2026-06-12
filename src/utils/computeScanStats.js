@@ -1,4 +1,4 @@
-import { parisDateParts } from "./parisTime.js";
+import { parisDateParts, toEpochMs } from "./parisTime.js";
 import { makeInRange } from "./dateRange.js";
 
 // Normalisation d'un hit ES vers un format unifie : audience/checkin/zone
@@ -96,12 +96,7 @@ function normalizeDirection(raw) {
 }
 
 function dayHourFromTimestamp(ts) {
-  if (!ts) return null;
-  // Les timestamps Flink peuvent etre ms ou s (cf. normalisation cote SQL).
-  // Heuristique simple : un nombre < 10^12 est en secondes (avant 2001 en ms).
-  let parsed = ts;
-  if (typeof ts === "number" && ts < 10 ** 12) parsed = ts * 1000;
-  const parts = parisDateParts(parsed);
+  const parts = parisDateParts(toEpochMs(ts));
   if (!parts) return null;
   return { day: parts.ymd, hour: String(parts.hour).padStart(2, "0") };
 }
@@ -130,7 +125,8 @@ function normQrStrict(v) {
   return v == null ? "" : String(v).toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 // Cles candidates d'un QR, de la plus specifique a la plus tolerante (sans doublon).
-function qrKeys(v) {
+// Exporte : reutilise par ScansTab (modal Details) pour matcher un badge au scan.
+export function qrKeys(v) {
   const keys = [];
   const soft = normQr(v);
   if (soft) keys.push(soft);

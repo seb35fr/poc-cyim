@@ -136,6 +136,7 @@ import { ref, computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { COUNTRY_NAMES } from "../../utils/countries.js";
 import { downloadCsv } from "../../utils/exportCsv.js";
+import { getRpps } from "../../utils/viewerJoin.js";
 import InfoTooltip from "../InfoTooltip.vue";
 
 const { t, locale } = useI18n();
@@ -386,12 +387,6 @@ function exportDetailedCsv() {
   const timeStr = now.toTimeString().slice(0, 5).replace(":", "h");
   const name = (props.eventName || "event").replace(/[^a-zA-Z0-9-_]/g, "_");
   downloadCsv(`delegates-${name}-${dateStr}-${timeStr}`, headers, rows);
-}
-
-function getRpps(d) {
-  const externalIds = d.contact?.externalIds || [];
-  const rpps = externalIds.find((e) => e.type?.toUpperCase() === "RPPS" || e.type?.includes("rpps"));
-  return rpps?.value || "";
 }
 </script>
 

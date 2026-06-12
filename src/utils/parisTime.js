@@ -8,6 +8,23 @@
 // dans le mauvais jour. On veut bucketer sur la realite terrain (heure de
 // Paris), pas sur UTC.
 
+// Normalise un timestamp en epoch MILLISECONDES (number) ou null si invalide.
+// Source unique de l'heuristique "Flink ms vs secondes" : les jobs Flink ecrivent
+// tantot des secondes, tantot des ms — un nombre < 10^12 (~2001 en ms) est
+// considere comme des secondes. Accepte aussi une string numerique (idem) ou une
+// date ISO (deleguee a Date.parse). A utiliser partout au lieu de redupliquer le
+// test `< 10**12` (sinon un changement de format Flink se corrige a N endroits).
+export function toEpochMs(ts) {
+  if (ts == null || ts === "") return null;
+  if (typeof ts === "number") return ts < 1e12 ? ts * 1000 : ts;
+  if (typeof ts === "string" && /^\d+$/.test(ts)) {
+    const n = Number(ts);
+    return n < 1e12 ? n * 1000 : n;
+  }
+  const d = new Date(ts);
+  return Number.isFinite(d.getTime()) ? d.getTime() : null;
+}
+
 const PARIS_FORMATTER = new Intl.DateTimeFormat("en-CA", {
   timeZone: "Europe/Paris",
   year: "numeric",

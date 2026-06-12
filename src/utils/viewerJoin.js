@@ -78,6 +78,17 @@ export function hasValidCheckin(delegate) {
   return Number.isFinite(t);
 }
 
+// RPPS : stocke comme externalId de type "RPPS" (case-insensitive) sur le
+// Contact (Person). Source unique — reutilise par DataTab, buildSessionAttendance,
+// buildDelegateJourney, buildCheckedInDelegates, buildScanExport.
+export function getRpps(delegate) {
+  const externalIds = delegate?.contact?.externalIds || [];
+  const rpps = externalIds.find(
+    (e) => e?.type?.toUpperCase() === "RPPS" || e?.type?.toLowerCase().includes("rpps"),
+  );
+  return rpps?.value || "";
+}
+
 // Map<keycloakId, { checkedIn: boolean, delegate }>
 // Un delegue est indexe sous CHACUN de ses identifiants Keycloak (cf.
 // getKeycloakIds — un contact multi-emails peut avoir plusieurs comptes).

@@ -8,30 +8,12 @@
 // (un viewer live/replay non rapproche peut quand meme avoir un email).
 
 import { delegateBadgeType } from "./checkinByType.js";
-import { parisDateTime } from "./parisTime.js";
-import { getKeycloakId, hasValidCheckin } from "./viewerJoin.js";
-
-function getRpps(d) {
-  const externalIds = d?.contact?.externalIds || [];
-  const rpps = externalIds.find(
-    (e) => e?.type?.toUpperCase() === "RPPS" || e?.type?.toLowerCase().includes("rpps")
-  );
-  return rpps?.value || "";
-}
+import { parisDateTime, toEpochMs } from "./parisTime.js";
+import { getKeycloakId, hasValidCheckin, getRpps } from "./viewerJoin.js";
 
 // Formatage unifie en heure de Paris (cf. buildSessionAttendance.js).
 function fmtParis(ts) {
-  if (ts == null || ts === "") return "";
-  if (typeof ts === "number") {
-    const ms = ts < 10 ** 12 ? ts * 1000 : ts;
-    return parisDateTime(new Date(ms));
-  }
-  if (typeof ts === "string" && /^\d+$/.test(ts)) {
-    const n = Number(ts);
-    const ms = n < 10 ** 12 ? n * 1000 : n;
-    return parisDateTime(new Date(ms));
-  }
-  return parisDateTime(ts);
+  return parisDateTime(toEpochMs(ts));
 }
 
 function formatDuration(seconds) {

@@ -9,7 +9,7 @@
 // '-' recupere a desormais un delegateId reel -> toutes ses infos remontent.
 
 import { delegateCoreFields } from "./buildSessionAttendance.js";
-import { parisDateTime, wallClock } from "./parisTime.js";
+import { parisDateTime, wallClock, toEpochMs } from "./parisTime.js";
 
 // En-tetes CSV (FR, non traduits — meme convention que les autres exports CSV).
 const DELEGATE_HEADERS = [
@@ -52,17 +52,9 @@ export const SESSION_SCAN_HEADERS = [
   ...DELEGATE_HEADERS,
 ];
 
-// Timestamp Flink (ms ou secondes) ou ISO -> "YYYY-MM-DD HH:mm:ss" heure de Paris.
+// Timestamp Flink (ms/secondes) ou ISO -> "YYYY-MM-DD HH:mm:ss" heure de Paris.
 function fmtParis(ts) {
-  if (ts == null || ts === "") return "";
-  let date;
-  if (typeof ts === "number") date = new Date(ts < 1e12 ? ts * 1000 : ts);
-  else if (typeof ts === "string" && /^\d+$/.test(ts)) {
-    const n = Number(ts);
-    date = new Date(n < 1e12 ? n * 1000 : n);
-  } else date = new Date(ts);
-  if (!date || !Number.isFinite(date.getTime())) return "";
-  return parisDateTime(date.toISOString());
+  return parisDateTime(toEpochMs(ts));
 }
 
 function dirLabel(dir) {

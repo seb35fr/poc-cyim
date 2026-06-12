@@ -66,20 +66,6 @@ export function useRoomScans(eventId, options = {}) {
       audience.value = a;
       checkin.value = c;
       zone.value = z;
-      // Dump explicite (always-on) du contenu ES brut des scans de salle (audience),
-      // pour inspecter les champs disponibles (session_id, room_name, badge_type, ...).
-      console.log(`[Scans][salle/audience] (index: ${INDEX.audience}) ${a.length} hit(s) ES — _source :`, a.map((h) => h._source));
-      if (a.length > 0) {
-        console.log(`[Scans][salle/audience] (index: ${INDEX.audience}) champs du 1er hit :`, Object.keys(a[0]._source || {}));
-        console.table(a.map((h) => h._source));
-      }
-      // Dump explicite (always-on) du contenu ES brut des scans de zone, pour
-      // inspecter les champs disponibles (zone_id, direction, delegate_id, ...).
-      console.log(`[Scans][zone] (index: ${INDEX.zone}) ${z.length} hit(s) ES — _source :`, z.map((h) => h._source));
-      if (z.length > 0) {
-        console.log(`[Scans][zone] (index: ${INDEX.zone}) champs du 1er hit :`, Object.keys(z[0]._source || {}));
-        console.table(z.map((h) => h._source));
-      }
       // Resolution des noms de zone (zone_id = location.id) via le gateway.
       // Best-effort, hors du chemin critique : on ne bloque/echoue jamais le
       // chargement des scans si la resolution plante. On ne resout que les ids

@@ -56,19 +56,7 @@ export function useReplay(eventId, options = {}) {
       ]);
       hits.value = result;
       sessions.value = sessionsResult;
-      // Log explicite (always-on) du contenu ES brut des vues replay (VOD) :
-      // liste tous les elements presents dans l'index avec leurs champs
-      // (user_id, session_id, origin, view_duration, timestamp, ...).
-      // eslint-disable-next-line no-console
-      console.groupCollapsed(`[Replay][ES] (index: ${INDEX.replay}) ${result.length} élément(s) dans l'index VOD`);
-      if (result.length > 0) {
-        console.log("Champs du 1er élément :", Object.keys(result[0]._source || {}));
-        console.table(result.map((h) => h._source));
-      } else {
-        console.log("Aucun élément retourné par l'index ES replay.");
-      }
-      console.log("_source bruts :", result.map((h) => h._source));
-      console.groupEnd();
+      // Inspection du contenu ES brut (no-op en PROD via debug.*).
       if (result.length > 0) {
         debug.log(`[Replay] (index: ${INDEX.replay}) Structure du 1er hit ES (_source) :`, result[0]._source);
         debug.log(`[Replay] (index: ${INDEX.replay}) Champs disponibles :`, Object.keys(result[0]._source || {}));
