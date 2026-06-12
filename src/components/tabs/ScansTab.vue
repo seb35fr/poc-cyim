@@ -239,173 +239,15 @@
         <p v-else class="empty-msg">{{ t("scans.empty.noTimestamped") }}</p>
       </div>
 
-      <!-- Tableau detaille -->
-      <div class="chart-card">
-        <div class="chart-header">
-          <h3>{{ t("scans.detailTitle", { n: fmt(stats.all.length) }) }} <InfoTooltip :text="t('scans.detailHint')" /></h3>
-          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-            <div class="period-selector">
-              <button
-                v-for="opt in kindFilterOptions"
-                :key="opt.value"
-                :class="['period-btn', { active: kindFilter === opt.value }]"
-                @click="kindFilter = opt.value"
-              >{{ opt.label }}</button>
-            </div>
-            <div class="detail-date-filter">
-              <label>{{ t("scans.detailDate.from") }}
-                <input v-model="detailFrom" type="date" :max="detailTo || undefined" />
-              </label>
-              <label>{{ t("scans.detailDate.to") }}
-                <input v-model="detailTo" type="date" :min="detailFrom || undefined" />
-              </label>
-              <button
-                v-if="hasDetailDateFilter"
-                class="detail-date-clear"
-                :title="t('scans.detailDate.clear')"
-                @click="clearDetailDate"
-              >✕</button>
-            </div>
-            <div class="detail-qr-filter">
-              <input
-                v-model="qrFilter"
-                type="search"
-                class="qr-filter-input"
-                :placeholder="t('scans.qrFilter.placeholder')"
-                :title="t('scans.qrFilter.title')"
-              />
-              <button
-                v-if="hasQrFilter"
-                class="detail-date-clear"
-                :title="t('scans.qrFilter.clear')"
-                @click="clearQrFilter"
-              >✕</button>
-            </div>
-            <CsvButton
-              filename="scans-detail"
-              :headers="[t('scans.csv.type'), t('scans.csv.timestamp'), t('scans.csv.qrCode'), 'delegateId', 'badgeId', 'fullName', 'email', 'badgeType', 'sessionId', 'sessionTitle', 'sessionStart', 'roomName', 'industryName', t('scans.csv.zone'), t('scans.csv.direction')]"
-              :rows="filteredScans.map(s => [s.kind, formatTimestamp(s.timestamp), s.rawQrCode || '', s.delegateId || '', s.badgeId || '', s.fullName, s.email, s.badgeType, s.sessionId || '', s.sessionTitle || '', formatTimestamp(s.sessionStart) || '', s.roomName || '', s.industryName || '', s.kind === 'zone' ? zoneName(s.zoneId) : '', s.direction])"
-            />
-          </div>
-        </div>
-        <p
-          v-if="stats.global.recoveredScans.total > 0 || stats.global.unmatchedScans.total > 0"
-          class="scans-recovery-note"
-        >
-          {{ t("scans.recoveryNote", {
-            recovered: fmt(stats.global.recoveredScans.total),
-            unmatched: fmt(stats.global.unmatchedScans.total),
-          }) }}
-          <InfoTooltip :text="t('scans.recoveryHint')" />
-        </p>
-        <div v-if="filteredScans.length > 0" class="scans-table-wrap">
-          <table class="data-table scans-detail-table">
-            <thead>
-              <tr>
-                <th></th>
-                <th>{{ t("scans.csv.type") }}</th>
-                <th>{{ t("scans.csv.timestamp") }}</th>
-                <th>{{ t("scans.csv.qrCode") }}</th>
-                <th>delegateId</th>
-                <th>badgeId</th>
-                <th>fullName</th>
-                <th>email</th>
-                <th>badgeType</th>
-                <th>sessionId</th>
-                <th>sessionTitle</th>
-                <th>sessionStart</th>
-                <th>roomName</th>
-                <th>{{ t("scans.csv.zone") }}</th>
-                <th>{{ t("scans.csv.direction") }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="s in pagedScans" :key="s.kind + '-' + s.id">
-                <td><button class="detail-btn" type="button" @click="openDetail(s)">{{ t("scans.detailRow.button") }}</button></td>
-                <td><span class="kind-pill" :class="'kind-' + s.kind">{{ kindLabel(s.kind) }}</span></td>
-                <td>{{ formatTimestamp(s.timestamp) }}</td>
-                <td class="mono" :title="s.rawQrCode">{{ s.rawQrCode || '—' }}</td>
-                <td :class="['mono', { 'cell-enriched': s.recovered }]" :title="s.recovered ? t('scans.recoveredTag') : null">{{ s.delegateId || '—' }}</td>
-                <td :class="['mono', { 'cell-enriched': s.badgeIdEnriched }]" :title="s.badgeId">{{ s.badgeId || '—' }}</td>
-                <td :class="{ 'cell-enriched': s.fullNameEnriched }" :title="s.fullName">{{ s.fullName }}</td>
-                <td :class="{ 'cell-enriched': s.emailEnriched }" :title="s.email">{{ s.email || '—' }}</td>
-                <td :class="{ 'cell-enriched': s.badgeTypeEnriched }">{{ s.badgeType }}</td>
-                <td class="mono">{{ s.sessionId || '—' }}</td>
-                <td :title="s.sessionTitle">{{ s.sessionTitle || '—' }}</td>
-                <td>{{ formatTimestamp(s.sessionStart) || '—' }}</td>
-                <td :title="s.roomName">{{ s.roomName || '—' }}</td>
-                <td>{{ s.kind === 'zone' ? (zoneName(s.zoneId) || '—') : '—' }}</td>
-                <td>{{ directionLabel(s.direction) }}</td>
-              </tr>
-            </tbody>
-          </table>
-          <p v-if="filteredScans.length > pageSize" class="scans-hint">
-            {{ t("scans.pageHint", { size: pageSize, total: fmt(filteredScans.length) }) }}
-          </p>
-        </div>
-        <p v-else class="empty-msg">{{ t("scans.empty.noMatch") }}</p>
-      </div>
+      <!-- Tableau détaillé (table + filtres + pagination + modal détail). -->
+      <ScanDetailTable
+        :scans="stats.all"
+        :delegates="delegates"
+        :zone-names="zoneNames"
+        :recovered="stats.global.recoveredScans"
+        :unmatched="stats.global.unmatchedScans"
+      />
     </template>
-
-    <!-- Modal "Details" d'une ligne de scan : donnees brutes ES + delegue + badge. -->
-    <div v-if="detailRow" class="scan-modal-overlay" @click.self="closeDetail">
-      <div class="scan-modal" role="dialog" aria-modal="true">
-        <div class="scan-modal-head">
-          <h3>{{ t("scans.detailRow.title") }}</h3>
-          <button class="scan-modal-close" type="button" :title="t('scans.detailRow.close')" @click="closeDetail">✕</button>
-        </div>
-        <div class="scan-modal-body">
-          <!-- Donnees indexees dans l'ES (raw _source du scan) -->
-          <section class="scan-modal-section">
-            <h4>{{ t("scans.detailRow.esSection") }} <span class="src-pill src-es">ES</span></h4>
-            <table class="kv-table">
-              <tbody>
-                <tr v-for="[k, v] in detailEntries(detailRow.scan.raw)" :key="'es-' + k">
-                  <th>{{ k }}</th><td class="mono">{{ fmtVal(v) }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </section>
-
-          <!-- Donnees du delegue (registration, via jointure app) -->
-          <section class="scan-modal-section">
-            <h4>{{ t("scans.detailRow.delegateSection") }} <span class="src-pill src-app">APP</span></h4>
-            <p v-if="!detailRow.delegate" class="scan-modal-empty">{{ t("scans.detailRow.delegateNotFound") }}</p>
-            <table v-else class="kv-table">
-              <tbody>
-                <tr><th>id</th><td class="mono">{{ detailRow.delegate.id }}</td></tr>
-                <tr><th>givenName</th><td>{{ detailRow.delegate.givenName || '—' }}</td></tr>
-                <tr><th>familyName</th><td>{{ detailRow.delegate.familyName || '—' }}</td></tr>
-                <tr><th>email</th><td>{{ detailRow.delegate.email || '—' }}</td></tr>
-                <tr><th>status</th><td>{{ detailRow.delegate.status || '—' }}</td></tr>
-                <tr><th>occupation</th><td>{{ detailRow.delegate.occupation || '—' }}</td></tr>
-                <tr><th>company</th><td>{{ detailRow.delegate.company || '—' }}</td></tr>
-                <tr><th>country</th><td>{{ detailRow.delegate.primaryAddress?.country?.code || detailRow.delegate.primaryAddress?.countryCode || '—' }}</td></tr>
-                <tr><th>checkedInDate</th><td class="mono">{{ detailRow.delegate.checkedInDate || '—' }}</td></tr>
-                <tr><th>externalId</th><td class="mono">{{ detailRow.delegate.externalId || '—' }}</td></tr>
-                <tr><th>createdAt</th><td class="mono">{{ detailRow.delegate.createdAt || '—' }}</td></tr>
-              </tbody>
-            </table>
-          </section>
-
-          <!-- Donnees du badge correspondant -->
-          <section class="scan-modal-section">
-            <h4>{{ t("scans.detailRow.badgeSection") }} <span class="src-pill src-app">APP</span></h4>
-            <p v-if="!detailRow.badge" class="scan-modal-empty">{{ t("scans.detailRow.badgeNotFound") }}</p>
-            <table v-else class="kv-table">
-              <tbody>
-                <tr><th>id</th><td class="mono">{{ detailRow.badge.id }}</td></tr>
-                <tr><th>type</th><td>{{ detailRow.badge.type || '—' }}</td></tr>
-                <tr><th>qrCode.value</th><td class="mono">{{ detailRow.badge.qrCode?.value || '—' }}</td></tr>
-                <tr><th>qrCode.decodedValue</th><td class="mono">{{ detailRow.badge.qrCode?.decodedValue || '—' }}</td></tr>
-                <tr><th>deliveredAt</th><td class="mono">{{ detailRow.badge.deliveredAt || '—' }}</td></tr>
-                <tr><th>storage.publicUrl</th><td><a v-if="detailRow.badge.storage?.publicUrl" :href="detailRow.badge.storage.publicUrl" target="_blank" class="mono">PDF</a><span v-else>—</span></td></tr>
-              </tbody>
-            </table>
-          </section>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -421,9 +263,9 @@ import ChoroplethMap from "../charts/ChoroplethMap.vue";
 import KpiCompareGrid from "../charts/KpiCompareGrid.vue";
 import CsvButton from "../CsvButton.vue";
 import InfoTooltip from "../InfoTooltip.vue";
+import ScanDetailTable from "../ScanDetailTable.vue";
 import { COUNTRY_CONTINENTS } from "../../utils/countries.js";
 import { parisDateParts, toEpochMs } from "../../utils/parisTime.js";
-import { qrKeys } from "../../utils/computeScanStats.js";
 import { fmt } from "@/utils/formatters.js";
 import { getTypeColor } from "@/utils/typeColors.js";
 
@@ -752,27 +594,7 @@ function flattenByHour(byDayHour) {
   return map;
 }
 
-// --- Tableau detaille ---
-const kindFilter = ref("all");
-const kindFilterOptions = computed(() => [
-  { value: "all", label: t("scans.kind.all") },
-  { value: "audience", label: t("scans.kind.room") },
-  { value: "checkin", label: t("scans.kind.entrance") },
-  { value: "zone", label: t("scans.kind.zone") },
-]);
-const pageSize = 200;
-
-// Filtre de date LOCAL au tableau de detail (independant du filtre date global) :
-// bornes YMD inclusives, vides = non bornees. Filtre aussi le CSV (meme source).
-const detailFrom = ref("");
-const detailTo = ref("");
-const hasDetailDateFilter = computed(() => !!detailFrom.value || !!detailTo.value);
-function clearDetailDate() {
-  detailFrom.value = "";
-  detailTo.value = "";
-}
-
-// Lookup delegue par id (pour le modal "Details").
+// Lookup delegue par id (pour les cartes geo des delegues scannes).
 const delegateById = computed(() => {
   const m = new Map();
   for (const d of props.delegates || []) if (d?.id) m.set(d.id, d);
@@ -803,103 +625,9 @@ const geoCountriesEurope = computed(() =>
 );
 const geoCacheKey = computed(() => `${geoCountries.value.length}-${stats.value.all?.length || 0}`);
 
-// Modal "Details" d'une ligne de scan : null = ferme, sinon { scan, delegate, badge }.
-const detailRow = ref(null);
-function openDetail(scan) {
-  const delegate = scan.delegateId ? delegateById.value.get(scan.delegateId) || null : null;
-  // Badge correspondant : par badge_id ES si dispo, sinon 1er badge dont le QR
-  // matche le raw_qr_code (mêmes clés que la ré-association), sinon 1er badge.
-  let badge = null;
-  if (delegate?.badges?.length) {
-    const scanKeys = new Set(qrKeys(scan.rawQrCode));
-    badge =
-      (scan.badgeId && delegate.badges.find((b) => b.id === scan.badgeId)) ||
-      delegate.badges.find((b) =>
-        [b.qrCode?.value, b.qrCode?.decodedValue].some((q) =>
-          qrKeys(q).some((k) => scanKeys.has(k)),
-        ),
-      ) ||
-      delegate.badges[0];
-  }
-  detailRow.value = { scan, delegate, badge };
-}
-function closeDetail() {
-  detailRow.value = null;
-}
-// Entrees du _source ES (triees, valeurs vides en dernier) pour le tableau du modal.
-function detailEntries(raw) {
-  if (!raw || typeof raw !== "object") return [];
-  return Object.entries(raw).sort((a, b) => a[0].localeCompare(b[0]));
-}
-// Affichage lisible d'une valeur ES (objets -> JSON, null/undefined -> '—').
-function fmtVal(v) {
-  if (v == null || v === "") return "—";
-  if (typeof v === "object") return JSON.stringify(v);
-  return String(v);
-}
-
-// Filtre par QR code : recherche insensible casse/espaces dans le raw_qr_code
-// du scan (contains). Utile pour tracer un badge precis.
-const qrFilter = ref("");
-const hasQrFilter = computed(() => !!qrFilter.value.trim());
-function clearQrFilter() {
-  qrFilter.value = "";
-}
-
-// Jour Paris (YMD) d'un scan.
-function scanDay(ts) {
-  return parisDateParts(toEpochMs(ts))?.ymd ?? null;
-}
-
-const filteredScans = computed(() => {
-  const all = stats.value.all || [];
-  let result = [...all].sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)));
-  if (kindFilter.value !== "all") result = result.filter((s) => s.kind === kindFilter.value);
-  const from = detailFrom.value;
-  const to = detailTo.value;
-  if (from || to) {
-    result = result.filter((s) => {
-      const day = scanDay(s.timestamp);
-      if (!day) return false;
-      if (from && day < from) return false;
-      if (to && day > to) return false;
-      return true;
-    });
-  }
-  const qr = qrFilter.value.trim().toLowerCase();
-  if (qr) {
-    result = result.filter((s) => (s.rawQrCode || "").toLowerCase().includes(qr));
-  }
-  return result;
-});
-const pagedScans = computed(() => filteredScans.value.slice(0, pageSize));
-
-function scanTarget(s) {
-  if (s.kind === "audience") return s.sessionTitle || s.sessionId || "—";
-  if (s.kind === "zone") return s.zoneId || "—";
-  return t("scans.kind.congressEntrance");
-}
-function kindLabel(k) {
-  if (k === "audience") return t("scans.kind.room");
-  if (k === "checkin") return t("scans.kind.entrance");
-  if (k === "zone") return t("scans.kind.zone");
-  return k;
-}
-function directionLabel(d) {
-  if (d === "in") return t("scans.direction.in");
-  if (d === "out") return t("scans.direction.out");
-  return "—";
-}
-
 function truncate(s, n) {
   if (!s) return "";
   return s.length > n ? s.slice(0, n - 1) + "…" : s;
-}
-function formatTimestamp(ts) {
-  if (!ts) return "—";
-  const p = parisDateParts(toEpochMs(ts));
-  if (!p) return String(ts);
-  return `${p.ymd} ${String(p.hour).padStart(2, "0")}:${String(p.minute).padStart(2, "0")}`;
 }
 </script>
 
@@ -927,131 +655,7 @@ function formatTimestamp(ts) {
   display: inline-block; width: 8px; height: 8px; border-radius: 50%;
 }
 
-/* Note de re-association client-side (scans '-' rattaches via le QR). */
-.scans-recovery-note {
-  font-size: 13px; color: var(--text-muted); margin: 0 0 10px;
-  display: flex; align-items: center; gap: 6px;
-}
-/* Cellules dont la valeur est ENRICHIE par l'app (jointure délégué/badge) et ne
-   provient PAS de l'index ES : fond vert léger + filet accent à gauche, visible
-   mais sobre. */
-.cell-enriched {
-  background: rgba(48, 221, 146, 0.14);
-  box-shadow: inset 2px 0 0 var(--accent, #30dd92);
-}
-
-/* Bouton "details" par ligne de scan. */
-.detail-btn {
-  border: 1px solid var(--border, #d1d5db); background: #fff; border-radius: 4px;
-  padding: 1px 8px; font-size: 11px; color: var(--primary, #1e4e66);
-  cursor: pointer; white-space: nowrap; font-family: inherit;
-}
-.detail-btn:hover { background: var(--primary, #1e4e66); color: #fff; border-color: var(--primary, #1e4e66); }
-
-/* Modal "Details" d'une ligne de scan. */
-.scan-modal-overlay {
-  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45);
-  display: flex; align-items: center; justify-content: center; z-index: 1000;
-  padding: 20px;
-}
-.scan-modal {
-  background: #fff; border-radius: 10px; width: 100%; max-width: 640px;
-  max-height: 85vh; display: flex; flex-direction: column;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
-}
-.scan-modal-head {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 18px; border-bottom: 1px solid #eee;
-}
-.scan-modal-head h3 { margin: 0; font-size: 16px; color: #254f65; }
-.scan-modal-close {
-  border: none; background: transparent; font-size: 18px; cursor: pointer;
-  color: #646464; line-height: 1; padding: 2px 6px;
-}
-.scan-modal-close:hover { color: #1e4e66; }
-.scan-modal-body { padding: 16px 18px; overflow: auto; }
-.scan-modal-section { margin-bottom: 18px; }
-.scan-modal-section:last-child { margin-bottom: 0; }
-.scan-modal-section h4 {
-  margin: 0 0 8px; font-size: 13px; color: #1e4e66; text-transform: uppercase;
-  letter-spacing: 0.3px; display: flex; align-items: center; gap: 8px;
-}
-.src-pill {
-  font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 10px;
-  text-transform: none; letter-spacing: 0;
-}
-.src-pill.src-es { background: #e6eef3; color: #1e4e66; }
-.src-pill.src-app { background: #e3f9ee; color: #1a8f5e; }
-.scan-modal-empty { font-size: 13px; color: var(--text-muted, #646464); font-style: italic; margin: 0; }
-.kv-table { width: 100%; border-collapse: collapse; }
-.kv-table th {
-  text-align: left; font-weight: 600; color: #646464; font-size: 12px;
-  padding: 3px 10px 3px 0; vertical-align: top; white-space: nowrap; width: 1%;
-}
-.kv-table td { font-size: 12px; color: #414141; padding: 3px 0; word-break: break-word; }
-
-.scans-table-wrap { max-height: 600px; overflow: auto; }
-.scans-table-wrap .data-table th {
-  position: sticky; top: 0; z-index: 2;
-}
-.scans-detail-table { min-width: 1400px; }
-/* Chaque ligne reste sur une seule ligne : pas de wrap qui fait grandir la
-   hauteur de cellule. Le texte long est tronqué (ellipsis), le scroll
-   horizontal du wrapper permet de tout voir. */
-.scans-detail-table td {
-  white-space: nowrap;
-  max-width: 260px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.scans-detail-table .mono {
-  font-family: "Fira Code", Consolas, monospace;
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-
-.kind-pill {
-  display: inline-block; padding: 1px 7px;
-  font-size: 12px; font-weight: 600;
-  border-radius: 8px; color: #fff;
-}
-.kind-pill.kind-audience { background: #1E4E66; }
-.kind-pill.kind-checkin { background: #30DD92; color: #0a3a23; }
-.kind-pill.kind-zone { background: #6F45FF; }
-
 .muted { font-size: 12px; color: var(--text-muted); }
-
-.period-selector { display: flex; gap: 3px; }
-.period-btn {
-  padding: 3px 10px; border: 1px solid #d1d5db; background: #fff;
-  border-radius: 4px; font-size: 12px; cursor: pointer; color: #646464;
-  font-weight: 500;
-}
-.period-btn.active { background: #1E4E66; color: #fff; border-color: #1E4E66; }
-
-.detail-date-filter { display: flex; gap: 6px; align-items: center; }
-.detail-date-filter label {
-  display: inline-flex; align-items: center; gap: 4px;
-  font-size: 12px; color: #646464; font-weight: 500;
-}
-.detail-date-filter input[type="date"] {
-  border: 1px solid #d1d5db; border-radius: 4px; padding: 2px 6px;
-  font-size: 12px; color: #414141; font-family: inherit;
-}
-.detail-date-clear {
-  border: 1px solid #d1d5db; background: #fff; border-radius: 4px;
-  width: 22px; height: 22px; cursor: pointer; color: #646464; font-size: 12px;
-  display: inline-flex; align-items: center; justify-content: center;
-}
-.detail-date-clear:hover { background: #f3f4f6; color: #1E4E66; }
-.detail-qr-filter { display: flex; gap: 6px; align-items: center; }
-.qr-filter-input {
-  border: 1px solid #d1d5db; border-radius: 4px; padding: 3px 8px;
-  font-size: 12px; color: #414141; font-family: inherit; min-width: 180px;
-}
-.qr-filter-input:focus {
-  outline: none; border-color: var(--primary, #1e4e66);
-}
 
 /* Camembert "Presence par type de session" + legende cliquable (filtre). */
 .origin-pie-wrap {
