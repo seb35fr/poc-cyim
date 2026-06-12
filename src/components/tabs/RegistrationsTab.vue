@@ -31,7 +31,7 @@
     <!-- Repartition par statut (deplacee depuis Vue d'ensemble) -->
     <div class="chart-card">
       <div class="chart-header">
-        <h3>{{ t("registrations.charts.byStatus") }}</h3>
+        <h3>{{ t("registrations.charts.byStatus") }} <InfoTooltip :text="t('registrations.charts.byStatusHint')" /></h3>
         <CsvButton
           filename="statuts-inscription"
           :headers="[t('registrations.csv.status'), t('registrations.csv.count')]"
@@ -59,7 +59,7 @@
     <div class="charts-row">
       <div class="chart-card">
         <div class="chart-header">
-          <h3>{{ t("registrations.charts.byType") }}</h3>
+          <h3>{{ t("registrations.charts.byType") }} <InfoTooltip :text="t('registrations.charts.byTypeHint')" /></h3>
           <CsvButton filename="types-inscription" :headers="[t('registrations.csv.type'), t('registrations.csv.count')]" :rows="fs.registrations.types.map(rt => [rt.value, rt.totalCount])" />
         </div>
         <HBarChart
@@ -73,7 +73,7 @@
       </div>
       <div class="chart-card">
         <div class="chart-header">
-          <h3>{{ t("registrations.charts.statusByType") }}</h3>
+          <h3>{{ t("registrations.charts.statusByType") }} <InfoTooltip :text="t('registrations.charts.statusByTypeHint')" /></h3>
           <CsvButton filename="statut-par-type" :headers="[t('registrations.csv.type'), ...statusByTypeDatasets.map(d => d.label)]" :rows="statusByTypeLabels.map((label, i) => [label, ...statusByTypeDatasets.map(d => d.data[i])])" />
         </div>
         <StackedBarChart
@@ -88,7 +88,7 @@
     <div class="charts-row">
       <div class="chart-card">
         <div class="chart-header">
-          <h3>{{ t("registrations.charts.top15Categories") }}</h3>
+          <h3>{{ t("registrations.charts.top15Categories") }} <InfoTooltip :text="t('registrations.charts.top15CategoriesHint')" /></h3>
           <CsvButton filename="categories" :headers="[t('registrations.csv.category'), t('registrations.csv.count')]" :rows="fs.registrations.categories.map(c => [c.value, c.totalCount])" />
         </div>
         <HBarChart
@@ -102,7 +102,7 @@
       </div>
       <div class="chart-card">
         <div class="chart-header">
-          <h3>{{ t("registrations.charts.accessDays") }}</h3>
+          <h3>{{ t("registrations.charts.accessDays") }} <InfoTooltip :text="t('registrations.charts.accessDaysHint')" /></h3>
           <CsvButton filename="jours-acces" :headers="[t('registrations.csv.day'), t('registrations.csv.count')]" :rows="fs.registrations.accessDays.map(a => [dayLbl(a.value), a.totalCount])" />
         </div>
         <HBarChart
@@ -120,7 +120,7 @@
 
     <div class="chart-card" v-if="sortedMultiRegistrations.length > 0">
       <div class="chart-header">
-        <h3>{{ t("registrations.charts.multiTitle", { n: sortedMultiRegistrations.length }) }}</h3>
+        <h3>{{ t("registrations.charts.multiTitle", { n: sortedMultiRegistrations.length }) }} <InfoTooltip :text="t('registrations.charts.multiHint')" /></h3>
         <CsvButton filename="multi-inscriptions" :headers="[t('registrations.csv.name'), t('registrations.csv.email'), t('registrations.csv.nbReg'), t('registrations.csv.types')]" :rows="sortedMultiRegistrations.map(d => [d.name, d.email, d.count, d.types.join(', ')])" />
       </div>
       <table class="data-table">
@@ -151,6 +151,7 @@ import HBarChart from "../charts/HBarChart.vue";
 import StackedBarChart from "../charts/StackedBarChart.vue";
 import FilterBanner from "../FilterBanner.vue";
 import CsvButton from "../CsvButton.vue";
+import InfoTooltip from "../InfoTooltip.vue";
 import { useFilteredStats } from "../../composables/useFilteredStats.js";
 import { getTypeColors } from "../../utils/typeColors.js";
 import { allDaysLabel } from "@/i18n/labels.js";

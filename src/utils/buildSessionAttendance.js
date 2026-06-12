@@ -40,7 +40,7 @@ function buildDelegateLookup(delegates) {
 
 // RPPS stocke comme externalId sur le Contact (Person), type "RPPS"
 // (case-insensitive — cf. DataTab.getRpps).
-function getRpps(d) {
+export function getRpps(d) {
   const externalIds = d?.contact?.externalIds || [];
   const rpps = externalIds.find(
     (e) => e?.type?.toUpperCase() === "RPPS" || e?.type?.toLowerCase().includes("rpps")
@@ -48,7 +48,7 @@ function getRpps(d) {
   return rpps?.value || "";
 }
 
-function delegateCoreFields(d) {
+export function delegateCoreFields(d) {
   const practiceModes = Array.isArray(d.practiceModes)
     ? d.practiceModes.filter(Boolean).join(", ")
     : "";

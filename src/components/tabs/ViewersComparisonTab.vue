@@ -84,8 +84,7 @@
       <!-- Live : Délégués uniques par jour en standalone. -->
       <div v-if="kind !== 'replay'" class="chart-card">
         <div class="chart-header">
-          <h3>{{ L.dailyChartTitle }}</h3>
-          <span class="cmp-axis-hint">{{ t("viewersCompare.axisX", { hint: L.dailyChartAxisHint }) }}</span>
+          <h3>{{ L.dailyChartTitle }}<InfoTooltip :text="t('viewersCompare.axisX', { hint: L.dailyChartAxisHint })" /></h3>
         </div>
         <div v-if="dailyChart.labels.length > 0" :style="{ position: 'relative', height: '300px' }">
           <Bar :data="dailyChart" :options="dailyChartOptions" />
@@ -98,8 +97,7 @@
         <div class="charts-row">
           <div class="chart-card">
             <div class="chart-header">
-              <h3>{{ L.dailyChartTitle }}</h3>
-              <span class="cmp-axis-hint">{{ t("viewersCompare.axisX", { hint: L.dailyChartAxisHint }) }}</span>
+              <h3>{{ L.dailyChartTitle }}<InfoTooltip :text="t('viewersCompare.axisX', { hint: L.dailyChartAxisHint })" /></h3>
             </div>
             <div v-if="dailyChart.labels.length > 0" :style="{ position: 'relative', height: '300px' }">
               <Bar :data="dailyChart" :options="dailyChartOptions" />
@@ -108,8 +106,7 @@
           </div>
           <div class="chart-card">
             <div class="chart-header">
-              <h3>{{ t("viewersCompare.replayViewsByDayCompare") }}</h3>
-              <span class="cmp-axis-hint">{{ t("viewersCompare.j0Hint") }}</span>
+              <h3>{{ t("viewersCompare.replayViewsByDayCompare") }}<InfoTooltip :text="t('viewersCompare.j0Hint')" /></h3>
             </div>
             <div v-if="viewsByDayCompareChart.labels.length > 0" :style="{ position: 'relative', height: '300px' }">
               <Bar :data="viewsByDayCompareChart" :options="viewsByDayCompareOptions" />
@@ -122,8 +119,7 @@
         <div class="charts-row">
           <div class="chart-card">
             <div class="chart-header">
-              <h3>{{ t("viewersCompare.physicalUniqueCompare") }}</h3>
-              <span class="cmp-axis-hint">{{ t("viewersCompare.j0Hint") }}</span>
+              <h3>{{ t("viewersCompare.physicalUniqueCompare") }}<InfoTooltip :text="t('viewersCompare.j0Hint')" /></h3>
             </div>
             <div v-if="physicalReplayUniqueCompareChart.labels.length > 0" :style="{ position: 'relative', height: '300px' }">
               <Bar :data="physicalReplayUniqueCompareChart" :options="physicalReplayUniqueCompareOptions" />
@@ -132,8 +128,7 @@
           </div>
           <div class="chart-card">
             <div class="chart-header">
-              <h3>{{ t("viewersCompare.physicalViewsCompare") }}</h3>
-              <span class="cmp-axis-hint">{{ t("viewersCompare.j0Hint") }}</span>
+              <h3>{{ t("viewersCompare.physicalViewsCompare") }}<InfoTooltip :text="t('viewersCompare.j0Hint')" /></h3>
             </div>
             <div v-if="physicalReplayViewsCompareChart.labels.length > 0" :style="{ position: 'relative', height: '300px' }">
               <Bar :data="physicalReplayViewsCompareChart" :options="physicalReplayViewsCompareOptions" />
@@ -157,6 +152,7 @@ import {
 import { fmt, shortName } from "@/utils/formatters.js";
 import { buildPhysicalReplayByDay, buildPhysicalReplayCumulative } from "../../utils/physicalReplay.js";
 import KpiCompareGrid from "../charts/KpiCompareGrid.vue";
+import InfoTooltip from "../InfoTooltip.vue";
 
 const { t } = useI18n();
 

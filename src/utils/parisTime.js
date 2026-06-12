@@ -40,6 +40,21 @@ export function parisDay(iso) {
   return parisDateParts(iso)?.ymd ?? null;
 }
 
+// Heure "murale" affichee TELLE QUELLE, SANS conversion de fuseau. A utiliser
+// pour les TIMESTAMP timezone-naive (sans "Z") qui representent une heure locale
+// de programme — typiquement `session_start` venant de SI-views via Flink
+// (format "YYYY-MM-DD HH:mm:ss"). Ce ne sont PAS des instants UTC : les passer
+// dans parisDateParts / new Date() les interpreterait selon le fuseau du
+// navigateur et les decalerait. Ici on lit juste les composants tels qu'ecrits.
+export function wallClock(ts, { withSeconds = false } = {}) {
+  if (!ts) return "";
+  const s = String(ts);
+  const m = s.match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/);
+  if (!m) return s;
+  const base = `${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}`;
+  return withSeconds ? `${base}:${m[6] || "00"}` : base;
+}
+
 // "YYYY-MM-DD HH:mm:ss" en heure de Paris (CET/CEST gere). Utilise pour les
 // exports CSV : les dates ISO sont en UTC (suffixe "Z") cote API, on veut les
 // presenter en heure locale Paris dans les fichiers livres aux clients.

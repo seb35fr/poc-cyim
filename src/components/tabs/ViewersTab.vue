@@ -50,9 +50,9 @@
           <div class="kpi-value">{{ formatDuration(g.avgViewDurationSec) }}</div>
           <div class="kpi-sub">{{ t("viewers.kpi.totalDuration", { dur: formatDuration(g.totalDurationSec) }) }}</div>
         </div>
-        <!-- Live : "Vues totales par origine" sous forme de doughnut + legende
-             (% et absolu) directement dans l'indicateur. Replay : resume texte. -->
-        <div class="kpi-card blue kpi-origin" v-if="kind === 'live' && stats.origins && stats.origins.length > 0">
+        <!-- "Vues par origine" : doughnut + legende (% et absolu) directement
+             dans l'indicateur. Meme format pour Live ET Replay. -->
+        <div class="kpi-card blue kpi-origin" v-if="stats.origins && stats.origins.length > 0">
           <div class="kpi-label">{{ t("viewers.charts.byOrigin") }}</div>
           <div class="kpi-origin-body">
             <div class="kpi-origin-pie">
@@ -72,10 +72,32 @@
             </div>
           </div>
         </div>
-        <div class="kpi-card blue" v-else-if="stats.origins && stats.origins.length > 0">
-          <div class="kpi-label">{{ t("viewers.kpi.byOrigin") }}</div>
-          <div class="kpi-value" style="font-size: 25px">{{ originSummary.topOrigin }} · {{ originSummary.topPct }}</div>
-          <div class="kpi-sub">{{ originSummary.breakdown }}</div>
+      </div>
+
+      <!-- Repartition geographique (monde | Europe) des delegues uniques ayant
+           consulte (live/replay), rapproches a un delegue avec une adresse pays. -->
+      <div class="charts-row" v-if="geoCountries.length > 0">
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3>{{ t("maps.worldTitle") }} <InfoTooltip :text="t('viewers.charts.geoHint')" /></h3>
+            <CsvButton
+              :filename="`${kind}-delegues-par-pays-monde`"
+              :headers="[t('maps.csv.countryCode'), t('viewers.csv.uniqueDelegates')]"
+              :rows="geoCountries.map(c => [c.value, c.totalCount])"
+            />
+          </div>
+          <ChoroplethMap :key="`world-${geoCacheKey}`" :countries="geoCountries" scope="world" :show-legend="true" :height="420" />
+        </div>
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3>{{ t("maps.europeTitle") }} <InfoTooltip :text="t('viewers.charts.geoHint')" /></h3>
+            <CsvButton
+              :filename="`${kind}-delegues-par-pays-europe`"
+              :headers="[t('maps.csv.countryCode'), t('viewers.csv.uniqueDelegates')]"
+              :rows="geoCountriesEurope.map(c => [c.value, c.totalCount])"
+            />
+          </div>
+          <ChoroplethMap :key="`europe-${geoCacheKey}`" :countries="geoCountries" scope="europe" :show-legend="true" :height="420" />
         </div>
       </div>
 
@@ -83,7 +105,7 @@
       <div class="charts-row">
         <div class="chart-card">
           <div class="chart-header">
-            <h3>{{ L.byDayTitle }}</h3>
+            <h3>{{ L.byDayTitle }} <InfoTooltip v-if="kind === 'live'" :text="t('viewers.charts.byBadgeTypeClickHint')" /></h3>
             <CsvButton
               :filename="`${kind}-delegues-uniques-par-jour`"
               :headers="kind === 'replay'
@@ -94,22 +116,31 @@
                 : byDayByBadgeType.labels.map((day, i) => [day, byDayByBadgeType.types.reduce((s, t) => s + (byDayByBadgeType.perDayType[i][t] || 0), 0), ...byDayByBadgeType.types.map(t => byDayByBadgeType.perDayType[i][t] || 0)])"
             />
           </div>
-          <!-- Live : empile par type de badge (legende). Replay : uniques + cumul. -->
+          <!-- Live : empile par type de badge (legende). Replay : uniques + cumul.
+               Live : clic sur un TYPE DE BADGE dans la legende -> filtre le tableau
+               de detail ci-dessous (legende-filtre, pas de toggle de visibilite). -->
           <StackedBarChart
             v-if="kind === 'live' && byDayByBadgeType.labels.length > 0"
             :labels="byDayByBadgeType.labels"
             :datasets="byDayByBadgeType.datasets"
             :show-total="true"
             :height="300"
+            :legend-selectable="true"
+            :active-legend="selectedBadgeType"
+            @select-legend="onBadgeTypeSelect"
           />
           <div v-else-if="stats.uniqueByDay.length > 0" :style="{ position: 'relative', height: '300px' }">
             <Bar :data="byDayChart" :options="byDayOptions" />
           </div>
           <p v-else class="empty-msg">{{ L.byDayEmpty }}</p>
+          <div v-if="kind === 'live' && selectedBadgeType" class="filter-active-bar">
+            {{ t("viewers.charts.filterActive") }} <strong>{{ selectedBadgeType }}</strong>
+            <button class="filter-clear" @click="selectedBadgeType = null">{{ t("viewers.charts.clearFilter") }}</button>
+          </div>
         </div>
         <div class="chart-card" v-if="kind === 'live' && byDayChannel.channels.length > 0">
           <div class="chart-header">
-            <h3>{{ t("viewers.charts.byDayChannel") }}</h3>
+            <h3>{{ t("viewers.charts.byDayChannel") }} <InfoTooltip :text="t('viewers.charts.byDayChannelHintPre') + ' channel_id ' + t('viewers.charts.byDayChannelHintPost')" /></h3>
             <CsvButton
               filename="live-delegues-uniques-par-jour-chaine"
               :headers="[t('viewers.csv.day'), ...byDayChannel.channels.map(c => `${c.label} (${c.id})`)]"
@@ -119,9 +150,6 @@
           <div :style="{ position: 'relative', height: '300px' }">
             <Bar :data="byDayChannelChart" :options="byDayChannelOptions" />
           </div>
-          <p class="viewers-hint">
-            {{ t("viewers.charts.byDayChannelHintPre") }} <code>channel_id</code> {{ t("viewers.charts.byDayChannelHintPost") }}
-          </p>
         </div>
         <!-- Replay : vues par jour (barres) + vues cumulées (courbe) a droite
              des delegues uniques par jour. -->
@@ -147,7 +175,7 @@
       <div class="charts-row" v-if="kind === 'replay'">
         <div class="chart-card">
           <div class="chart-header">
-            <h3>{{ t("viewers.charts.physicalReplayDaily") }}</h3>
+            <h3>{{ t("viewers.charts.physicalReplayDaily") }} <InfoTooltip :text="t('viewers.charts.physicalReplayHint')" /></h3>
             <span class="viewers-hint" style="margin-left: auto">
               {{ t("viewers.charts.physicalReplaySummary", { delegates: fmt(physicalReplayTotals.uniqueDelegates), views: fmt(physicalReplayTotals.views) }) }}
             </span>
@@ -161,9 +189,6 @@
             <Bar :data="physicalReplayChart" :options="physicalReplayOptions" />
           </div>
           <p v-else class="empty-msg">{{ t("viewers.charts.physicalReplayEmpty") }}</p>
-          <p class="viewers-hint">
-            {{ t("viewers.charts.physicalReplayHint") }}
-          </p>
         </div>
         <!-- Vues en replay par jour pour les PRESENTS PHYSIQUES (barres) +
              vues cumulees (courbe), a droite des presents physiques par jour. -->
@@ -200,48 +225,11 @@
         <p v-else class="empty-msg">{{ t("viewers.charts.by30minEmpty") }}</p>
       </div>
 
-      <!-- Camembert vues par session_type cliquable -> filtre tableau (live uniquement). -->
-      <div class="chart-card" v-if="kind === 'live' && stats.sessionTypes && stats.sessionTypes.length > 0">
-        <div class="chart-header">
-          <h3>{{ t("viewers.charts.bySessionType") }}</h3>
-          <CsvButton
-            filename="live-par-session-type"
-            :headers="[t('viewers.csv.type'), t('viewers.csv.views'), t('viewers.csv.uniqueDelegates')]"
-            :rows="stats.sessionTypes.map(st => [st.type, st.views, st.uniqueUsers])"
-          />
-        </div>
-        <div class="origin-pie-wrap">
-          <div class="origin-pie">
-            <DoughnutChart
-              :labels="stats.sessionTypes.map(t => t.type)"
-              :data="stats.sessionTypes.map(t => t.views)"
-              :colors="ORIGIN_COLORS"
-              :active-label="selectedSessionType"
-              @select="onSessionTypeSelect"
-            />
-          </div>
-          <div class="origin-legend">
-            <div v-for="(t, i) in stats.sessionTypes" :key="t.type"
-              :class="['origin-legend-row', 'clickable', { active: selectedSessionType === t.type }]"
-              @click="onSessionTypeSelect(t.type)">
-              <span class="origin-swatch" :style="{ background: ORIGIN_COLORS[i % ORIGIN_COLORS.length] }"></span>
-              <span class="origin-name">{{ t.type }}</span>
-              <strong>{{ fmt(t.views) }}</strong>
-              <span class="origin-sub">{{ pctOf(t.views, totalSessionTypeViews) }}</span>
-            </div>
-          </div>
-        </div>
-        <div v-if="selectedSessionType" class="filter-active-bar">
-          {{ t("viewers.charts.filterActive") }} <strong>{{ selectedSessionType }}</strong>
-          <button class="filter-clear" @click="selectedSessionType = null">{{ t("viewers.charts.clearFilter") }}</button>
-        </div>
-      </div>
-
       <!-- Replay : cumul des délégués distincts ayant consulté du replay
            (déplacé depuis la Vue d'ensemble), au-dessus du top sessions. -->
       <div class="chart-card" v-if="kind === 'replay' && replayCumulByDay.length > 0">
         <div class="chart-header">
-          <h3>{{ t("viewers.charts.replayCumul") }}</h3>
+          <h3>{{ t("viewers.charts.replayCumul") }} <InfoTooltip :text="t('viewers.charts.replayCumulHint')" /></h3>
           <CsvButton
             filename="replay-cumul-delegues"
             :headers="[t('viewers.csv.day'), t('viewers.csv.cumulDelegates')]"
@@ -251,43 +239,89 @@
         <div :style="{ position: 'relative', height: '260px' }">
           <Bar :data="replayCumulChart" :options="replayCumulOptions" />
         </div>
-        <p class="viewers-hint">{{ t("viewers.charts.replayCumulHint") }}</p>
       </div>
 
-      <!-- Top sessions : par délégués uniques (+ par vues côte à côte en replay) -->
-      <div :class="{ 'charts-row': kind === 'replay' }" v-if="stats.topSessions.length > 0">
-        <div class="chart-card">
+      <!-- Type de session (1/3, cliquable) cote a cote avec Top sessions par
+           delegues uniques (2/3). Le camembert filtre detail + top sessions. -->
+      <div
+        :class="(stats.sessionTypes && stats.sessionTypes.length > 0) ? 'charts-row cols-1-2' : ''"
+        v-if="topSessions.length > 0 || (stats.sessionTypes && stats.sessionTypes.length > 0)"
+      >
+        <div class="chart-card" v-if="stats.sessionTypes && stats.sessionTypes.length > 0">
           <div class="chart-header">
-            <h3>{{ L.topSessionsTitle }}</h3>
+            <h3>{{ t("viewers.charts.bySessionType") }}</h3>
+            <CsvButton
+              :filename="`${kind}-par-session-type`"
+              :headers="[t('viewers.csv.type'), t('viewers.csv.views'), t('viewers.csv.uniqueDelegates')]"
+              :rows="stats.sessionTypes.map(st => [st.type, st.views, st.uniqueUsers])"
+            />
+          </div>
+          <div class="origin-pie-wrap">
+            <div class="origin-pie">
+              <DoughnutChart
+                :labels="stats.sessionTypes.map(t => t.type)"
+                :data="stats.sessionTypes.map(t => t.views)"
+                :colors="ORIGIN_COLORS"
+                :active-label="selectedSessionType"
+                @select="onSessionTypeSelect"
+              />
+            </div>
+            <div class="origin-legend">
+              <div v-for="(t, i) in stats.sessionTypes" :key="t.type"
+                :class="['origin-legend-row', 'clickable', { active: selectedSessionType === t.type }]"
+                @click="onSessionTypeSelect(t.type)">
+                <span class="origin-swatch" :style="{ background: ORIGIN_COLORS[i % ORIGIN_COLORS.length] }"></span>
+                <span class="origin-name">{{ t.type }}</span>
+                <strong>{{ fmt(t.views) }}</strong>
+                <span class="origin-sub">{{ pctOf(t.views, totalSessionTypeViews) }}</span>
+              </div>
+            </div>
+          </div>
+          <div v-if="selectedSessionType" class="filter-active-bar">
+            {{ t("viewers.charts.filterActive") }} <strong>{{ selectedSessionType }}</strong>
+            <button class="filter-clear" @click="selectedSessionType = null">{{ t("viewers.charts.clearFilter") }}</button>
+          </div>
+        </div>
+        <div class="chart-card" v-if="topSessions.length > 0">
+          <div class="chart-header">
+            <h3>
+              {{ L.topSessionsTitle }}
+              <span v-if="selectedSessionType">{{ t("viewers.charts.filtered") }}</span>
+            </h3>
             <CsvButton
               :filename="`${kind}-top-sessions`"
               :headers="[t('viewers.csv.session'), t('viewers.csv.uniqueDelegates'), t('viewers.csv.views'), t('viewers.csv.avgDurationS')]"
-              :rows="stats.topSessions.slice(0, topN).map(s => [s.title, s.uniqueUsers, s.views, Math.round(s.avgDuration)])"
+              :rows="topSessions.slice(0, topN).map(s => [s.title, s.uniqueUsers, s.views, Math.round(s.avgDuration)])"
             />
           </div>
           <HBarChart
-            :labels="stats.topSessions.slice(0, topN).map(s => truncate(s.title, 60))"
-            :data="stats.topSessions.slice(0, topN).map(s => s.uniqueUsers)"
-            :height="Math.max(220, Math.min(topN, stats.topSessions.length) * 22 + 40)"
+            :labels="topSessions.slice(0, topN).map(s => truncate(s.title, 60))"
+            :data="topSessions.slice(0, topN).map(s => s.uniqueUsers)"
+            :height="Math.max(220, Math.min(topN, topSessions.length) * 22 + 40)"
             color="#6F45FF"
           />
         </div>
-        <div class="chart-card" v-if="kind === 'replay'">
-          <div class="chart-header">
-            <h3>{{ t("viewers.charts.topSessionsViews") }}</h3>
-            <CsvButton
-              filename="replay-top-sessions-vues"
-              :headers="[t('viewers.csv.session'), t('viewers.csv.views'), t('viewers.csv.uniqueDelegates'), t('viewers.csv.avgDurationS')]"
-              :rows="topSessionsByViews.slice(0, topN).map(s => [s.title, s.views, s.uniqueUsers, Math.round(s.avgDuration)])"
-            />
-          </div>
-          <HBarChart
-            :labels="topSessionsByViews.slice(0, topN).map(s => truncate(s.title, 60))"
-            :data="topSessionsByViews.slice(0, topN).map(s => s.views)"
-            :height="Math.max(220, Math.min(topN, topSessionsByViews.length) * 22 + 40)"
-            color="#1E4E66"
+      </div>
+
+      <!-- Replay : top sessions par vues (pleine largeur, sous le couple type/top). -->
+      <div class="chart-card" v-if="kind === 'replay' && topSessions.length > 0">
+        <div class="chart-header">
+          <h3>
+            {{ t("viewers.charts.topSessionsViews") }}
+            <span v-if="selectedSessionType">{{ t("viewers.charts.filtered") }}</span>
+          </h3>
+          <CsvButton
+            filename="replay-top-sessions-vues"
+            :headers="[t('viewers.csv.session'), t('viewers.csv.views'), t('viewers.csv.uniqueDelegates'), t('viewers.csv.avgDurationS')]"
+            :rows="topSessionsByViews.slice(0, topN).map(s => [s.title, s.views, s.uniqueUsers, Math.round(s.avgDuration)])"
           />
         </div>
+        <HBarChart
+          :labels="topSessionsByViews.slice(0, topN).map(s => truncate(s.title, 60))"
+          :data="topSessionsByViews.slice(0, topN).map(s => s.views)"
+          :height="Math.max(220, Math.min(topN, topSessionsByViews.length) * 22 + 40)"
+          color="#1E4E66"
+        />
       </div>
 
       <!-- Engagement : standalone (live ET replay) — en replay la colonne droite
@@ -311,7 +345,7 @@
         <div class="chart-header">
           <h3>
             {{ L.detailTitle(filteredItems.length) }}
-            <span v-if="kind === 'live' && selectedSessionType">{{ t("viewers.charts.filtered") }}</span>
+            <span v-if="selectedSessionType || (kind === 'live' && selectedBadgeType)">{{ t("viewers.charts.filtered") }}</span>
           </h3>
           <CsvButton
             :filename="`${kind}-detail`"
@@ -365,10 +399,13 @@ import { Bar } from "vue-chartjs";
 import HBarChart from "../charts/HBarChart.vue";
 import DoughnutChart from "../charts/DoughnutChart.vue";
 import StackedBarChart from "../charts/StackedBarChart.vue";
+import ChoroplethMap from "../charts/ChoroplethMap.vue";
 import CsvButton from "../CsvButton.vue";
+import InfoTooltip from "../InfoTooltip.vue";
 import { parisDateParts } from "../../utils/parisTime.js";
 import { fmt } from "@/utils/formatters.js";
 import { getTypeColor } from "@/utils/typeColors.js";
+import { COUNTRY_CONTINENTS } from "@/utils/countries.js";
 import { delegateBadgeType } from "@/utils/checkinByType.js";
 import { buildDelegateLookup } from "@/utils/viewerJoin.js";
 import { debug } from "@/utils/debug.js";
@@ -443,8 +480,10 @@ const pageSize = 200;
 // --- Top sessions par VUES (replay) : même liste que topSessions mais triée
 // par nombre de vues (s.views) au lieu des délégués uniques. Affiché à droite
 // du "Top sessions par délégués uniques". ---
+// Derive de `topSessions` (et non de stats brut) pour heriter du filtre type de
+// session : selectionner un type filtre aussi "Top sessions VOD par vues".
 const topSessionsByViews = computed(() =>
-  [...(stats.value.topSessions || [])].sort((a, b) => b.views - a.views),
+  [...topSessions.value].sort((a, b) => b.views - a.views),
 );
 
 // --- Cumul des délégués distincts ayant consulté du replay (déplacé depuis la
@@ -485,13 +524,86 @@ const selectedSessionType = ref(null);
 function onSessionTypeSelect(type) {
   selectedSessionType.value = selectedSessionType.value === type ? null : type;
 }
+
+// --- Filtre par type de badge (live uniquement) : clic sur un item de la legende
+// du chart "Délégués uniques en live par jour" (empile par type de badge) ->
+// filtre le tableau de detail sur ce type. On compare sur le MEME libelle que la
+// legende (viewerTypeLbl applique au type derive du delegue rapproche). ---
+const selectedBadgeType = ref(null);
+function onBadgeTypeSelect(label) {
+  selectedBadgeType.value = selectedBadgeType.value === label ? null : label;
+}
+// Libelle de type de badge d'une vue, identique a la logique de byDayByBadgeType
+// (delegue rapproche -> delegateBadgeType, sinon "Inscrit non reconnu"), puis
+// localise via viewerTypeLbl pour matcher exactement le label de la legende.
+function liveItemBadgeType(it) {
+  const entry = delegateLookup.value.get(it.userId);
+  const badgeT = entry?.delegate ? delegateBadgeType(entry.delegate) : "Inconnu";
+  const raw = badgeT === "Inconnu" ? "Inscrit non reconnu" : badgeT;
+  return viewerTypeLbl(raw);
+}
+
 const filteredItems = computed(() => {
-  if (props.kind !== "live" || !selectedSessionType.value) return stats.value.items;
-  return stats.value.items.filter(
-    (it) => (it.sessionType || "Non renseigné") === selectedSessionType.value,
-  );
+  let items = stats.value.items;
+  // Filtre type de session (camembert "Vues par type de session") — live ET replay.
+  if (selectedSessionType.value) {
+    items = items.filter((it) => (it.sessionType || "Non renseigné") === selectedSessionType.value);
+  }
+  // Filtre type de badge (legende du chart par jour) — live uniquement.
+  if (props.kind === "live" && selectedBadgeType.value) {
+    items = items.filter((it) => liveItemBadgeType(it) === selectedBadgeType.value);
+  }
+  return items;
 });
 const pagedItems = computed(() => filteredItems.value.slice(0, pageSize));
+
+// Top sessions recalcule a partir des items filtres par le type de session
+// selectionne (live) : selectionner un type dans "Vues par type de session"
+// restreint aussi "Top sessions par delegues uniques" a ce type. Meme agregation
+// que computeLiveStats (sessionsById -> uniques/vues/duree, tri par uniques).
+// Hors selection (ou en replay), on reutilise le top sessions deja calcule.
+function buildTopSessions(items) {
+  const byId = new Map();
+  for (const it of items) {
+    if (!it.sessionId) continue;
+    if (!byId.has(it.sessionId)) {
+      byId.set(it.sessionId, {
+        id: it.sessionId,
+        title: it.sessionTitle || it.sessionId,
+        users: new Set(),
+        views: 0,
+        totalDuration: 0,
+      });
+    }
+    const s = byId.get(it.sessionId);
+    if (it.userId) s.users.add(it.userId);
+    s.views++;
+    s.totalDuration += it.duration || 0;
+  }
+  return [...byId.values()]
+    .map((s) => ({
+      id: s.id,
+      title: s.title,
+      uniqueUsers: s.users.size,
+      views: s.views,
+      avgDuration: s.views > 0 ? s.totalDuration / s.views : 0,
+    }))
+    .sort((a, b) => b.uniqueUsers - a.uniqueUsers);
+}
+// Top sessions filtre par le type de session selectionne — LIVE ET REPLAY.
+// Selectionner un type dans "Vues par type de session" restreint "Top sessions
+// par delegues uniques" (live + replay) ET "Top sessions VOD par vues" (replay,
+// via topSessionsByViews qui derive de ce computed).
+const topSessions = computed(() => {
+  if (selectedSessionType.value) {
+    const items = stats.value.items.filter(
+      (it) => (it.sessionType || "Non renseigné") === selectedSessionType.value,
+    );
+    return buildTopSessions(items);
+  }
+  return stats.value.topSessions || [];
+});
+
 const totalSessionTypeViews = computed(() =>
   (stats.value.sessionTypes || []).reduce((s, t) => s + t.views, 0),
 );
@@ -524,6 +636,41 @@ const joinStats = computed(() => {
 });
 
 const uniqueUsersWithoutCheckin = computed(() => joinStats.value.noCheckin);
+
+// --- Repartition geographique des delegues uniques ayant consulte ---
+// Un delegue par user_id (Keycloak) distinct, rapproche via delegateLookup. Les
+// viewers non rapproches (unknown) ou sans adresse pays sont exclus de la carte.
+const viewerDelegates = computed(() => {
+  const lookup = delegateLookup.value;
+  const seen = new Set();
+  const list = [];
+  for (const it of stats.value.items) {
+    if (!it.userId || seen.has(it.userId)) continue;
+    seen.add(it.userId);
+    const entry = lookup.get(it.userId);
+    if (entry?.delegate) list.push(entry.delegate);
+  }
+  return list;
+});
+const geoCountries = computed(() => {
+  const map = {};
+  for (const d of viewerDelegates.value) {
+    const code = d.primaryAddress?.countryCode || d.primaryAddress?.country?.code;
+    if (!code) continue;
+    map[code] = (map[code] || 0) + 1;
+  }
+  return Object.entries(map)
+    .map(([value, totalCount]) => ({ value, totalCount }))
+    .sort((a, b) => b.totalCount - a.totalCount);
+});
+// Sous-ensemble europeen (pour le CSV de la carte Europe ; la carte se recadre
+// elle-meme sur l'Europe).
+const geoCountriesEurope = computed(() =>
+  geoCountries.value.filter((c) => COUNTRY_CONTINENTS[(c.value || "").toUpperCase()] === "Europe"),
+);
+// Signature qui change avec la population -> force le remount des ChoroplethMap
+// (construites au mount, cf. composant).
+const geoCacheKey = computed(() => `${props.kind}-${viewerDelegates.value.length}`);
 
 // --- Dumps debug (en dev uniquement, cf. debug.js) ---
 const withoutCheckinList = computed(() => {
@@ -609,6 +756,7 @@ watch(
         sessionEnd: it.sessionEnd,
         origin: it.origin,
         channelId: it.channelId,
+        channelName: it.channelName,
         timestamp: it.timestamp,
         durationSec: it.duration,
       })),
@@ -1128,20 +1276,6 @@ const ORIGIN_COLORS = ["#1E4E66", "#30DD92", "#6F45FF", "#FFA600", "#E53935", "#
 const totalOriginViews = computed(() =>
   (stats.value.origins || []).reduce((s, o) => s + o.views, 0),
 );
-
-// Resume des origines reduit a un indicateur (remplace l'ancien camembert) :
-// origine dominante + repartition compacte de toutes les origines en sous-ligne.
-const originSummary = computed(() => {
-  const origins = stats.value.origins || [];
-  const total = totalOriginViews.value;
-  const top = origins[0];
-  return {
-    count: origins.length,
-    topOrigin: top?.origin || "—",
-    topPct: top ? pctOf(top.views, total) : "0%",
-    breakdown: origins.map((o) => `${o.origin} ${pctOf(o.views, total)}`).join(" · "),
-  };
-});
 
 function pctOf(v, total) {
   if (!total) return "0%";

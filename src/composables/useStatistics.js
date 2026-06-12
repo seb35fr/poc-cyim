@@ -27,8 +27,18 @@ export function useStatistics(eventId, options = {}) {
     progress.value = { loaded: 0, total: 0, page: 0 };
 
     try {
+      // Config event (titre + logo) : requete legere. On l'expose DES qu'elle
+      // arrive — sans attendre la pagination des delegues — pour que l'ecran de
+      // chargement affiche le titre/logo de l'event au plus tot.
+      const configPromise = fetchEventConfig(eventId).catch(() => null);
+      configPromise.then((c) => {
+        if (c?.branding?.name) eventName.value = c.branding.name;
+        else if (!eventName.value) eventName.value = eventId;
+        if (c?.branding?.logoURL) eventLogo.value = c.branding.logoURL;
+      });
+
       const [config, delegateResult] = await Promise.all([
-        fetchEventConfig(eventId).catch(() => null),
+        configPromise,
         fetchAllDelegates(eventId, (p) => {
           progress.value = p;
         }),

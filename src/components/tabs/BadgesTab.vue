@@ -89,8 +89,7 @@
 
       <div class="chart-card">
         <div class="chart-header">
-          <h3>{{ t("badges.charts.checkinByType") }}</h3>
-          <span class="chart-hint" style="margin: 0;">{{ t("badges.charts.checkinByTypeHint") }}</span>
+          <h3>{{ t("badges.charts.checkinByType") }} <InfoTooltip :text="t('badges.charts.checkinByTypeHint')" /></h3>
         </div>
         <div v-if="checkinByType.labels.length > 0"
           :style="{ position: 'relative', height: checkinByType.height + 'px' }">
@@ -116,14 +115,13 @@
       </div>
       <div class="chart-card">
         <div class="chart-header">
-          <h3>{{ t("badges.charts.badgesPerDay") }}</h3>
+          <h3>{{ t("badges.charts.badgesPerDay") }} <InfoTooltip :text="t('badges.charts.badgesPerDayHint')" /></h3>
           <CsvButton filename="badges-par-jour" :headers="[t('badges.csv.date'), t('badges.csv.badges')]" :rows="(stats.badges.byDay || []).map(d => [d.date, d.count])" />
         </div>
         <template v-if="badgesDayLabels.length > 0">
           <div :style="{ position: 'relative', height: '280px' }">
             <Bar :data="badgesDayChartData" :options="badgesDayOptions" :plugins="[checkinDayTotalsPlugin]" />
           </div>
-          <p class="chart-hint">{{ t("badges.charts.badgesPerDayHint") }}</p>
         </template>
         <p v-else class="empty-msg">{{ t("badges.empty.noBadge") }}</p>
       </div>
@@ -205,11 +203,8 @@
     <!-- Mix des types d'inscriptions (presents confirmes) -->
     <div class="chart-card" v-if="typesMixChart.datasets.length > 0">
       <div class="chart-header">
-        <h3>{{ t("badges.charts.typesMix") }}</h3>
+        <h3>{{ t("badges.charts.typesMix") }} <InfoTooltip :text="t('badges.charts.typesMixHintPre') + ' status = registered ' + t('badges.charts.typesMixHintAnd') + ' checkedInDate ' + t('badges.charts.typesMixHintPost')" /></h3>
         <div style="display: flex; align-items: center; gap: 6px;">
-          <span class="chart-hint" style="margin: 0;">
-            {{ t("badges.charts.typesMixHintPre") }} <code>status = registered</code> {{ t("badges.charts.typesMixHintAnd") }} <code>checkedInDate</code> {{ t("badges.charts.typesMixHintPost") }}
-          </span>
           <CsvButton filename="mix-types-presents"
             :headers="[t('badges.csv.type'), t('badges.csv.pct'), t('badges.csv.count')]"
             :rows="typesMixChart.datasets.map(ds => [ds.label, ds.data[0], ds._count || 0])" />
@@ -269,6 +264,7 @@ import HBarChart from "../charts/HBarChart.vue";
 import LineChart from "../charts/LineChart.vue";
 import FilterBanner from "../FilterBanner.vue";
 import CsvButton from "../CsvButton.vue";
+import InfoTooltip from "../InfoTooltip.vue";
 import { useFilteredStats } from "../../composables/useFilteredStats.js";
 import { makeDateLabeler } from "../../utils/formatDateLabel.js";
 import { parisDay, parisDateTime } from "../../utils/parisTime.js";

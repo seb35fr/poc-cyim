@@ -223,8 +223,7 @@
            modalite (presentiel / live / replay). Mode decoche => serie masquee. -->
       <div class="chart-card">
         <div class="chart-header">
-          <h3>{{ t("overview.charts.engagementTitle") }}</h3>
-          <span class="chart-hint">{{ t("overview.charts.engagementHint") }}</span>
+          <h3>{{ t("overview.charts.engagementTitle") }} <InfoTooltip :text="t('overview.charts.engagementHint')" /></h3>
           <CsvButton
             filename="engagement-distribution"
             :label="t('overview.csv.distribution')"
@@ -252,8 +251,7 @@
         <!-- Chart 1 : Participants vs Inscrits, groupe par event -->
         <div class="chart-card">
           <div class="chart-header">
-            <h3>{{ t("overview.charts.participantsVsRegistered") }}</h3>
-            <span class="chart-hint">{{ t("overview.charts.participantsVsRegisteredHint") }}</span>
+            <h3>{{ t("overview.charts.participantsVsRegistered") }} <InfoTooltip :text="t('overview.charts.participantsVsRegisteredHint')" /></h3>
             <CsvButton
               filename="participants-vs-inscrits"
               :headers="[t('overview.csv.event'), t('overview.csv.registrations'), t('overview.csv.participants')]"
@@ -271,8 +269,7 @@
              Participants vs Inscrits). -->
         <div class="chart-card">
           <div class="chart-header">
-            <h3>{{ t("overview.charts.byRegType") }}</h3>
-            <span class="chart-hint">{{ t("overview.charts.byRegTypeHint") }}</span>
+            <h3>{{ t("overview.charts.byRegType") }} <InfoTooltip :text="t('overview.charts.byRegTypeHint')" /></h3>
             <CsvButton
               filename="types-inscription"
               :headers="[t('overview.csv.type'), t('overview.csv.totalRegistered'), t('overview.csv.physical'), t('overview.csv.liveReplayOnly'), t('overview.csv.noParticipation')]"
@@ -295,8 +292,7 @@
              mode simple (1 seule barre, données de l'event courant). -->
         <div class="chart-card">
           <div class="chart-header">
-            <h3>{{ t("overview.charts.participantsByBadge") }}</h3>
-            <span class="chart-hint"><template v-if="hasCompare">{{ t("overview.charts.participantsByBadgeHintCompare", { a: eventName, b: compareEventName }) }}</template><template v-else>{{ t("overview.charts.participantsByBadgeHint") }}</template></span>
+            <h3>{{ t("overview.charts.participantsByBadge") }} <InfoTooltip :text="hasCompare ? t('overview.charts.participantsByBadgeHintCompare', { a: eventName, b: compareEventName }) : t('overview.charts.participantsByBadgeHint')" /></h3>
             <CsvButton
               filename="participants-type-inscription"
               :headers="hasCompare ? [t('overview.csv.type'), eventName, compareEventName] : [t('overview.csv.type'), eventName]"
@@ -318,8 +314,7 @@
       <!-- Chart 3 : Audience salle + live + replay, horizontal empile par event -->
       <div class="chart-card">
         <div class="chart-header">
-          <h3>{{ t("overview.charts.audienceMix") }}</h3>
-          <span class="chart-hint">{{ t("overview.charts.audienceMixHint") }}</span>
+          <h3>{{ t("overview.charts.audienceMix") }} <InfoTooltip :text="t('overview.charts.audienceMixHint')" /></h3>
           <CsvButton
             filename="audience-salle-live-replay"
             :headers="[t('overview.csv.event'), t('overview.csv.room'), t('overview.csv.live'), t('overview.csv.replay')]"
@@ -341,6 +336,69 @@
         <p class="participation-note">
           {{ t("overview.charts.audienceNote") }}
         </p>
+      </div>
+    </div>
+
+    <!-- Vue d'ensemble par type de session (tous modes : salle ∪ live ∪ replay).
+         Cliquable -> filtre le Top sessions par delegues uniques ci-dessous. -->
+    <div class="charts-row" v-if="overviewSessionTypes.length > 0">
+      <div class="chart-card">
+        <div class="chart-header">
+          <h3>{{ t("overview.charts.sessionTypeTitle") }} <InfoTooltip :text="t('overview.charts.sessionTypeHint')" /></h3>
+          <CsvButton
+            filename="vue-ensemble-par-type-session"
+            :headers="[t('scans.csv.type'), t('overview.csv.attendances'), t('scans.csv.uniqueDelegates')]"
+            :rows="overviewSessionTypes.map(st => [st.type, st.attendances, st.uniqueDelegates])"
+          />
+        </div>
+        <div class="origin-pie-wrap">
+          <div class="origin-pie">
+            <DoughnutChart
+              :labels="overviewSessionTypes.map(st => st.type)"
+              :data="overviewSessionTypes.map(st => st.attendances)"
+              :colors="overviewSessionTypes.map(st => getTypeColor(st.type))"
+              :active-label="selectedSessionType"
+              @select="onSessionTypeSelect"
+            />
+          </div>
+          <div class="origin-legend">
+            <div v-for="st in overviewSessionTypes" :key="st.type"
+              :class="['origin-legend-row', 'clickable', { active: selectedSessionType === st.type }]"
+              @click="onSessionTypeSelect(st.type)">
+              <span class="origin-swatch" :style="{ background: getTypeColor(st.type) }"></span>
+              <span class="origin-name">{{ st.type }}</span>
+              <strong>{{ fmt(st.attendances) }}</strong>
+              <span class="origin-sub">{{ pctOfTypes(st.attendances) }}</span>
+            </div>
+          </div>
+        </div>
+        <div v-if="selectedSessionType" class="filter-active-bar">
+          {{ t("overview.charts.sessionTypeFilterActive") }} <strong>{{ selectedSessionType }}</strong>
+          <button class="filter-clear" @click="selectedSessionType = null">{{ t("viewers.charts.clearFilter") }}</button>
+        </div>
+      </div>
+
+      <!-- Top sessions par delegues uniques (tous modes), filtre par le type ci-dessus. -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <h3>
+            {{ t("overview.charts.topSessionsByType") }}
+            <span v-if="selectedSessionType" class="chart-hint">{{ t("viewers.charts.filtered") }}</span>
+          </h3>
+          <CsvButton
+            filename="top-sessions-delegues-uniques"
+            :headers="[t('scans.csv.session'), t('scans.csv.uniqueDelegates')]"
+            :rows="overviewTopSessions.map(s => [s.label, s.uniqueDelegates])"
+          />
+        </div>
+        <HBarChart
+          v-if="overviewTopSessions.length > 0"
+          :labels="overviewTopSessions.map(s => truncate(s.label, 60))"
+          :data="overviewTopSessions.map(s => s.uniqueDelegates)"
+          :height="Math.max(220, overviewTopSessions.length * 22 + 40)"
+          color="#6F45FF"
+        />
+        <p v-else class="empty-msg">{{ t("scans.empty.noAudience") }}</p>
       </div>
     </div>
 
@@ -374,8 +432,7 @@
     <div class="charts-row" v-if="!liveLoading && !replayLoading">
       <div class="chart-card">
         <div class="chart-header">
-          <h3>{{ t("maps.worldTitle") }}</h3>
-          <span class="chart-hint">{{ t("overview.charts.geoHint") }}</span>
+          <h3>{{ t("maps.worldTitle") }} <InfoTooltip :text="t('overview.charts.geoHint')" /></h3>
           <CsvButton
             filename="participants-par-pays-monde"
             :headers="[t('overview.csv.countryCode'), t('overview.csv.delegates')]"
@@ -386,8 +443,7 @@
       </div>
       <div class="chart-card">
         <div class="chart-header">
-          <h3>{{ t("maps.europeTitle") }}</h3>
-          <span class="chart-hint">{{ t("overview.charts.geoHint") }}</span>
+          <h3>{{ t("maps.europeTitle") }} <InfoTooltip :text="t('overview.charts.geoHint')" /></h3>
           <CsvButton
             filename="participants-par-pays-europe"
             :headers="[t('overview.csv.countryCode'), t('overview.csv.delegates')]"
@@ -409,9 +465,12 @@ import { useI18n } from "vue-i18n";
 import { Bar } from "vue-chartjs";
 import StackedBarChart from "../charts/StackedBarChart.vue";
 import LineChart from "../charts/LineChart.vue";
+import DoughnutChart from "../charts/DoughnutChart.vue";
+import HBarChart from "../charts/HBarChart.vue";
 import ChoroplethMap from "../charts/ChoroplethMap.vue";
 import FilterBanner from "../FilterBanner.vue";
 import CsvButton from "../CsvButton.vue";
+import InfoTooltip from "../InfoTooltip.vue";
 import { COUNTRY_CONTINENTS } from "@/utils/countries.js";
 import { useFilteredStats } from "../../composables/useFilteredStats.js";
 import { makeDateLabeler } from "../../utils/formatDateLabel.js";
@@ -822,6 +881,89 @@ const participantsByTypeChart = computed(() => {
 // la vraie affluence des conferences, vs le nombre brut de scans qui sur-compte
 // les multi-passages. "Live"/"Replay" = vues totales ES. Les scans de l'event
 // compare sont desormais charges (compareScansApi) -> Salle B renseignee.
+// --- Vue d'ensemble par type de session (TOUS modes : Salle ∪ Live ∪ Replay) ---
+// Une seule structure par session, agregeant les delegues distincts quel que
+// soit le mode de consultation : salle (scans audience, delegateId Mongo), live
+// et replay (user_id Keycloak -> delegate.id via buildDelegateLookup, fallback
+// kc:<id> si non rapproche). Un delegue present en salle ET en live/replay sur
+// la meme session n'est compte qu'une fois (identite prefixee id:/kc:). Respecte
+// le filtre de modalite page-level (selectedModes), comme l'engagement.
+const combinedSessions = computed(() => {
+  const lookup = buildDelegateLookup(pageFilteredDelegates.value, { datasetLabel: "overview-session-types" });
+  const map = new Map(); // sessionId -> { id, title, type, delegates:Set<identity> }
+  const add = (sessionId, title, type, identity) => {
+    if (!sessionId || !identity) return;
+    let e = map.get(sessionId);
+    if (!e) {
+      e = { id: sessionId, title: title || sessionId, type: type || "Non renseigné", delegates: new Set() };
+      map.set(sessionId, e);
+    }
+    if (title && e.title === sessionId) e.title = title;
+    if (type && e.type === "Non renseigné") e.type = type;
+    e.delegates.add(identity);
+  };
+  if (selectedModes.value.has("PHYSIQUE")) {
+    for (const s of props.scansApi?.stats?.value?.audience?.scans || []) {
+      if (!s.delegateId || s.delegateId === "-") continue;
+      add(s.sessionId, s.sessionTitle, s.sessionType, `id:${s.delegateId}`);
+    }
+  }
+  if (selectedModes.value.has("LIVE")) {
+    for (const it of liveStats.value?.items || []) {
+      const d = lookup.get(it.userId)?.delegate?.id;
+      add(it.sessionId, it.sessionTitle, it.sessionType, d ? `id:${d}` : `kc:${it.userId}`);
+    }
+  }
+  if (selectedModes.value.has("REPLAY")) {
+    for (const it of replayStats.value?.items || []) {
+      const d = lookup.get(it.userId)?.delegate?.id;
+      add(it.sessionId, it.sessionTitle, it.sessionType, d ? `id:${d}` : `kc:${it.userId}`);
+    }
+  }
+  return map;
+});
+// Repartition par type : presences = somme des delegues distincts par session du
+// type (additive, bonne pour un camembert) ; uniqueDelegates = delegues distincts
+// du type (union, pour le CSV).
+const overviewSessionTypes = computed(() => {
+  const byType = new Map();
+  for (const sess of combinedSessions.value.values()) {
+    let e = byType.get(sess.type);
+    if (!e) { e = { attendances: 0, delegates: new Set() }; byType.set(sess.type, e); }
+    e.attendances += sess.delegates.size;
+    for (const d of sess.delegates) e.delegates.add(d);
+  }
+  return [...byType.entries()]
+    .map(([type, v]) => ({ type, attendances: v.attendances, uniqueDelegates: v.delegates.size }))
+    .sort((a, b) => b.attendances - a.attendances);
+});
+const overviewSessionTypesTotal = computed(
+  () => overviewSessionTypes.value.reduce((s, st) => s + st.attendances, 0),
+);
+function pctOfTypes(v) {
+  const total = overviewSessionTypesTotal.value;
+  if (!total) return "0%";
+  return `${((v / total) * 100).toFixed(1)}%`;
+}
+function truncate(s, n) {
+  if (!s) return "";
+  return s.length > n ? s.slice(0, n - 1) + "…" : s;
+}
+// Filtre cross-clic : selectionner un type restreint le Top sessions ci-dessous.
+const selectedSessionType = ref(null);
+function onSessionTypeSelect(type) {
+  selectedSessionType.value = selectedSessionType.value === type ? null : type;
+}
+// Top sessions par delegues uniques (tous modes), filtre par le type selectionne.
+const overviewTopSessions = computed(() => {
+  let sessions = [...combinedSessions.value.values()];
+  if (selectedSessionType.value) sessions = sessions.filter((s) => s.type === selectedSessionType.value);
+  return sessions
+    .map((s) => ({ id: s.id, label: s.title, uniqueDelegates: s.delegates.size }))
+    .sort((a, b) => b.uniqueDelegates - a.uniqueDelegates)
+    .slice(0, 15);
+});
+
 const scanAudienceViewsA = computed(
   () => props.scansApi?.stats?.value?.global?.audienceUniqueDelegateSessions || 0,
 );
@@ -1221,6 +1363,42 @@ const engagementDetailRows = computed(() =>
 .chart-hint {
   font-size: 12px; color: var(--text-muted); font-style: italic;
   margin-left: auto; padding-right: 8px;
+}
+/* Camembert "Presence par type de session" + legende (indicateur informatif). */
+.origin-pie-wrap {
+  display: grid; grid-template-columns: 200px 1fr; gap: 16px; align-items: center;
+}
+.origin-pie { width: 200px; }
+.origin-legend { display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.origin-legend-row {
+  display: grid; grid-template-columns: 12px 1fr auto auto;
+  align-items: center; gap: 8px;
+}
+.origin-swatch { width: 12px; height: 12px; border-radius: 3px; }
+.origin-name { color: var(--text); }
+.origin-legend-row strong { color: var(--text); font-weight: 700; }
+.origin-sub { color: var(--text-muted); font-size: 13px; min-width: 50px; text-align: right; }
+.origin-legend-row.clickable {
+  cursor: pointer; padding: 3px 6px; border-radius: 6px; transition: background .15s;
+}
+.origin-legend-row.clickable:hover { background: #f3f4f6; }
+.origin-legend-row.clickable.active { background: rgba(48,221,146,0.12); }
+.origin-legend-row.clickable.active strong { color: #047857; }
+.filter-active-bar {
+  margin-top: 12px; padding: 8px 12px;
+  background: rgba(48,221,146,0.10); border: 1px solid rgba(48,221,146,0.3);
+  border-radius: 8px; font-size: 14px; color: var(--text);
+  display: flex; align-items: center; gap: 12px;
+}
+.filter-clear {
+  margin-left: auto; padding: 3px 8px;
+  background: #fff; border: 1px solid #d1d5db; border-radius: 4px;
+  cursor: pointer; font-size: 13px; color: #646464;
+}
+.filter-clear:hover { background: #f3f4f6; }
+@media (max-width: 700px) {
+  .origin-pie-wrap { grid-template-columns: 1fr; }
+  .origin-pie { width: 160px; margin: 0 auto; }
 }
 .kpi-overview {
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));

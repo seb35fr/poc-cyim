@@ -36,7 +36,13 @@ function normalize(hit, sessionMap) {
       || "—",
     sessionId: s.session_id || null,
     sessionTitle: sess?.title || s.session_title || s.session_label || "",
-    sessionType: sess?.type || s.session_type || s.sessionType || "",
+    // Type de session "precis" : on prend EN PRIORITE le champ ES `session_type`,
+    // alimente par le job Flink stats_live.sql depuis events.category (SI-Views SQL)
+    // — exactement la meme source que la colonne "type de session" de l'export
+    // xlsx-stats. Le `type` de la session GraphQL (children(eventType: SESSION).type)
+    // n'est que le discriminant generique du noeud event (~ "SESSION"), trop large :
+    // on ne le garde qu'en dernier recours.
+    sessionType: s.session_type || s.sessionType || sess?.type || "",
     sessionStart: sess?.start || s.session_start || null,
     // Date de fin de session : priorite a la session GraphQL (ES n'expose
     // pas le champ de facon fiable). Sert au bucketage par jour / 30 min.
@@ -50,9 +56,12 @@ function normalize(hit, sessionMap) {
       || null,
     sessionDuration: sess?.duration ?? null,
     origin: s.origin || s.platform || s.source || s.device || null,
-    // channel_id : identifiant de la chaine de diffusion live (l'index n'expose
-    // pas de libelle lisible — on derive des labels "Chaine N" cote compute).
+    // channel_id : identifiant de la chaine de diffusion live.
     channelId: s.channel_id || s.channelId || null,
+    // channel_name : libelle lisible de la chaine (expose par l'index ES live —
+    // cf. xlsx-stats main.js qui lit data._source.channel_name). Fallback "Chaine N"
+    // cote compute si absent.
+    channelName: s.channel_name || s.channelName || null,
     timestamp,
     duration: Number(s.view_duration ?? s.duration ?? s.live_duration ?? 0) || 0,
   };
@@ -162,12 +171,16 @@ export function computeLiveStats(rawHits, sessionMap = null, dateRange = null) {
   // chaine qu'il a regardee ce jour-la. Quelqu'un qui a suivi 3 chaines compte
   // dans les 3 -> la somme d'un jour peut depasser le total dedoublonne de
   // uniqueByDay (c'est voulu : on veut l'audience propre de chaque chaine, pas
-  // une repartition d'un total). L'index n'expose pas de libelle de chaine : on
-  // classe les chaines par volume decroissant et on derive des labels lisibles
-  // "Chaine 1", "Chaine 2"..., le channel_id brut restant dispo pour le CSV.
+  // une repartition d'un total). Le libelle de chaine vient de channel_name
+  // (expose par l'index ES live) ; a defaut on classe par volume decroissant et
+  // on derive des labels "Chaine N". Le channel_id brut reste dispo pour le CSV.
   const channelUsersByDay = new Map(); // day -> Map<channelId, Set<userId>>
+  const channelNames = new Map(); // channelId -> channel_name (1er libelle rencontre)
   for (const it of items) {
     if (!it.userId || !it.channelId) continue;
+    if (it.channelName && !channelNames.has(it.channelId)) {
+      channelNames.set(it.channelId, it.channelName);
+    }
     const bucketRef = it.sessionEnd || it.sessionStart || it.timestamp;
     if (!bucketRef) continue;
     const p = parisDateParts(bucketRef);
@@ -189,7 +202,12 @@ export function computeLiveStats(rawHits, sessionMap = null, dateRange = null) {
   }
   const channels = [...channelTotals.entries()]
     .sort((a, b) => b[1] - a[1])
-    .map(([id], i) => ({ id, label: `Chaîne ${i + 1}`, total: channelTotals.get(id) }));
+    .map(([id], i) => ({
+      id,
+      // Vrai nom de chaine si l'index le fournit, sinon fallback "Chaine N".
+      label: channelNames.get(id) || `Chaîne ${i + 1}`,
+      total: channelTotals.get(id),
+    }));
   const uniqueByDayByChannel = {
     days: [...channelUsersByDay.keys()].sort((a, b) => a.localeCompare(b)),
     channels,

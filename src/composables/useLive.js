@@ -1,5 +1,5 @@
 import { ref, computed, readonly, onUnmounted } from "vue";
-import { fetchLiveViews } from "@/api/elasticsearch.js";
+import { fetchLiveViews, INDEX } from "@/api/elasticsearch.js";
 import { fetchEventSessions } from "@/api/graphql.js";
 import { computeLiveStats } from "@/utils/computeLiveStats.js";
 import { debug } from "@/utils/debug.js";
@@ -65,10 +65,10 @@ export function useLive(eventId, options = {}) {
       hits.value = result;
       sessions.value = sessionsResult;
       if (result.length > 0) {
-        debug.log("[Live] Structure du 1er hit ES (_source) :", result[0]._source);
-        debug.log("[Live] Champs disponibles :", Object.keys(result[0]._source || {}));
+        debug.log(`[Live] (index: ${INDEX.live}) Structure du 1er hit ES (_source) :`, result[0]._source);
+        debug.log(`[Live] (index: ${INDEX.live}) Champs disponibles :`, Object.keys(result[0]._source || {}));
       }
-      debug.log(`[Live] Dump complet ES (${result.length} hits) :`, result.map((h) => h._source));
+      debug.log(`[Live] (index: ${INDEX.live}) Dump complet ES (${result.length} hits) :`, result.map((h) => h._source));
       debug.log(`[Live] ${sessionsResult.length} sessions chargees depuis GraphQL`);
     } catch (e) {
       error.value = e.message;

@@ -69,8 +69,7 @@
         </div>
         <div class="chart-card">
           <div class="chart-header">
-            <h3>{{ t("comparison.typesMixTitle") }}</h3>
-            <span class="cmp-axis-hint">{{ t("comparison.typesMixHintPre") }} <code>status = registered</code> {{ t("comparison.typesMixHintAnd") }} <code>checkedInDate</code>{{ t("comparison.typesMixHintPost") }}</span>
+            <h3>{{ t("comparison.typesMixTitle") }} <InfoTooltip :text="`${t('comparison.typesMixHintPre')} status = registered ${t('comparison.typesMixHintAnd')} checkedInDate${t('comparison.typesMixHintPost')}`" /></h3>
           </div>
           <div v-if="typesMixChart.datasets.length > 0" :style="{ position: 'relative', height: typesMixHeight + 'px' }">
             <Bar :data="typesMixChart" :options="typesMixOptions" />
@@ -157,8 +156,7 @@
       <div class="charts-row">
         <div class="chart-card">
           <div class="chart-header">
-            <h3>{{ t("comparison.checkinByTypeTitle", { name: shortName(eventName) }) }}</h3>
-            <span class="cmp-axis-hint">{{ t("comparison.checkinByTypeHint") }}</span>
+            <h3>{{ t("comparison.checkinByTypeTitle", { name: shortName(eventName) }) }} <InfoTooltip :text="t('comparison.checkinByTypeHint')" /></h3>
           </div>
           <div v-if="checkinByTypeCurrent.labels.length > 0"
             :style="{ position: 'relative', height: checkinByTypeCurrent.height + 'px' }">
@@ -168,8 +166,7 @@
         </div>
         <div class="chart-card">
           <div class="chart-header">
-            <h3>{{ t("comparison.checkinByTypeTitle", { name: shortName(compareEventName) }) }}</h3>
-            <span class="cmp-axis-hint">{{ t("comparison.checkinByTypeHint") }}</span>
+            <h3>{{ t("comparison.checkinByTypeTitle", { name: shortName(compareEventName) }) }} <InfoTooltip :text="t('comparison.checkinByTypeHint')" /></h3>
           </div>
           <div v-if="checkinByTypeCompare.labels.length > 0"
             :style="{ position: 'relative', height: checkinByTypeCompare.height + 'px' }">
@@ -224,9 +221,8 @@
       <div class="charts-row">
         <div class="chart-card">
           <div class="chart-header">
-            <h3>{{ t("comparison.checkinByDayTitle") }}</h3>
+            <h3>{{ t("comparison.checkinByDayTitle") }} <InfoTooltip :text="t('comparison.checkinByDayHint')" /></h3>
             <div style="display: flex; align-items: center; gap: 8px;">
-              <span class="cmp-axis-hint">{{ t("comparison.checkinByDayHint") }}</span>
               <CsvButton v-if="checkinByDayBarChart.labels.length > 0" filename="comparatif-checkin-par-jour" :headers="[t('comparison.csv.day'), eventName, compareEventName]" :rows="checkinByDayBarChart.labels.map((l, i) => [l, checkinByDayBarChart.datasets[0]?.data[i] ?? 0, checkinByDayBarChart.datasets[1]?.data[i] ?? 0])" />
             </div>
           </div>
@@ -238,8 +234,7 @@
 
         <div class="chart-card">
           <div class="chart-header">
-            <h3>{{ t("comparison.badgesByDayTitle") }}</h3>
-            <span class="cmp-axis-hint">{{ t("comparison.badgesByDayHint") }}</span>
+            <h3>{{ t("comparison.badgesByDayTitle") }} <InfoTooltip :text="t('comparison.badgesByDayHint')" /></h3>
           </div>
           <div v-if="badgesByDayBarChart.labels.length > 0" :style="{ position: 'relative', height: '260px' }">
             <Bar :data="badgesByDayBarChart" :options="dayHistogramOptions" />
@@ -252,8 +247,7 @@
       <div class="charts-row">
         <div class="chart-card">
           <div class="chart-header">
-            <h3>{{ t("comparison.checkinPerfCumulTitle") }}</h3>
-            <span class="cmp-axis-hint">{{ t("comparison.perfCumulHint") }}</span>
+            <h3>{{ t("comparison.checkinPerfCumulTitle") }} <InfoTooltip :text="t('comparison.perfCumulHint')" /></h3>
           </div>
           <LineChart
             v-if="checkin15minChart.labels.length > 0"
@@ -266,8 +260,7 @@
 
         <div class="chart-card">
           <div class="chart-header">
-            <h3>{{ t("comparison.distribPerfCumulTitle") }}</h3>
-            <span class="cmp-axis-hint">{{ t("comparison.perfCumulHint") }}</span>
+            <h3>{{ t("comparison.distribPerfCumulTitle") }} <InfoTooltip :text="t('comparison.perfCumulHint')" /></h3>
           </div>
           <LineChart
             v-if="perf15minChart.labels.length > 0"
@@ -282,8 +275,7 @@
       <!-- Pré-inscription cumulée (J-N relatif au 1er check-in) -->
       <div class="chart-card">
         <div class="chart-header">
-          <h3>{{ t("comparison.preRegTitle") }}</h3>
-          <span class="cmp-axis-hint">{{ t("comparison.preRegHint") }}</span>
+          <h3>{{ t("comparison.preRegTitle") }} <InfoTooltip :text="t('comparison.preRegHint')" /></h3>
         </div>
         <LineChart
           v-if="preRegChart.labels.length > 0"
@@ -327,6 +319,7 @@ import {
 import FrenchRegionMap from "../charts/FrenchRegionMap.vue";
 import ChoroplethMap from "../charts/ChoroplethMap.vue";
 import KpiCompareGrid from "../charts/KpiCompareGrid.vue";
+import InfoTooltip from "../InfoTooltip.vue";
 
 const props = defineProps({
   stats: Object,

@@ -26,7 +26,7 @@
 
     <div class="chart-card">
       <div class="chart-header">
-        <h3>{{ t("demographics.charts.geoDistribution") }}</h3>
+        <h3>{{ t("demographics.charts.geoDistribution") }} <InfoTooltip :text="t('demographics.charts.geoDistributionHint')" /></h3>
         <CsvButton filename="pays" :headers="[t('demographics.csv.country'), t('demographics.csv.count')]" :rows="fs.demographics.countries.map(c => [c.value, c.totalCount])" />
       </div>
       <ChoroplethMap :countries="fs.demographics.countries" :height="380" />
@@ -35,7 +35,7 @@
     <div class="charts-row">
       <div class="chart-card">
         <div class="chart-header">
-          <h3>{{ t("demographics.charts.top15Countries") }}</h3>
+          <h3>{{ t("demographics.charts.top15Countries") }} <InfoTooltip :text="t('demographics.charts.top15CountriesHint')" /></h3>
           <CsvButton filename="top15-pays" :headers="[t('demographics.csv.country'), t('demographics.csv.count')]" :rows="top15Countries.map(c => [c.value, c.totalCount])" />
         </div>
         <HBarChart
@@ -49,7 +49,7 @@
       </div>
       <div class="chart-card">
         <div class="chart-header">
-          <h3>{{ t("demographics.charts.byContinent") }}</h3>
+          <h3>{{ t("demographics.charts.byContinent") }} <InfoTooltip :text="t('demographics.charts.byContinentHint')" /></h3>
           <CsvButton filename="continents" :headers="[t('demographics.csv.continent'), t('demographics.csv.count')]" :rows="continentDisplayLabels.map((c, i) => [c, continentData[i]])" />
         </div>
         <DoughnutChart
@@ -70,7 +70,7 @@
     <div class="charts-row">
       <div class="chart-card">
         <div class="chart-header">
-          <h3>{{ t("demographics.charts.gender") }}</h3>
+          <h3>{{ t("demographics.charts.gender") }} <InfoTooltip :text="t('demographics.charts.genderHint')" /></h3>
           <CsvButton filename="genre" :headers="[t('demographics.csv.gender'), t('demographics.csv.count')]" :rows="fs.demographics.genders.map(g => [genderLabel(g.value), g.totalCount])" />
         </div>
         <div style="max-width: 200px; margin: 0 auto;">
@@ -90,7 +90,7 @@
       </div>
       <div class="chart-card">
         <div class="chart-header">
-          <h3>{{ t("demographics.charts.top10Occupations") }}</h3>
+          <h3>{{ t("demographics.charts.top10Occupations") }} <InfoTooltip :text="t('demographics.charts.top10OccupationsHint')" /></h3>
           <CsvButton filename="professions" :headers="[t('demographics.csv.occupation'), t('demographics.csv.count')]" :rows="fs.demographics.occupations.map(o => [lbl(o.value), o.totalCount])" />
         </div>
         <HBarChart
@@ -106,7 +106,7 @@
     <div class="charts-row">
       <div class="chart-card">
         <div class="chart-header">
-          <h3>{{ t("demographics.charts.top10Qualifications") }}</h3>
+          <h3>{{ t("demographics.charts.top10Qualifications") }} <InfoTooltip :text="t('demographics.charts.top10QualificationsHint')" /></h3>
           <CsvButton filename="qualifications" :headers="[t('demographics.csv.qualification'), t('demographics.csv.count')]" :rows="fs.demographics.qualifications.map(q => [lbl(q.value), q.totalCount])" />
         </div>
         <HBarChart
@@ -119,7 +119,7 @@
       </div>
       <div class="chart-card">
         <div class="chart-header">
-          <h3>{{ t("demographics.charts.top10Companies") }}</h3>
+          <h3>{{ t("demographics.charts.top10Companies") }} <InfoTooltip :text="t('demographics.charts.top10CompaniesHint')" /></h3>
           <CsvButton filename="entreprises" :headers="[t('demographics.csv.company'), t('demographics.csv.count')]" :rows="fs.demographics.companies.map(c => [lbl(c.value), c.totalCount])" />
         </div>
         <HBarChart
@@ -134,7 +134,7 @@
 
     <div class="chart-card" v-if="fs.demographics.countries.length > 0">
       <div class="chart-header">
-        <h3>{{ t("demographics.charts.allCountries") }}</h3>
+        <h3>{{ t("demographics.charts.allCountries") }} <InfoTooltip :text="t('demographics.charts.allCountriesHint')" /></h3>
         <CsvButton filename="tous-pays" :headers="[t('demographics.csv.country'), t('demographics.csv.registered'), t('demographics.csv.pct')]" :rows="fs.demographics.countries.map(c => [c.value, c.totalCount, (c.totalCount / fs.global.totalDelegatesCount * 100).toFixed(1)])" />
       </div>
       <table class="data-table">
@@ -161,6 +161,7 @@ import HBarChart from "../charts/HBarChart.vue";
 import ChoroplethMap from "../charts/ChoroplethMap.vue";
 import FilterBanner from "../FilterBanner.vue";
 import CsvButton from "../CsvButton.vue";
+import InfoTooltip from "../InfoTooltip.vue";
 import { countryCodeToFlag, COUNTRY_CONTINENTS } from "../../utils/countries.js";
 import { useFilteredStats } from "../../composables/useFilteredStats.js";
 import { genderLabel, continentLabel, notSpecified, isNotSpecified } from "@/i18n/labels.js";

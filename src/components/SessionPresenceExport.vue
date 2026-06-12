@@ -1,6 +1,6 @@
 <template>
   <section class="export-category" :class="{ open }">
-    <header class="export-category-header" @click="$emit('toggle')">
+    <header v-if="!headerless" class="export-category-header" @click="$emit('toggle')">
       <div>
         <h3>{{ title }}</h3>
         <p>{{ desc }}</p>
@@ -90,6 +90,9 @@ import { fmt } from "@/utils/formatters.js";
 
 const props = defineProps({
   open: { type: Boolean, default: false },
+  // Masque l'en-tete interne (utilise en mode "lanceur de cartes" : la carte
+  // joue le role de titre/declencheur, le composant ne rend que son corps).
+  headerless: { type: Boolean, default: false },
   loading: { type: Boolean, default: false },
   title: { type: String, required: true },
   desc: { type: String, default: "" },

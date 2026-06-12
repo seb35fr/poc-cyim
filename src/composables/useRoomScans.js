@@ -3,6 +3,7 @@ import {
   fetchRoomAudience,
   fetchCongressCheckin,
   fetchZoneAccess,
+  INDEX,
 } from "@/api/elasticsearch.js";
 import { fetchLocationNames } from "@/api/graphql.js";
 import { computeAllScanStats } from "@/utils/computeScanStats.js";
@@ -10,7 +11,14 @@ import { debug } from "@/utils/debug.js";
 import { AUTO_REFRESH_MS } from "@/constants.js";
 
 export function useRoomScans(eventId, options = {}) {
-  const { autoRefresh = false, getDateRange = null, getBadgeTypes = null } = options;
+  const {
+    autoRefresh = false,
+    getDateRange = null,
+    getBadgeTypes = null,
+    // Lookup QR->delegue (Map) pour re-associer client-side les scans '-'. Fonction
+    // pour rester reactif au chargement des delegues. Cf. buildQrDelegateLookup.
+    getQrLookup = null,
+  } = options;
 
   const loading = ref(true);
   const refreshing = ref(false);
@@ -37,6 +45,7 @@ export function useRoomScans(eventId, options = {}) {
       {
         dateRange: getDateRange ? getDateRange() : null,
         badgeTypes: getBadgeTypes ? getBadgeTypes() : null,
+        qrLookup: getQrLookup ? getQrLookup() : null,
       },
     ),
   );
@@ -59,16 +68,16 @@ export function useRoomScans(eventId, options = {}) {
       zone.value = z;
       // Dump explicite (always-on) du contenu ES brut des scans de salle (audience),
       // pour inspecter les champs disponibles (session_id, room_name, badge_type, ...).
-      console.log(`[Scans][salle/audience] ${a.length} hit(s) ES — _source :`, a.map((h) => h._source));
+      console.log(`[Scans][salle/audience] (index: ${INDEX.audience}) ${a.length} hit(s) ES — _source :`, a.map((h) => h._source));
       if (a.length > 0) {
-        console.log("[Scans][salle/audience] champs du 1er hit :", Object.keys(a[0]._source || {}));
+        console.log(`[Scans][salle/audience] (index: ${INDEX.audience}) champs du 1er hit :`, Object.keys(a[0]._source || {}));
         console.table(a.map((h) => h._source));
       }
       // Dump explicite (always-on) du contenu ES brut des scans de zone, pour
       // inspecter les champs disponibles (zone_id, direction, delegate_id, ...).
-      console.log(`[Scans][zone] ${z.length} hit(s) ES — _source :`, z.map((h) => h._source));
+      console.log(`[Scans][zone] (index: ${INDEX.zone}) ${z.length} hit(s) ES — _source :`, z.map((h) => h._source));
       if (z.length > 0) {
-        console.log("[Scans][zone] champs du 1er hit :", Object.keys(z[0]._source || {}));
+        console.log(`[Scans][zone] (index: ${INDEX.zone}) champs du 1er hit :`, Object.keys(z[0]._source || {}));
         console.table(z.map((h) => h._source));
       }
       // Resolution des noms de zone (zone_id = location.id) via le gateway.
@@ -92,20 +101,20 @@ export function useRoomScans(eventId, options = {}) {
       // Dump complet des hits ES (_source) pour les 3 index, pour verification
       // jointure / structure des champs (notamment user_id keycloak vs delegate_id Mongo).
       if (a.length > 0) {
-        debug.log("[Scans][audience] Structure du 1er hit (_source) :", a[0]._source);
-        debug.log("[Scans][audience] Champs disponibles :", Object.keys(a[0]._source || {}));
+        debug.log(`[Scans][audience] (index: ${INDEX.audience}) Structure du 1er hit (_source) :`, a[0]._source);
+        debug.log(`[Scans][audience] (index: ${INDEX.audience}) Champs disponibles :`, Object.keys(a[0]._source || {}));
       }
-      debug.log(`[Scans][audience] Dump complet ES (${a.length} hits) :`, a.map((h) => h._source));
+      debug.log(`[Scans][audience] (index: ${INDEX.audience}) Dump complet ES (${a.length} hits) :`, a.map((h) => h._source));
       if (c.length > 0) {
-        debug.log("[Scans][checkin] Structure du 1er hit (_source) :", c[0]._source);
-        debug.log("[Scans][checkin] Champs disponibles :", Object.keys(c[0]._source || {}));
+        debug.log(`[Scans][checkin] (index: ${INDEX.checkin}) Structure du 1er hit (_source) :`, c[0]._source);
+        debug.log(`[Scans][checkin] (index: ${INDEX.checkin}) Champs disponibles :`, Object.keys(c[0]._source || {}));
       }
-      debug.log(`[Scans][checkin] Dump complet ES (${c.length} hits) :`, c.map((h) => h._source));
+      debug.log(`[Scans][checkin] (index: ${INDEX.checkin}) Dump complet ES (${c.length} hits) :`, c.map((h) => h._source));
       if (z.length > 0) {
-        debug.log("[Scans][zone] Structure du 1er hit (_source) :", z[0]._source);
-        debug.log("[Scans][zone] Champs disponibles :", Object.keys(z[0]._source || {}));
+        debug.log(`[Scans][zone] (index: ${INDEX.zone}) Structure du 1er hit (_source) :`, z[0]._source);
+        debug.log(`[Scans][zone] (index: ${INDEX.zone}) Champs disponibles :`, Object.keys(z[0]._source || {}));
       }
-      debug.log(`[Scans][zone] Dump complet ES (${z.length} hits) :`, z.map((h) => h._source));
+      debug.log(`[Scans][zone] (index: ${INDEX.zone}) Dump complet ES (${z.length} hits) :`, z.map((h) => h._source));
       // Diagnostic placeholder '-' : combien de scans checkin/zone ont un
       // delegate_id == '-' (QR non matche cote Flink, exclu de l'unicite) ?
       const dashCheckin = c.filter((h) => (h._source?.delegate_id || h._source?.delegate_identity_id) === "-").length;

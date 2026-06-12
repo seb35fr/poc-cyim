@@ -25,7 +25,7 @@ Copy `.env.example` to `.env` with:
 
 ## Stack
 
-Vue 3 + Vite 6 + Vue Router + Chart.js 4 (vue-chartjs) + chartjs-chart-geo (world/FR maps) + d3-geo (Lambert projection FR, fallback mercator) + chartjs-plugin-datalabels + **vue-i18n** (bilingue FR/EN). No UI framework (custom CSS with CSS variables defined in `App.vue`). **Seul export disponible : Markdown** (destiné aux LLM) — les exports PDF/PPTX ont été retirés.
+Vue 3 + Vite 6 + Vue Router + Chart.js 4 (vue-chartjs) + chartjs-chart-geo (cartes monde/Europe/FR) + d3-geo (Lambert projection FR, fallback mercator) + chartjs-plugin-datalabels + **vue-i18n** (bilingue FR/EN). No UI framework (custom CSS with CSS variables defined in `App.vue`). **Exports** : Markdown (destiné aux LLM) **+ dump JSON intégral** (téléchargés ensemble), **CSV par session** (combiné + mono-source présentiel/live/replay) et **CSV par graphe**. Les exports PDF/PPTX ont été retirés.
 
 **Vite alias** : `@/` → `/src/` (configuré dans `vite.config.js`). Tous les nouveaux imports utilisent `@/utils/...` au lieu de `../../utils/...`. Les imports legacy `../../` restent valides — pas de migration forcée.
 
@@ -44,26 +44,27 @@ Sources de données :
 | API | `src/api/graphql.js` | Apollo Gateway : `searchDelegates`, `getEvent` (config + mobileAppId), `fetchEventSessions`. Wrapper `gqlFetch` log opName + elapsed + timeout detection. |
 | | `src/api/elasticsearch.js` | ES direct (proxy `/api/es`) : `fetchRoomAudience`, `fetchCongressCheckin`, `fetchZoneAccess`, `fetchLiveViews`, `fetchReplayViews` |
 | Computation | `src/utils/computeStats.js` | **Lazy** `computeAllStats(delegates, mobileAppId, dateRange?)` : objet à getters par section (`global`, `demographics`, `registrations`, `temporal`, `checkinFlow`, `badges`, `onboarding`, `mobileApp`), calcul mémoïsé au 1er accès. `dateRange` (optionnel) n'est appliqué QU'AU **check-in** (`global.checkedInCount` + `checkinFlow`) — cf. **Filtres globaux**. |
-| | `src/utils/computeScanStats.js` | Agrège les 3 index ES de scans onsite. `computeAllScanStats({audience,checkin,zone}, {dateRange?, badgeTypes?})` : filtre les scans par timestamp (date) et par `badge_type`. Expose `audienceUniqueDelegateSessions` (= « vues en salle » : présences cumulées par session). |
-| | `src/utils/computeLiveStats.js` | Normalise hits live + enrichit via `sessionMap` (GraphQL). `computeLiveStats(hits, sessionMap, dateRange?)` filtre par **`sessionEnd`** (date de diffusion). |
+| | `src/utils/computeScanStats.js` | Agrège les 3 index ES de scans onsite. `computeAllScanStats({audience,checkin,zone}, {dateRange?, badgeTypes?, qrLookup?})` : filtre les scans par timestamp (date) et par `badge_type`. Expose `audienceUniqueDelegateSessions` (= « vues en salle »). Conserve le `_source` ES brut (`scan.raw`) pour la modal détail. **`buildQrDelegateLookup(delegates)`** (exporté) construit une `Map<clé → délégué>` indexée **par QR** (`qrCode.value` + `decodedValue`, normalisation multi-clés) **ET par `delegateId`** ; passée en `qrLookup`, elle (1) **ré-associe** les scans `delegate_id = '-'` via le QR, (2) **enrichit** `fullName`/`email`/`badgeType`/`badgeId` quand l'ES les laisse vides (placeholder `'-'` traité comme vide via `isBlankField`). `fullName` enrichi au format `givenName familyName (delegateId)`. Flags par champ (`*Enriched`) pour le marquage UI. `global.recoveredScans` / `global.unmatchedScans` exposent les compteurs. Cf. **Ré-association QR**. |
+| | `src/utils/computeLiveStats.js` | Normalise hits live + enrichit via `sessionMap` (GraphQL). `computeLiveStats(hits, sessionMap, dateRange?)` filtre par **`sessionEnd`** (date de diffusion). Le label de chaîne (`uniqueByDayByChannel.channels[].label`) vient de **`channel_name`** (champ exposé par l'index ES live, cf. `xlsx-stats/main.js`), avec fallback `Chaîne N` (tri par volume) si absent. |
 | | `src/utils/computeReplayStats.js` | Idem pour VOD replay. `computeReplayStats(hits, sessionMap, dateRange?)` filtre par **`timestamp`** de visionnage. |
 | | `src/utils/dateRange.js` | `makeInRange(dateRange)` → prédicat `(date) => bool` partagé (registration + ES) pour le filtre date global. |
 | Composables | `src/composables/useStatistics.js` | Délégués + config, auto-refresh 10 min. `debug.log` (DEV-only) des délégués checkedIn sans badge délivré |
 | | `src/composables/useFilteredStats.js` | Cross-filtering : filtre delegates + recompute stats. Signature `(getDelegates, getMobileAppId?, getDateRange?)` — `getDateRange` propage le filtre date global (appliqué au check-in). Expose `filteredDelegates`. |
-| | `src/composables/useRoomScans.js` | Scans onsite (audience + checkin + zone) en parallèle. **Lifté StatisticsView**. Options `{ getDateRange, getBadgeTypes }` → filtre date + badge type des scans. Cleanup `onUnmounted(clearInterval)`. |
+| | `src/composables/useRoomScans.js` | Scans onsite (audience + checkin + zone) en parallèle. **Lifté StatisticsView**. Options `{ getDateRange, getBadgeTypes, getQrLookup }` → filtre date + badge type + **lookup QR→délégué** pour la ré-association/enrichissement (cf. **Ré-association QR**). Cleanup `onUnmounted(clearInterval)`. |
 | | `src/composables/useLive.js` | Live views ES + sessions GraphQL en `Promise.all`. **Lifté StatisticsView**. Option `{ getDateRange }`. Cleanup `onUnmounted`. |
-| | `src/composables/useReplay.js` | Idem pour VOD replay. Option `{ getDateRange }`. |
+| | `src/composables/useReplay.js` | Idem pour VOD replay. Option `{ getDateRange }`. **Log always-on** (`console.table`) listant les éléments bruts de l'index ES replay. |
 | | `src/composables/useBadgeTypeFilter.js` | Filtre **global** type de badge (lifté StatisticsView). Expose `selected` (Set), `allBadgeTypes`, `filteredDelegates`, `filteredCompareDelegates`, `toggle`, `clear`, `setSelection`. Persiste cross-tab. |
 | | `src/composables/useDateRangeFilter.js` | Filtre **global** plage de dates (lifté StatisticsView). Expose `startYMD`/`endYMD` (computed get/set), `range` ({start,end} ms), `isDefault`, `reset`. Défaut : début = inscription la plus ancienne (des 2 events), fin = aujourd'hui. |
 | | `src/composables/useDiagnostics.js` | Bus de diagnostics UI (`pushDiagnostic`, `dismissDiagnostic`). Affiche des toasts top-right pour les anomalies data actionnables par l'admin. |
-| | `src/composables/useExportMarkdown.js` | **Export MD destiné au LLM** (Claude/ChatGPT) — **seul export du dashboard**. Dump complet de toutes les données du dashboard (stats + live + replay + scans + comparaison) avec analyse textuelle. Lecture directe des stats objects, pas de DOM walking. |
-| View | `src/views/StatisticsView.vue` | Sidebar hiérarchique + **toolbar de filtres globaux** (plage de dates + type de badge). Propriétaire (lifted) de `liveApi`/`replayApi`/`scansApi` (+ `compareLiveApi`/`compareReplayApi`/`compareScansApi` si `?compareWith=`), `badgeFilter`, `dateFilter`. Calcule `pageStats`/`pageDelegates` (filtrés) passés aux tabs. Met à jour `document.title` selon l'event (et l'event comparé). Bouton export Markdown. |
+| | `src/composables/useExportMarkdown.js` | **Export MD (LLM) + dump JSON intégral** : télécharge `bilan-*.md` (stats + live + replay + scans + comparaison + analyse textuelle) **et** `donnees-*.json` (100 % des données source : délégués bruts + stats matérialisées + items live/replay/scans). Lecture directe des stats objects, pas de DOM walking. |
+| View | `src/views/StatisticsView.vue` | Sidebar hiérarchique + **toolbar de filtres globaux** (plage de dates + type de badge). Propriétaire (lifted) de `liveApi`/`replayApi`/`scansApi` (+ `compareLiveApi`/`compareReplayApi`/`compareScansApi` si `?compareWith=`), `badgeFilter`, `dateFilter`. Calcule `pageStats`/`pageDelegates` (filtrés) passés aux tabs. Met à jour `document.title` selon l'event (et l'event comparé). Bouton export Markdown. **Écran de chargement** : carte avec **logo + titre de l'event** (remontés tôt par `useStatistics` dès la config, sans attendre les délégués) + **liste des sources chargées en parallèle** (inscriptions GraphQL + 3 index ES) avec spinner→✓ par source (`loadingSources`). |
 | Tabs | `src/components/tabs/*.vue` | OverviewTab, DemographicsTab, RegistrationsTab, TemporalTab, BadgesTab, DataTab, ComparisonTab, ScansTab, **ViewersTab** (kind='live'\|'replay'), **ViewersComparisonTab** (générique), ExportsTab |
-| Charts | `src/components/charts/*.vue` | DoughnutChart, HBarChart, LineChart, StackedBarChart (avec `@select` + `activeLabel` + `showTotal`), ChoroplethMap, FrenchRegionMap. **Composants composites** : `RegionalMaps.vue` (monde + FR + DOM), `KpiCompareGrid.vue` (grille KPI 3-col A∣Δ∣B partagée ComparisonTab + ViewersComparisonTab) |
+| Charts | `src/components/charts/*.vue` | DoughnutChart, HBarChart (espacement garanti via `categoryPercentage`/`barPercentage` + `maxBarThickness` ; `layout.padding.right` pour ne pas rogner le datalabel en bout de barre), LineChart, StackedBarChart (avec `@select` + `activeLabel` + `showTotal`), ChoroplethMap (**`scope` monde\|europe** + `outline` de cadrage Europe + `showLegend` échelle dégradée), FrenchRegionMap. **Composants composites** : `RegionalMaps.vue` (monde + FR + DOM, prop `showScaleLegend`), `KpiCompareGrid.vue` (grille KPI 3-col A∣Δ∣B partagée ComparisonTab + ViewersComparisonTab) |
+| Tooltips UI | `src/components/InfoTooltip.vue` | Petit bouton « i » rond + bulle d'explication (CSS pur, ouverture au survol/focus, pas d'état JS). Posé dans les `<h3>` de cartes via `<InfoTooltip :text="t('ns.xxxHint')" />`. `align` (`left` défaut/`right`) oriente la bulle. Présent sur Overview, Demographics, Registrations, Temporal, Badges, Scans, Viewers (live/replay) + ViewersComparison + Comparison + colonnes ambiguës de DataTab (RPPS, adhésion, IDs externes). **Pas** sur Exports (descriptions déjà visibles sous chaque titre). |
 | Filter UI | `src/components/FilterBanner.vue` | Filtres cross-clic actifs avec boutons d'effacement |
 | | `src/components/BadgeTypeFilter.vue` | Pills multi-select badge type. Composant UI seul, l'état vient de `useBadgeTypeFilter`. |
 | Diagnostics UI | `src/components/DiagnosticsBanner.vue` | Toasts fixed top-right alimentés par `useDiagnostics`. Monté globalement dans `App.vue`. |
-| CSV | `src/components/CsvButton.vue` | Per-chart CSV download, `src/utils/exportCsv.js` |
+| CSV | `src/components/CsvButton.vue` | Bouton de téléchargement CSV (props `label` + `primary` pour accentuer un export), `src/utils/exportCsv.js`. `src/components/SessionPresenceExport.vue` : bloc réutilisable « présence par session » mono-source (présentiel/live/replay) avec recherche + filtre type de session. |
 | Utils | `src/utils/formatters.js` | `fmt(n)`, `pct(a, b)`, `shortName(name, maxLen)`, `formatDurationHMS(sec)` — partagés (avant : 15 redéfinitions dans les tabs) |
 | | `src/utils/debug.js` | Wrapper `debug.log` / `debug.table` no-op en PROD via `import.meta.env.DEV` |
 | | `src/constants.js` | `AUTO_REFRESH_MS`, `COUNTDOWN_TICK_MS`, `DELEGATES_PAGE_SIZE`, `SLOW_QUERY_THRESHOLD_MS`, `ES_BATCH_SIZE` |
@@ -72,12 +73,14 @@ Sources de données :
 | | `src/utils/physicalReplay.js` | `buildPhysicalReplayByDay` / `buildPhysicalReplayCumulative(items, lookup)` : funnel « présent physique PUIS revu en replay » (séries journalière + cumulée). Utilisé par ViewersTab + ViewersComparisonTab (replay). |
 | | `src/utils/countries.js` | Country code ↔ continent/flag |
 | | `src/utils/frenchRegions.js` | Mapping département (2 chars du zipCode) → région INSEE + libellés |
-| | `src/utils/parisTime.js` | `parisDateParts(iso)` (UTC→Paris CET/CEST), `parisDay(iso)`, `parisDateTime(iso)` (format CSV "YYYY-MM-DD HH:mm:ss") |
+| | `src/utils/parisTime.js` | `parisDateParts(iso)` (UTC→Paris CET/CEST), `parisDay(iso)`, `parisDateTime(iso)` (UTC→Paris "YYYY-MM-DD HH:mm:ss"). **`wallClock(ts)`** : affiche une heure **murale telle quelle, sans conversion** — pour les `TIMESTAMP` timezone-naive (sans `Z`) comme `session_start` de SI-views (`"2026-06-12 12:00:00"` = heure de programme locale, **pas** un instant UTC). |
 | | `src/utils/typeColors.js` | Palette déterministe par type d'inscription (hash sur libellé), 12 couleurs |
 | | `src/utils/heatColor.js` | Échelle de chaleur partagée (gris→vert→orange→rouge) pour les cartes |
 | | `src/utils/burndown.js` | Courbes de décroissance (restants à check-in) absolue/relative, paramétrable par step (15 min / 30 min) |
 | | `src/utils/checkinByType.js` | Bar horizontale stacked check-in/restants par type de badge (partagé BadgesTab + ComparisonTab) |
-| | `src/utils/buildSessionAttendance.js` | Croise scans audience + live + replay pour une session — utilisé par ExportsTab pour générer CSV par session |
+| | `src/utils/buildSessionAttendance.js` | Croise scans audience + live + replay pour une session — CSV « présence par session ». Sérialiseurs combiné + mono-source (`physical`/`live`/`replay`) via `filterAttendanceBySource`. Marqueurs **`YES`/`NO`**. Exporte `delegateCoreFields(d)` + `getRpps(d)` (réutilisés par `buildScanExport`). |
+| | `src/utils/buildScanExport.js` | Export **à plat** des scans (1 ligne = 1 scan) enrichi délégué + type de badge. `buildZoneScanRows` (scans de zone) et `buildSessionScanRows` (scans de salle/audience, avec **Début/Fin session** depuis les sessions GraphQL UTC→Paris, repli `wallClock` sur `session_start` brut). Colonne `Rapproché` O/N. Source = scans déjà récupérés/enrichis (cf. **Ré-association QR**). |
+| | `src/utils/buildDelegateJourney.js` | Parcours d'une personne : 1 ligne par session interagie (salle/live/replay) **+ par zone scannée** (stands, lounges). Présence physique **dissociée salle/zone** ; colonne CSV « Nature » (Session/Zone). Marqueurs `YES`/`NO`. |
 | | `src/utils/generateAnalysis.js` | Analyse textuelle (présence, no-show, mix, comparatif Δ pts, etc.) — utilisée dans l'export MD |
 
 **Stats object structure** (returned by `computeAllStats`) — getters lazy : `{ global, demographics, registrations, temporal, checkinFlow, badges, onboarding, mobileApp }`. Chaque tab consomme un sous-ensemble (typiquement 2-3 sections), ce qui évite de recalculer les sections inutiles à chaque cross-filter.
@@ -115,6 +118,8 @@ Une **toolbar** en haut du contenu (`StatisticsView`, classe `.global-filters`) 
 **Chart.js setup:** Global registration in `main.js` (ArcElement, BarElement, LineElement, etc. + ChartDataLabels plugin with `display: false` by default). Font: Poppins. Charts emit `@select` events on click for cross-filtering. Certains charts (BadgesTab device, Progression par type, StackedBarChart totals) utilisent des **plugins Chart.js custom** pour dessiner les totaux en bout de barre — contournement du `display: false` global de datalabels.
 
 **Design system:** CYIM design tokens (Poppins, `#1E4E66` primary, `#30DD92` accent, `#6F45FF` purple, `#414141` text). CSS variables centralized in `App.vue :root`. Palette par type d'inscription propagée à Overview/Registrations/Comparison/Badges. Échelle de chaleur propagée aux cartes.
+
+**Grilles de cartes** (`StatisticsView.vue`) : `.charts-row` = grid 2 colonnes (`1fr 1fr`) ; variantes `.charts-row.cols-3` (`1fr 1fr 1fr`) et `.charts-row.cols-1-2` (`1fr 2fr`, `align-items: start`) — cette dernière pour le couple **« type de session » (1/3) + « top sessions » (2/3)** côte à côte dans Scans / Live / Replay. Toutes se replient en 1 colonne en mobile (media query existante). Garde-fou : quand la carte de gauche peut manquer (pas de `sessionTypes`), binder la classe conditionnellement (`:class="… ? 'charts-row cols-1-2' : ''"`) pour éviter une carte orpheline à 1/3.
 
 ## GraphQL Queries
 
@@ -159,7 +164,7 @@ Delegate fields : `givenName/familyName/email/status/gender/company/occupation/j
 
 ## Exports
 
-> Les exports **PDF** (`useExportPdf.js`) et **PPTX** (`useExportPptx.js`) ont été **retirés** du PoC, ainsi que leurs utilitaires (`exportSpec.js` DOM walker, `renderChartHD.js`) et les dépendances `jspdf` / `pptxgenjs` / `html2canvas`. Le seul export du dashboard est désormais le **Markdown** (destiné aux LLM). Restent par ailleurs les CSV par session (onglet Exports) et par chart (`CsvButton`).
+> Les exports **PDF** (`useExportPdf.js`) et **PPTX** (`useExportPptx.js`) ont été **retirés** du PoC, ainsi que leurs utilitaires (`exportSpec.js` DOM walker, `renderChartHD.js`) et les dépendances `jspdf` / `pptxgenjs` / `html2canvas`. Exports actuels : **Markdown + dump JSON intégral** (bouton sidebar, téléchargés ensemble), **CSV par session** (onglet Exports : combiné + mono-source présentiel/live/replay), **Parcours par personne** (onglet Exports) et **CSV par graphe** (`CsvButton`).
 
 **MD** (`useExportMarkdown.js`) — destiné aux LLM (Claude/ChatGPT/Gemini) :
 - Dump **complet** : métadonnées, chiffres clés, **total participants dédoublonné**, démographie, inscriptions (statuts/**statut par type**/types/catégories + décomposition physique/distanciel/no-show), temporel (+ **hebdo par statut**), check-in flow, badges (+ **check-in par type** + **mix des présents**), onboarding, mobile, live, replay, scans QR (+ **par jour/sens/type de badge**), comparaison, analyse textuelle, **annexe complète de l'event comparé**
@@ -168,7 +173,15 @@ Delegate fields : `givenName/familyName/email/status/gender/company/occupation/j
 - Footer avec **suggestions de prompts** pour l'utilisateur (résumé, communiqué, comparaison, slides...)
 - Filename: `bilan-{eventName}-{date}.md`
 
-**CSV par session** (`ExportsTab.vue` + `buildSessionAttendance.js`) : croise audience scans + live + replay pour produire 1 CSV par session avec colonnes `Profession / Fonction / Spécialité / Mode d'exercice / RPPS / Présent physique / Vu en live / Vu en replay / Durées`.
+**CSV par session** (`ExportsTab.vue` + `buildSessionAttendance.js`) : croise audience scans + live + replay pour produire 1 CSV par session (`Profession / Fonction / Spécialité / Mode d'exercice / RPPS / Présent physique / Vu en live / Vu en replay / Durées`, marqueurs `YES`/`NO`). En plus du CSV combiné, **3 exports mono-source** (présentiel / live / replay) via `SessionPresenceExport.vue`, filtrables par type de session.
+
+**Scans de session / Scans de zone** (`ExportsTab.vue` + `buildScanExport.js`) : export **à plat** (1 ligne = 1 scan) de tous les scans d'entrée de salle (audience) resp. d'accès aux zones, **enrichis** des infos délégué (identité, profession, RPPS, pays…) + type de badge. L'export *scans de session* porte **Début/Fin session** (sessions GraphQL UTC→Paris). Colonne `Rapproché` O/N. **Inclut les scans ré-associés** (cf. **Ré-association QR**) puisqu'ils lisent `scansApi.stats.value.{audience,zone}.scans` (post-récupération).
+
+**Parcours par personne** (`ExportsTab.vue` + `buildDelegateJourney.js`) : à partir d'un email, 1 CSV avec toutes les sessions interagies (salle/live/replay) **et les zones scannées**. Indicateurs dissociés « Présence en salle » / « Présence en zone » ; colonne « Nature ».
+
+**Cohérence enrichissement** : tous les exports de l'onglet s'appuient sur les scans déjà **récupérés/enrichis** par `computeScanStats` (jointure clé = `delegateId`, posé même sur les scans `'-'` rattrapés). Un scan que Flink avait laissé orphelin remonte donc dans la présence par session, le parcours et les exports à plat.
+
+> **UI Exports** : accordéon (`openCategory`, une section ouverte à la fois ; en-tête titre + desc + chevron). Une variante « lanceur de cartes groupées par famille » a été tentée puis **abandonnée** (préférence pour l'accordéon). `SessionPresenceExport` a une prop `headerless` (vestige, inutilisée en accordéon).
 
 **Analyse textuelle** (`generateAnalysis.js`) : bullet points par section, taux de présence, no-show, mix des présents, comparatif Δ pts, diversité géographique, mobile app, délai médian inscription→check-in. Réutilisée par l'export MD.
 
@@ -215,10 +228,11 @@ UI **bilingue FR/EN** via **vue-i18n** (Composition API, `legacy: false`). Bouto
 - **Hors composant** (utils/composables : `generateAnalysis.js`, `useExportMarkdown.js`, `viewerJoin.js`, `useLive/useReplay`) : importer `{ i18n }` et utiliser `i18n.global.t`. L'export MD/analyse suit la langue active à la génération.
 - **Filtres cross-clic** : quand un libellé de catégorie est traduit à l'affichage, le prédicat de filtre compare sur la **valeur localisée** (ou garde la valeur brute comme tag + compare le brut) pour rester correct en EN — cf. `DemographicsTab` (continents/genre), `BadgesTab` (device), `TemporalTab` (jours).
 - **Variable d'itération `t`** : un `v-for="t in …"` ou `.map(t => …)` shadow la fonction i18n — renommer (`rt`, `bt`, `st`, `row`…).
+- **Tooltips d'aide (`*Hint`)** : chaque carte explicable porte un `<InfoTooltip :text="t('ns.xxxHint')" />` dans son `<h3>`. Convention de nommage : la clé d'aide = clé du titre suffixée `Hint` (ex. `temporal.charts.cumulCurve` → `cumulCurveHint`). Pour DataTab, bloc dédié `data.columnsHint.{rpps,membershipType,externalContactId,externalId}` rendu dans le `<th>` (avec `@click.stop` pour ne pas déclencher le tri). Textes orientés **métier** (dénominateurs, jointures, sens des champs backend). HTML léger autorisé (`<code>`, `<strong>`) — la bulle l'affiche tel quel.
 - Pluriels : forme vue-i18n `"x | y"` + `t(key, count, { … })`.
 - Format date/nombre : `toLocaleString(locale.value === "en" ? "en-GB" : "fr-FR", …)`.
 
-**Non traduit (assumé) :** valeurs **data** issues du backend (types/catégories d'inscription, statuts, `sessionType`) ; **noms de pays** (`COUNTRY_NAMES`, ~250, affichés dans DataTab) ; **en-têtes de colonnes des CSV par session/parcours** (`ATTENDANCE_HEADERS`/`JOURNEY_HEADERS` + marqueurs `O`/`N`) ; `DayOfTab.vue` (code mort non référencé).
+**Non traduit (assumé) :** valeurs **data** issues du backend (types/catégories d'inscription, statuts, `sessionType`) ; **noms de pays** (`COUNTRY_NAMES`, ~250, affichés dans DataTab) ; **en-têtes de colonnes des CSV par session/parcours** (`ATTENDANCE_HEADERS`/`JOURNEY_HEADERS` + marqueurs **`YES`/`NO`** + colonne « Nature » Session/Zone) ; `DayOfTab.vue` (code mort non référencé).
 
 ## Limitations
 
@@ -252,8 +266,8 @@ Onglet ajouté pour remplacer le microservice `congress/microservices/xlsx-stats
 |-------|---------|------|
 | API | `src/api/elasticsearch.js` | Client ES REST direct (`POST /{index}/_search` + pagination `search_after`, batches de 2000). 3 exports : `fetchRoomAudience`, `fetchCongressCheckin`, `fetchZoneAccess` |
 | Composable | `src/composables/useRoomScans.js` | Charge les 3 index en parallèle. **Lifté au niveau `StatisticsView`** depuis Day 1.3 — `ScansTab` et `ExportsTab` reçoivent `scansApi` en prop. Cleanup `onUnmounted(clearInterval)`. |
-| Compute | `src/utils/computeScanStats.js` | Pure function `computeAllScanStats({ audience, checkin, zone }, {dateRange?, badgeTypes?})` : normalise les 3 schemas, filtre par date/badge, agrège les KPI dont `audienceUniqueDelegateSessions` (vues en salle) et `topSessions[].uniqueDelegates`. |
-| Composant | `src/components/tabs/ScansTab.vue` | Reçoit `scansApi` (+ `compareScansApi`, `eventName`, `compareEventName`). Affiche une grille `<KpiCompareGrid>` A∣Δ∣B quand `?compareWith=`. |
+| Compute | `src/utils/computeScanStats.js` | Pure function `computeAllScanStats({ audience, checkin, zone }, {dateRange?, badgeTypes?, qrLookup?})` : normalise les 3 schemas, filtre par date/badge, **récupère/enrichit** via `qrLookup` (cf. **Ré-association QR**), agrège les KPI dont `audienceUniqueDelegateSessions` et `topSessions[].uniqueDelegates`. Conserve `scan.raw` (`_source` ES). |
+| Composant | `src/components/tabs/ScansTab.vue` | Reçoit `scansApi` (+ `compareScansApi`, **`delegates`**, `eventName`, `compareEventName`). Grille `<KpiCompareGrid>` A∣Δ∣B si `?compareWith=`. **Cartes géo monde+Europe** (`ChoroplethMap`) des délégués scannés (rapprochés pays via `delegateById`). Type de session (1/3) + Top sessions (2/3) côte à côte. Détail : colonnes Type·Horodatage·QR·delegateId·**badgeId**·fullName·email·badgeType·sessionId·sessionTitle·sessionStart·roomName·Zone·Direction, **filtre par QR code**, cellules enrichies **surlignées vert** (`cell-enriched`), bouton **« Détails »** → modal (données ES brutes `ES` + délégué/badge `APP`). |
 | Proxy | `vite.config.js` `/api/es` | Forward dev vers `VITE_ES_URL` (defaut `http://192.168.201.176:9200`). Pas équivalent prod. |
 
 ### Sources ES consommées
@@ -267,6 +281,22 @@ Onglet ajouté pour remplacer le microservice `congress/microservices/xlsx-stats
 | `stats_user__onsite_zone_checkin_per_user` | Accès zones (stands, lounges) |
 
 Requête : `{ query: { term: { "congress_id.keyword": eventId } }, sort: [{ _id: "desc" }], size: 2000 }` + `search_after` pour les batches suivants.
+
+### Ré-association QR (coquille `delegate_id = '-'`)
+
+Côté Flink (`stats_room_scans.sql`), le QR scanné (`webhook.body.user_id`) est matché au délégué via le resolver GraphQL `event(id).registrationByBadgeQRCode(qrCode)` (`JOIN ... ON badge.$registrationByBadgeQRCode.qrCode = t.qrcode`). Quand ce match échoue, **checkin et zone** (LEFT JOIN) écrivent `delegate_id = '-'` ; l'**audience** (INNER JOIN) **droppe** carrément la ligne (absente de l'index — irrécupérable).
+
+**Cause racine** (resolver `registration-badges/server/schemas/index.ts`) : le resolver fait `decodeURI(qrCode)` puis parse en query-string ; si un param `d` (delegateId) est présent il matche `{ delegateId, eventId }`, sinon il matche le champ **littéral** `{ eventId, qrCode }`. Les badges réellement **générés/finalisés** (champs `retrievalCode` + `storage` en base) matchent ; les badges non générés / stale / créés après le scan (juste un `qrCode`, pas de `retrievalCode`) retombent en `'-'`. C'est exactement le clivage observé en base entre badges enrichis et non enrichis dans l'index.
+
+**Confirmé en prod** (comparaison de 2 snapshots GraphQL du même délégué) : le badge existe dans `delegate.badges[]` mais `registration.badge` est **résolu de façon intermittente** (null puis objet) → l'enrichissement Flink, lookup ponctuel, manque le délégué par timing. Ce n'est donc PAS un mismatch de valeur : la donnée est bonne, on peut la rattacher côté client sur le `qrCode` stable du badge déjà chargé.
+
+On **ré-associe + enrichit côté navigateur**, **sans appel réseau** (l'app n'appelle volontairement PAS `registrationByBadgeQRCode`) :
+- `buildQrDelegateLookup(delegates)` (population **complète**) construit `Map<clé → délégué>` indexée **par QR** (`qrCode.value` + `decodedValue`, **normalisation multi-clés** `qrKeys` : souple trim+lowercase + stricte alphanumérique-only — tolère espaces/préfixe `"ER "`/casse) **ET par `delegateId`**. Construit dans `StatisticsView`, passé à `useRoomScans` via `getQrLookup` → `computeAllScanStats({ qrLookup })`.
+- `recoverDelegateIds()` rattache **avant filtrage** les scans `'-'`/null dont `raw_qr_code` matche (essai du plus spécifique au plus tolérant), pose `scan.recovered = true`.
+- `enrichFromLookup()` complète **tous** les scans à `delegateId` réel : remplit `fullName`/`email`/`badgeType`/`badgeId` quand l'ES les laisse vides. ⚠️ Les lignes non matchées écrivent le placeholder littéral **`'-'`** (pas vide) pour `user_email`/`user_fullName`/etc. → `isBlankField` traite `''`/`'-'`/`'—'` comme vide (sinon `email` ne s'enrichissait jamais). `fullName` enrichi au format **`givenName familyName (delegateId)`**. Flags par champ `*Enriched`.
+- Les scans récupérés/enrichis comptent normalement partout (délégués uniques/jour, engagement, top sessions, cartes géo, **exports**, export MD/JSON).
+- Transparence UI (ScansTab) : note « X ré-associés · Y restants non associés » sous le détail, **cellules enrichies surlignées vert** (`cell-enriched` : delegateId/badgeId/fullName/email/badgeType), **filtre par QR code**, bouton **« Détails »** (modal ES brut + délégué/badge). Compteurs `global.recoveredScans` / `global.unmatchedScans`.
+- **Limite** : audience (salle) en INNER JOIN → ses non-matchés sont **absents** de l'index (irrécupérables) ; seuls checkin/zone (LEFT JOIN) ont le `'-'`. Et si le scanner émet un QR réellement différent de `value`/`decodedValue`, reste en `unmatched`.
 
 ### Choix d'implémentation NON optimaux
 
@@ -301,7 +331,7 @@ Ces choix sont assumés pour un PoC (livraison rapide, périmètre chirurgical),
 
 10. **Pas d'incremental refresh**. Prod : ES PIT + `timestamp > last_seen`, ou SSE depuis backend qui écoute `cyim.webhooks`.
 
-11. **Champs délégués manquants vs xlsx-stats** (profession, workingPlace, speciality, gdpr, externalId, phone, city). Prod : jointure browser entre `scans` et `delegates` (déjà chargés par `useStatistics`).
+11. **Champs délégués manquants vs xlsx-stats** (profession, workingPlace, speciality, gdpr, externalId, phone, city). Prod : jointure browser entre `scans` et `delegates` (déjà chargés par `useStatistics`). ⚠️ **Partiellement amorcé** : la **ré-association QR** (cf. section dédiée) fait déjà une jointure browser `scans ↔ delegates` sur le QR pour les scans `'-'` (récupère id/nom/email/badge_type). Reste à étendre aux autres champs (profession, spécialité, gdpr…) pour TOUS les scans.
 
 12. **Pas de gestion RGPD**. xlsx-stats anonymise (`***`) les délégués sans flag GDPR. Prod : utiliser la jointure du point 11 + `delegate.gdpr`.
 
@@ -341,21 +371,27 @@ Les composables `useLive` et `useReplay` sont liftés au niveau `StatisticsView`
 - KPIs : Délégués uniques (live), Sans présence physique, Vues totales, Durée moyenne / vue
 - Vues par origine (camembert + légende)
 - Délégués uniques par jour : bucké sur `sessionEnd`
+- **Délégués uniques par jour et par chaîne** (barres groupées) : label de chaîne = `channel_name` de l'index ES (fallback `Chaîne N`)
 - Délégués uniques par tranche de 30 min (sessionEnd)
-- Top sessions par audience unique
+- **« Vues par session_type » (1/3, cliquable) + « Top sessions par audience unique » (2/3)** côte à côte (`.charts-row.cols-1-2`) ; le clic sur un type filtre le tableau détail ET le top sessions
 - Engagement : tranches "1 / 2-5 / 6-10 / 10+"
-- Vues par session_type (camembert) **cliquable → filtre le tableau détail**
 - Tableau détail avec sessionType, sessionStart
 
 **Replay (kind='replay')** :
-- KPIs identiques
-- Pas de session_type chart (seul Live l'expose proprement)
-- Délégués uniques par jour : bucké sur `timestamp` du visionnage
+- KPIs identiques ; « Vues totales par origine » affiché dans l'indicateur KPI (doughnut + légende % et absolu) — comme Live
+- Délégués uniques par jour : bucké sur `timestamp` du visionnage ; **courbe « Nouveaux délégués »** (1ʳᵉ consultation du jour, `newUniqueByDay`) + courbe cumulée
+- **Cumul des délégués distincts ayant consulté du replay** (déplacé depuis Overview), au-dessus du top sessions
+- **« Vues par session_type » (1/3, cliquable) + « Top sessions par délégués uniques » (2/3)** côte à côte (`.charts-row.cols-1-2`) ; le **« Top sessions par vues »** (`topSessionsByViews`) passe **en pleine largeur** sous le couple
 - Engagement (sessions/délégué) remonté à droite de « Délégués uniques par jour »
-- **Funnel « présents physiques ayant consulté du replay »** (`physicalReplay.js`) : par jour (délégués uniques + vues, double axe) + cumulé. Comparatif : 2 courbes cumulées A vs B alignées J0 (côte à côte avec « Délégués cumulés ayant consulté du replay — comparé »)
+- **Funnel « présents physiques ayant consulté du replay »** (`physicalReplay.js`) : par jour (délégués uniques + vues, double axe) + cumulé. Comparatif : 2 courbes cumulées A vs B alignées J0
 - Tableau détail avec colonne Origine en pill
 
-**OverviewTab — charts de synthèse** (en plus des KPI/decomposition) : Participants vs Inscrits (groupé par event), Participants par type de badge (empilé), Audience salle+live+replay (horizontal — « Salle » = `audienceUniqueDelegateSessions`), et « Délégués cumulés ayant consulté du replay — comparé » (remplace le cumul single quand `?compareWith=`).
+**OverviewTab** — en plus des KPI/décomposition :
+- **Filtre « Modalité de participation »** (PHYSIQUE/LIVE/REPLAY) **remonté en barre de page** (`.page-mode-filter`) : pilote la décomposition participants, les cartes géo ET l'engagement.
+- **Cartes géographiques monde + Europe** (`ChoroplethMap` scope `world`/`europe`) des participants **filtrés par modalité** — placées sous les courbes onboarding/mobile.
+- **Engagement — répartition des délégués par nombre de sessions UNIQUES** (union dédupliquée salle ∪ live ∪ replay ; tranches `1·2-5·6-10·11-15·16-20·21-25·26-30·30+`), 2 exports : Distribution + Détail par délégué.
+- Charts de synthèse : Participants vs Inscrits (groupé par event), Participants par type de badge (empilé), Audience salle+live+replay (horizontal — « Salle » = `audienceUniqueDelegateSessions`).
+- Le cumul des délégués replay a été **déplacé vers l'onglet Replay**.
 
 ### Choix d'implémentation NON optimaux
 
@@ -379,23 +415,23 @@ Les composables `useLive` et `useReplay` sont liftés au niveau `StatisticsView`
 1. Métadonnées (event, ID, filtre badge actif)
 2. Chiffres clés globaux (KPI table)
 3. **Total participants (vue dédoublonnée)** — décomposition check-in physique + live-only + live&replay + replay-only = total dédoublonné sur `delegate.id`. KPI le plus important du bilan. Logique partagée avec OverviewTab via `utils/participation.js`
-4. Démographie complète (pays top 20, continents, genre, professions, qualifications, civilité, sociétés)
+4. Démographie **exhaustive** (tous les pays — plus de plafond top 20 —, continents, **régions françaises**, genre, professions, qualifications, civilité, sociétés)
 5. Inscriptions (statuts, **statut par type**, types et catégories avec décomposition physique/distanciel/no-show sur registered, jours d'accès, multi-inscriptions)
 6. Temporel (insights, top jours, jour de semaine, hebdo par type, **hebdo par statut**)
 7. Check-in flow (pic, par jour, top créneaux 15 min)
 8. Badges (**check-in par type de badge**, **mix des types des présents confirmés**, devices, peak slot/minute, par jour, créneaux 15 min)
 9. Onboarding + Mobile app
-10. Live (KPI, top sessions, origines, engagement, par jour, 30min slots si dispo)
-11. Replay (idem)
-12. Scans QR (volumétrie, top sessions/salles/zones, **délégués uniques par jour**, **sens entrée/sortie**, **par type de badge**)
+10. Live (KPI, top sessions, origines, engagement, par jour, **par jour et par chaîne**, 30min slots si dispo)
+11. Replay (idem + **nouveaux délégués/jour**, **délégués cumulés/jour**, **vues par jour**)
+12. Scans QR (volumétrie, top sessions/salles/zones, **délégués uniques par jour ventilés par source**, **scans de zone par jour**, **flux par heure**, sens entrée/sortie, par type de badge)
 13. Comparaison côte-à-côte avec Δ si `?compareWith=` (tableau exécutif)
 14. Analyse textuelle (réutilise `generateAnalysis.js`)
 15. Footer avec **suggestions de prompts** pour l'utilisateur
 16. **Annexe — données complètes de l'event comparé** : `renderEventBody()` rejoué pour l'event B (toutes les sections, sauf scans QR non chargés côté compare). Avant : event B n'avait que 5 KPI.
 
-Filename : `bilan-{eventName}-{date}.md`. Lecture **directe** des stats objects (pas DOM walking — plus propre, plus complet).
+Filenames : `bilan-{eventName}-{date}.md` **+ `donnees-{eventName}-{date}.json`** (téléchargés ensemble). Le **dump JSON** contient 100 % des données source : `meta`, `event.delegates` (bruts), `event.stats` (sections matérialisées via `materializeStats`), `event.live`/`replay`/`scans` (items ES inclus), et `compare` si `?compareWith=`. Replacer JSON de sécurité (Set→Array, Map→Object). Lecture **directe** des stats objects (pas DOM walking).
 
-Bouton "Export Markdown" couleur accent CYIM dans la sidebar (unique bouton d'export du dashboard).
+Bouton "Export Markdown" couleur accent CYIM dans la sidebar : déclenche le `.md` **et** le `.json`.
 
 **Limites assumées** :
 - L'event comparé **charge désormais ses scans QR** (`compareScansApi` instancié quand `?compareWith=`) → l'annexe B inclut la section Scans (sauf si réellement aucun scan).

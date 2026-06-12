@@ -59,6 +59,7 @@
               @click="toggleSort(col.key)"
             >
               <span class="th-label">{{ col.label }}</span>
+              <InfoTooltip v-if="col.hint" :text="col.hint" @click.stop />
               <span class="th-arrow" v-if="sortKey === col.key">{{ sortDir === 'asc' ? '▲' : '▼' }}</span>
               <span class="th-arrow th-arrow-idle" v-else>⇅</span>
             </th>
@@ -135,6 +136,7 @@ import { ref, computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { COUNTRY_NAMES } from "../../utils/countries.js";
 import { downloadCsv } from "../../utils/exportCsv.js";
+import InfoTooltip from "../InfoTooltip.vue";
 
 const { t, locale } = useI18n();
 
@@ -164,10 +166,10 @@ const columns = computed(() => [
   { key: "email", label: t("data.columns.email") },
   { key: "status", label: t("data.columns.status") },
   { key: "createdAt", label: t("data.columns.createdAt") },
-  { key: "rpps", label: t("data.columns.rpps") },
-  { key: "membershipType", label: t("data.columns.membershipType") },
-  { key: "externalContactId", label: t("data.columns.externalContactId") },
-  { key: "externalId", label: t("data.columns.externalId") },
+  { key: "rpps", label: t("data.columns.rpps"), hint: t("data.columnsHint.rpps") },
+  { key: "membershipType", label: t("data.columns.membershipType"), hint: t("data.columnsHint.membershipType") },
+  { key: "externalContactId", label: t("data.columns.externalContactId"), hint: t("data.columnsHint.externalContactId") },
+  { key: "externalId", label: t("data.columns.externalId"), hint: t("data.columnsHint.externalId") },
   { key: "regTypes", label: t("data.columns.regTypes") },
   { key: "badgesCount", label: t("data.columns.badgesCount") },
   { key: "badgePdf", label: t("data.columns.badgePdf") },

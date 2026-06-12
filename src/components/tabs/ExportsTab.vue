@@ -16,9 +16,7 @@
       <header class="export-category-header" @click="toggleCategory('session-attendance')">
         <div>
           <h3>{{ t("exports.session.title") }}</h3>
-          <p>
-            {{ t("exports.session.desc") }}
-          </p>
+          <p>{{ t("exports.session.desc") }}</p>
         </div>
         <span class="chevron" :class="{ rotated: openCategory === 'session-attendance' }">▾</span>
       </header>
@@ -153,9 +151,7 @@
       <header class="export-category-header" @click="toggleCategory('delegate-journey')">
         <div>
           <h3>{{ t("exports.journey.title") }}</h3>
-          <p>
-            {{ t("exports.journey.desc") }}
-          </p>
+          <p>{{ t("exports.journey.desc") }}</p>
         </div>
         <span class="chevron" :class="{ rotated: openCategory === 'delegate-journey' }">▾</span>
       </header>
@@ -216,6 +212,12 @@
                 </div>
 
                 <div class="journey-meta">
+                  <span v-if="journeyResult.delegate" class="meta-chip">
+                    <span class="meta-label">{{ t("exports.journey.congressCheckin") }}</span>
+                    <span class="checkin-badge" :class="journeyCheckin ? 'yes' : 'no'">
+                      {{ journeyCheckin ? t("exports.journey.yes") : t("exports.journey.no") }}
+                    </span>
+                  </span>
                   <span v-if="journeyResult.delegate?.id" class="meta-chip">
                     <span class="meta-label">{{ t("exports.journey.delegateId") }}</span>
                     <code>{{ journeyResult.delegate.id }}</code>
@@ -227,10 +229,6 @@
                   <span v-if="journeyResult.delegate" class="meta-chip">
                     <span class="meta-label">{{ t("exports.journey.badgeType") }}</span>
                     <span>{{ journeyBadgeType || "—" }}</span>
-                  </span>
-                  <span v-if="journeyResult.delegate" class="meta-chip">
-                    <span class="meta-label">{{ t("exports.journey.congressCheckin") }}</span>
-                    <span>{{ journeyCheckin ? t("exports.journey.yes") : t("exports.journey.no") }}</span>
                   </span>
                 </div>
 
@@ -309,7 +307,102 @@
       </div>
     </section>
 
-    <!-- Autres catégories d'export à venir (no-show, audience par session, etc.) -->
+    <!-- ═══ Catégorie : Délégués check-in (présents physiques) ═══ -->
+    <section class="export-category" :class="{ open: openCategory === 'checked-in' }">
+      <header class="export-category-header" @click="toggleCategory('checked-in')">
+        <div>
+          <h3>{{ t("exports.checkedIn.title") }}</h3>
+          <p>{{ t("exports.checkedIn.desc") }}</p>
+        </div>
+        <span class="chevron" :class="{ rotated: openCategory === 'checked-in' }">▾</span>
+      </header>
+
+      <div v-if="openCategory === 'checked-in'" class="export-category-body">
+        <div class="info-row">
+          <div class="info-chip">
+            <span class="info-chip-label">{{ t("exports.checkedIn.count") }}</span>
+            <span class="info-chip-value">{{ fmt(checkedInRows.length) }}</span>
+          </div>
+        </div>
+
+        <div v-if="checkedInRows.length === 0" class="empty-msg">
+          {{ t("exports.checkedIn.empty") }}
+        </div>
+        <div v-else class="search-row">
+          <button class="btn-primary" @click="exportCheckedInCsv">
+            {{ t("exports.checkedIn.exportCsv", { n: checkedInRows.length }) }}
+          </button>
+        </div>
+
+        <p class="footnote" v-html="t('exports.checkedIn.footnote')"></p>
+      </div>
+    </section>
+
+    <!-- ═══ Catégorie : Scans de session (audience entrée de salle, à plat) ═══ -->
+    <section class="export-category" :class="{ open: openCategory === 'session-scans' }">
+      <header class="export-category-header" @click="toggleCategory('session-scans')">
+        <div>
+          <h3>{{ t("exports.sessionScans.title") }}</h3>
+          <p>{{ t("exports.sessionScans.desc") }}</p>
+        </div>
+        <span class="chevron" :class="{ rotated: openCategory === 'session-scans' }">▾</span>
+      </header>
+
+      <div v-if="openCategory === 'session-scans'" class="export-category-body">
+        <div v-if="loading" class="loading-row">
+          <div class="spinner-small-dark"></div>
+          <span>{{ t("exports.loadingSources") }}</span>
+        </div>
+        <template v-else>
+          <div class="info-row">
+            <div class="info-chip">
+              <span class="info-chip-label">{{ t("exports.sessionScans.count") }}</span>
+              <span class="info-chip-value">{{ fmt(sessionScanRows.length) }}</span>
+            </div>
+          </div>
+          <div v-if="sessionScanRows.length === 0" class="empty-msg">{{ t("exports.sessionScans.empty") }}</div>
+          <div v-else class="search-row">
+            <button class="btn-primary" @click="exportSessionScansCsv">
+              {{ t("exports.sessionScans.exportCsv", { n: sessionScanRows.length }) }}
+            </button>
+          </div>
+          <p class="footnote" v-html="t('exports.sessionScans.footnote')"></p>
+        </template>
+      </div>
+    </section>
+
+    <!-- ═══ Catégorie : Scans de zone (stands, lounges, à plat) ═══ -->
+    <section class="export-category" :class="{ open: openCategory === 'zone-scans' }">
+      <header class="export-category-header" @click="toggleCategory('zone-scans')">
+        <div>
+          <h3>{{ t("exports.zoneScans.title") }}</h3>
+          <p>{{ t("exports.zoneScans.desc") }}</p>
+        </div>
+        <span class="chevron" :class="{ rotated: openCategory === 'zone-scans' }">▾</span>
+      </header>
+
+      <div v-if="openCategory === 'zone-scans'" class="export-category-body">
+        <div v-if="loading" class="loading-row">
+          <div class="spinner-small-dark"></div>
+          <span>{{ t("exports.loadingSources") }}</span>
+        </div>
+        <template v-else>
+          <div class="info-row">
+            <div class="info-chip">
+              <span class="info-chip-label">{{ t("exports.zoneScans.count") }}</span>
+              <span class="info-chip-value">{{ fmt(zoneScanRows.length) }}</span>
+            </div>
+          </div>
+          <div v-if="zoneScanRows.length === 0" class="empty-msg">{{ t("exports.zoneScans.empty") }}</div>
+          <div v-else class="search-row">
+            <button class="btn-primary" @click="exportZoneScansCsv">
+              {{ t("exports.zoneScans.exportCsv", { n: zoneScanRows.length }) }}
+            </button>
+          </div>
+          <p class="footnote" v-html="t('exports.zoneScans.footnote')"></p>
+        </template>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -337,6 +430,19 @@ import {
   JOURNEY_HEADERS,
   journeyRowToCsv,
 } from "../../utils/buildDelegateJourney.js";
+import {
+  buildCheckedInDelegates,
+  CHECKED_IN_HEADERS,
+  checkedInRowToCsv,
+} from "../../utils/buildCheckedInDelegates.js";
+import {
+  ZONE_SCAN_HEADERS,
+  buildZoneScanRows,
+  zoneScanRowToCsv,
+  SESSION_SCAN_HEADERS,
+  buildSessionScanRows,
+  sessionScanRowToCsv,
+} from "../../utils/buildScanExport.js";
 import { delegateBadgeType } from "@/utils/checkinByType.js";
 import { hasValidCheckin } from "@/utils/viewerJoin.js";
 
@@ -640,6 +746,68 @@ function exportJourneyCsv() {
   downloadCsv(filename, JOURNEY_HEADERS, result.rows.map(journeyRowToCsv));
 }
 
+// ─── Délégués check-in (présents physiques au congrès) ─────────────────────
+// Source de l'info de présence : le délégué lui-même (checkedInDate). Aucun
+// croisement ES nécessaire — uniquement les données registration.
+const checkedInRows = computed(() => buildCheckedInDelegates(props.delegates));
+
+function exportCheckedInCsv() {
+  if (checkedInRows.value.length === 0) return;
+  downloadCsv(
+    `checkin_${safeEventName()}`,
+    CHECKED_IN_HEADERS,
+    checkedInRows.value.map(checkedInRowToCsv),
+  );
+}
+
+function safeEventName() {
+  return (props.eventName || eventId).replace(/[^\p{L}\p{N}_-]+/gu, "_").slice(0, 40);
+}
+
+// ─── Scans de zone / de session (export a plat, enrichi delegue + type badge) ──
+// Source = scans deja enrichis/recuperes par computeScanStats (delegateId, nom,
+// email, badgeId, type repris du delegue charge quand l'ES est vide).
+const zoneScanRows = computed(() =>
+  buildZoneScanRows({
+    zoneScans: scans.stats.value.zone?.scans || [],
+    delegates: props.delegates,
+    zoneNames: scans.zoneNames?.value || null,
+  }),
+);
+// Début/fin de session (sessions GraphQL, start/end en UTC) par sessionId.
+const sessionTimesById = computed(() => {
+  const map = new Map();
+  const add = (arr) => {
+    for (const s of arr || []) {
+      if (s?.id && !map.has(s.id) && (s.start || s.end)) map.set(s.id, { start: s.start, end: s.end });
+    }
+  };
+  add(live.sessions?.value);
+  add(replay.sessions?.value);
+  return map;
+});
+const sessionScanRows = computed(() =>
+  buildSessionScanRows({
+    audienceScans: scans.stats.value.audience?.scans || [],
+    delegates: props.delegates,
+    sessionTypeById: sessionTypeById.value,
+    sessionTimesById: sessionTimesById.value,
+  }),
+);
+
+function exportZoneScansCsv() {
+  if (zoneScanRows.value.length === 0) return;
+  downloadCsv(`scans_zone_${safeEventName()}`, ZONE_SCAN_HEADERS, zoneScanRows.value.map(zoneScanRowToCsv));
+}
+function exportSessionScansCsv() {
+  if (sessionScanRows.value.length === 0) return;
+  downloadCsv(
+    `scans_session_${safeEventName()}`,
+    SESSION_SCAN_HEADERS,
+    sessionScanRows.value.map(sessionScanRowToCsv),
+  );
+}
+
 function formatStart(iso) {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -888,6 +1056,14 @@ function formatStart(iso) {
   font-size: 10px; text-transform: uppercase; letter-spacing: .3px;
   color: var(--text-muted); font-weight: 600;
 }
+
+/* Check-in congrès : OUI sur fond vert, NON sur fond rouge. */
+.checkin-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 4px;
+  font-size: 11px; font-weight: 700; line-height: 1.3;
+}
+.checkin-badge.yes { background: #dcfce7; color: #166534; }
+.checkin-badge.no { background: #fee2e2; color: #991b1b; }
 
 .journey-counts {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px;

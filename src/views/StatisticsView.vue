@@ -77,13 +77,33 @@
     <!-- Main content -->
     <main class="main-content">
       <div v-if="loading" class="loading-state">
-        <div class="spinner"></div>
-        <p class="loading-label">{{ t("states.loading") }}</p>
-        <div v-if="progress.total > 0" class="progress-wrapper">
-          <div class="progress-bar">
-            <div class="progress-fill" :style="{ width: progressPercent + '%' }"></div>
+        <div class="loading-card">
+          <div v-if="eventName" class="loading-event">
+            <img v-if="eventLogo && !logoError" :src="eventLogo" :alt="eventName" class="loading-logo" @error="logoError = true" />
+            <span class="loading-event-name">{{ eventName }}</span>
           </div>
-          <p class="progress-text">{{ t("states.progress", { loaded: progress.loaded, total: progress.total, page: progress.page }) }}</p>
+          <div class="spinner"></div>
+          <p class="loading-label">{{ t("states.loading") }}</p>
+          <p class="loading-sub">{{ t("states.loadingSub") }}</p>
+
+          <div v-if="progress.total > 0" class="progress-wrapper">
+            <div class="progress-bar">
+              <div class="progress-fill" :style="{ width: progressPercent + '%' }"></div>
+            </div>
+            <p class="progress-text">{{ t("states.progress", { loaded: progress.loaded, total: progress.total, page: progress.page }) }}</p>
+          </div>
+
+          <!-- Sources chargees en parallele (delegues GraphQL + index ES). -->
+          <ul class="loading-sources">
+            <li v-for="src in loadingSources" :key="src.key" :class="{ done: !src.loading }">
+              <span class="ls-icon">
+                <span v-if="src.loading" class="spinner-tiny"></span>
+                <span v-else class="ls-check">✓</span>
+              </span>
+              <span class="ls-label">{{ src.label }}</span>
+              <span v-if="src.detail" class="ls-detail">{{ src.detail }}</span>
+            </li>
+          </ul>
         </div>
       </div>
 
@@ -152,6 +172,7 @@
               v-if="activeTab === 'scans'"
               :scans-api="scansApi"
               :compare-scans-api="compareScansApi"
+              :delegates="delegates"
               :event-name="eventName"
               :compare-event-name="compareEventName"
             />
@@ -215,11 +236,13 @@ import { useStatistics } from "@/composables/useStatistics.js";
 import { useLive } from "@/composables/useLive.js";
 import { useReplay } from "@/composables/useReplay.js";
 import { useRoomScans } from "@/composables/useRoomScans.js";
+import { buildQrDelegateLookup } from "@/utils/computeScanStats.js";
 import { useBadgeTypeFilter } from "@/composables/useBadgeTypeFilter.js";
 import { useDateRangeFilter } from "@/composables/useDateRangeFilter.js";
 import { computeAllStats } from "@/utils/computeStats.js";
 import { useExportMarkdown } from "@/composables/useExportMarkdown.js";
 import { COUNTDOWN_TICK_MS } from "@/constants.js";
+import { fmt } from "@/utils/formatters.js";
 import OverviewTab from "../components/tabs/OverviewTab.vue";
 import DemographicsTab from "../components/tabs/DemographicsTab.vue";
 import RegistrationsTab from "../components/tabs/RegistrationsTab.vue";
@@ -306,9 +329,17 @@ const {
 // Scans : aussi le filtre badge type (les scans portent un badge_type).
 const liveApi = useLive(eventId, { getDateRange: () => effectiveDateRange.value });
 const replayApi = useReplay(eventId, { getDateRange: () => effectiveDateRange.value });
+// Lookup QR->delegue construit a partir des delegues DEJA charges (badges.qrCode).
+// Sert a re-associer client-side les scans dont Flink a ecrit delegate_id = '-'
+// alors que le badge/delegue existe en base. Construit sur la population COMPLETE
+// (pas badge-filtree) : la recuperation ne doit pas dependre du filtre badge.
+const qrLookup = computed(() => buildQrDelegateLookup(delegates.value));
+const compareQrLookup = computed(() => buildQrDelegateLookup(compareDelegates.value));
+
 const scansApi = useRoomScans(eventId, {
   getDateRange: () => effectiveDateRange.value,
   getBadgeTypes: () => badgeFilter.selected.value,
+  getQrLookup: () => qrLookup.value,
 });
 const compareLiveApi = compareEventId
   ? useLive(compareEventId, { autoRefresh: false, getDateRange: () => effectiveDateRange.value })
@@ -321,6 +352,7 @@ const compareScansApi = compareEventId
       autoRefresh: false,
       getDateRange: () => effectiveDateRange.value,
       getBadgeTypes: () => badgeFilter.selected.value,
+      getQrLookup: () => compareQrLookup.value,
     })
   : null;
 
@@ -412,6 +444,31 @@ async function handleExportMarkdown() {
 const progressPercent = computed(() =>
   progress.value.total > 0 ? Math.round((progress.value.loaded / progress.value.total) * 100) : 0
 );
+
+// Etat des sources chargees EN PARALLELE pendant l'ecran de chargement :
+// delegues (GraphQL pagine) + 3 index ES (scans, live, replay). Le `loading`
+// principal ne traque que les delegues ; on expose ici l'avancement de chacun.
+const loadingSources = computed(() => {
+  const sp = scansApi.progress?.value || {};
+  const scansLoaded = (sp.audience || 0) + (sp.checkin || 0) + (sp.zone || 0);
+  return [
+    {
+      key: "delegates",
+      label: t("states.sources.delegates"),
+      loading: loading.value,
+      detail: progress.value.total > 0 ? `${fmt(progress.value.loaded)} / ${fmt(progress.value.total)}` : "",
+    },
+    {
+      key: "scans",
+      label: t("states.sources.scans"),
+      loading: scansApi.loading.value,
+      detail: scansLoaded > 0 ? t("states.sources.scansCount", { n: fmt(scansLoaded) }) : "",
+    },
+    { key: "live", label: t("states.sources.live"), loading: liveApi.loading.value, detail: "" },
+    { key: "replay", label: t("states.sources.replay"), loading: replayApi.loading.value, detail: "" },
+  ];
+});
+
 const activeTab = ref("overview");
 
 // Icones SVG des onglets — un fichier centralise serait plus propre, on garde
@@ -683,8 +740,22 @@ function toggleGroup(groupId) {
 }
 
 /* ── Loading / Error ── */
-.loading-state, .error-state { text-align: center; padding: 80px 20px; }
-.loading-label { font-size: 16px; color: var(--text-secondary); margin-bottom: 16px; }
+.loading-state, .error-state { text-align: center; padding: 60px 20px; }
+.loading-card {
+  display: inline-block; min-width: 340px; max-width: 440px;
+  padding: 32px 36px; background: var(--card); border-radius: 14px;
+  box-shadow: 0 8px 30px rgba(30, 78, 102, .12); border: 1px solid var(--border);
+  animation: loading-card-in .3s ease;
+}
+@keyframes loading-card-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.loading-event {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  margin-bottom: 20px; padding-bottom: 18px; border-bottom: 1px solid var(--border);
+}
+.loading-logo { max-height: 56px; max-width: 200px; object-fit: contain; }
+.loading-event-name { font-size: 15px; font-weight: 600; color: var(--text); line-height: 1.3; }
+.loading-label { font-size: 17px; font-weight: 600; color: var(--primary); margin: 0 0 4px; }
+.loading-sub { font-size: 13px; color: var(--text-muted); margin: 0 0 18px; }
 .progress-wrapper { max-width: 360px; margin: 0 auto; }
 .progress-bar {
   width: 100%; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden;
@@ -694,6 +765,27 @@ function toggleGroup(groupId) {
   transition: width .3s ease;
 }
 .progress-text { font-size: 14px; color: var(--text-muted); margin-top: 8px; }
+
+/* Liste des sources chargees en parallele. */
+.loading-sources {
+  list-style: none; margin: 18px 0 0; padding: 14px 0 0;
+  border-top: 1px solid var(--border); text-align: left;
+}
+.loading-sources li {
+  display: flex; align-items: center; gap: 10px;
+  padding: 5px 0; font-size: 13px; color: var(--text-secondary);
+  transition: color .2s;
+}
+.loading-sources li.done { color: var(--text-muted); }
+.ls-icon { width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.ls-check { color: var(--accent, #30dd92); font-weight: 700; font-size: 14px; }
+.ls-label { flex: 1; }
+.ls-detail { font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.spinner-tiny {
+  width: 12px; height: 12px; border: 2px solid var(--border);
+  border-top-color: var(--primary); border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
 .spinner {
   width: 32px; height: 32px; border: 3px solid var(--border);
   border-top-color: var(--primary); border-radius: 50%;
@@ -794,6 +886,8 @@ function toggleGroup(groupId) {
   gap: 10px; margin-bottom: 10px;
 }
 .charts-row.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+/* Ratio 1/3 (type de session) – 2/3 (top sessions). */
+.charts-row.cols-1-2 { grid-template-columns: 1fr 2fr; align-items: start; }
 .chart-card {
   background: var(--card); border-radius: 10px; padding: 14px 16px;
   box-shadow: var(--shadow); margin-bottom: 10px;

@@ -1,5 +1,5 @@
 import { ref, computed, readonly, onUnmounted } from "vue";
-import { fetchReplayViews } from "@/api/elasticsearch.js";
+import { fetchReplayViews, INDEX } from "@/api/elasticsearch.js";
 import { fetchEventSessions } from "@/api/graphql.js";
 import { computeReplayStats } from "@/utils/computeReplayStats.js";
 import { debug } from "@/utils/debug.js";
@@ -60,7 +60,7 @@ export function useReplay(eventId, options = {}) {
       // liste tous les elements presents dans l'index avec leurs champs
       // (user_id, session_id, origin, view_duration, timestamp, ...).
       // eslint-disable-next-line no-console
-      console.groupCollapsed(`[Replay][ES] ${result.length} élément(s) dans l'index VOD`);
+      console.groupCollapsed(`[Replay][ES] (index: ${INDEX.replay}) ${result.length} élément(s) dans l'index VOD`);
       if (result.length > 0) {
         console.log("Champs du 1er élément :", Object.keys(result[0]._source || {}));
         console.table(result.map((h) => h._source));
@@ -70,10 +70,10 @@ export function useReplay(eventId, options = {}) {
       console.log("_source bruts :", result.map((h) => h._source));
       console.groupEnd();
       if (result.length > 0) {
-        debug.log("[Replay] Structure du 1er hit ES (_source) :", result[0]._source);
-        debug.log("[Replay] Champs disponibles :", Object.keys(result[0]._source || {}));
+        debug.log(`[Replay] (index: ${INDEX.replay}) Structure du 1er hit ES (_source) :`, result[0]._source);
+        debug.log(`[Replay] (index: ${INDEX.replay}) Champs disponibles :`, Object.keys(result[0]._source || {}));
       }
-      debug.log(`[Replay] Dump complet ES (${result.length} hits) :`, result.map((h) => h._source));
+      debug.log(`[Replay] (index: ${INDEX.replay}) Dump complet ES (${result.length} hits) :`, result.map((h) => h._source));
       debug.log(`[Replay] ${sessionsResult.length} sessions chargees depuis GraphQL`);
     } catch (e) {
       error.value = e.message;

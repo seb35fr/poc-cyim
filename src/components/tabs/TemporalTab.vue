@@ -31,7 +31,7 @@
 
     <div class="chart-card" v-if="fs.temporal.dailyRegistrations.length > 0">
       <div class="chart-header">
-        <h3>{{ t("temporal.charts.cumulCurve") }}</h3>
+        <h3>{{ t("temporal.charts.cumulCurve") }} <InfoTooltip :text="t('temporal.charts.cumulCurveHint')" /></h3>
         <div style="display: flex; align-items: center; gap: 8px;">
         <CsvButton filename="inscriptions-cumulees" :headers="[t('temporal.csv.date'), t('temporal.csv.registrations')]" :rows="periodData.map(d => [d.date, d.count])" />
         <div class="period-selector">
@@ -49,7 +49,7 @@
     <div class="charts-row">
       <div class="chart-card">
         <div class="chart-header">
-          <h3>{{ t("temporal.charts.last30") }}</h3>
+          <h3>{{ t("temporal.charts.last30") }} <InfoTooltip :text="t('temporal.charts.last30Hint')" /></h3>
           <CsvButton filename="inscriptions-30j" :headers="[t('temporal.csv.date'), t('temporal.csv.registrations')]" :rows="last30.map(d => [d.date, d.count])" />
         </div>
         <LineChart
@@ -60,7 +60,7 @@
       </div>
       <div class="chart-card">
         <div class="chart-header">
-          <h3>{{ t("temporal.charts.byWeekday") }}</h3>
+          <h3>{{ t("temporal.charts.byWeekday") }} <InfoTooltip :text="t('temporal.charts.byWeekdayHint')" /></h3>
           <CsvButton filename="jours-semaine" :headers="[t('temporal.csv.day'), t('temporal.csv.registrations')]" :rows="dayOfWeekLabels.map((d, i) => [d, dayOfWeekData[i]])" />
         </div>
         <HBarChart
@@ -77,7 +77,7 @@
     <div class="charts-row">
       <div class="chart-card">
         <div class="chart-header">
-          <h3>{{ t("temporal.charts.weeklyByType") }}</h3>
+          <h3>{{ t("temporal.charts.weeklyByType") }} <InfoTooltip :text="t('temporal.charts.weeklyByTypeHint')" /></h3>
           <CsvButton filename="hebdo-par-type" :headers="[t('temporal.csv.week'), ...weeklyByTypeDatasets.map(d => d.label)]" :rows="weeklyByTypeLabels.map((w, i) => [w, ...weeklyByTypeDatasets.map(d => d.data[i])])" />
         </div>
         <StackedBarChart
@@ -90,7 +90,7 @@
       </div>
       <div class="chart-card">
         <div class="chart-header">
-          <h3>{{ t("temporal.charts.weeklyStatus") }}</h3>
+          <h3>{{ t("temporal.charts.weeklyStatus") }} <InfoTooltip :text="t('temporal.charts.weeklyStatusHint')" /></h3>
           <CsvButton filename="hebdo-statuts" :headers="[t('temporal.csv.week'), ...weeklyStatusDatasets.map(d => d.label)]" :rows="weeklyStatusLabels.map((w, i) => [w, ...weeklyStatusDatasets.map(d => d.data[i])])" />
         </div>
         <StackedBarChart
@@ -113,6 +113,7 @@ import HBarChart from "../charts/HBarChart.vue";
 import StackedBarChart from "../charts/StackedBarChart.vue";
 import FilterBanner from "../FilterBanner.vue";
 import CsvButton from "../CsvButton.vue";
+import InfoTooltip from "../InfoTooltip.vue";
 import { useFilteredStats } from "../../composables/useFilteredStats.js";
 import { makeDateLabeler } from "../../utils/formatDateLabel.js";
 import { weekdayNames } from "@/i18n/labels.js";

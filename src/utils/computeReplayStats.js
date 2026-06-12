@@ -31,7 +31,10 @@ function normalize(hit, sessionMap) {
       || "—",
     sessionId: s.session_id || null,
     sessionTitle: sess?.title || s.session_title || s.session_label || "",
-    sessionType: sess?.type || s.session_type || s.sessionType || "",
+    // Type de session "precis" : on prend EN PRIORITE le champ ES `session_type`
+    // (alimente par Flink depuis events.category SI-Views, comme l'export xlsx-stats)
+    // plutot que le `type` generique de la session GraphQL (~ "SESSION").
+    sessionType: s.session_type || s.sessionType || sess?.type || "",
     sessionStart: sess?.start || s.session_start || null,
     sessionEnd: sess?.end || null,
     sessionDuration: sess?.duration ?? null,
@@ -54,10 +57,17 @@ export function computeReplayStats(rawHits, sessionMap = null, dateRange = null)
   const sessionsById = new Map();
   const userToSessions = new Map();
   const originCounts = new Map(); // origin -> { views, users:Set }
+  const typeCounts = new Map(); // session_type -> { views, users:Set }
   let totalDuration = 0;
 
   for (const it of items) {
     if (it.userId) uniqueUsers.add(it.userId);
+    // Aggregation par session_type pour le camembert + filtre (comme le live).
+    const st = it.sessionType || "Non renseigné";
+    if (!typeCounts.has(st)) typeCounts.set(st, { views: 0, users: new Set() });
+    const stBucket = typeCounts.get(st);
+    stBucket.views++;
+    if (it.userId) stBucket.users.add(it.userId);
     if (it.sessionId) {
       if (!sessionsById.has(it.sessionId)) {
         sessionsById.set(it.sessionId, {
@@ -188,6 +198,9 @@ export function computeReplayStats(rawHits, sessionMap = null, dateRange = null)
     topSessions,
     sessionsPerUserBuckets,
     origins,
+    sessionTypes: [...typeCounts.entries()]
+      .map(([type, v]) => ({ type, views: v.views, uniqueUsers: v.users.size }))
+      .sort((a, b) => b.views - a.views),
     uniqueByDay,
     newUniqueByDay,
     cumulativeUniqueByDay,

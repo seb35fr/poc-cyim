@@ -22,9 +22,15 @@ const props = defineProps({
   // Position de la legende. "bottom" pour les charts a legende par type de
   // badge (sous l'abscisse, plus lisible), "top" par defaut ailleurs.
   legendPosition: { type: String, default: "top" },
+  // Si true : cliquer un item de legende N'agit PLUS comme un toggle de
+  // visibilite Chart.js, mais emet @select-legend(label du dataset). Utilise
+  // pour transformer la legende (ex: types de badge) en filtre cross-clic.
+  // activeLegend : label du dataset selectionne -> on dim les autres datasets.
+  legendSelectable: { type: Boolean, default: false },
+  activeLegend: { type: String, default: null },
 });
 
-const emit = defineEmits(["select"]);
+const emit = defineEmits(["select", "select-legend"]);
 
 function dimColor(hex, alpha = 0.2) {
   if (typeof hex !== "string" || hex[0] !== "#") return hex;
@@ -44,6 +50,10 @@ const chartData = computed(() => {
   const labels = props.labels || [];
   const datasets = (props.datasets || []).map((ds) => {
     const baseColor = ds.backgroundColor;
+    // activeLegend (filtre par dataset) : on dim tout le dataset non-selectionne.
+    if (props.activeLegend && ds.label !== props.activeLegend) {
+      return { ...ds, backgroundColor: dimColor(baseColor, 0.2) };
+    }
     // Si activeLabel est defini, on dim les rangees non-actives. Couleur par
     // segment (array) pour permettre le dim par index.
     const colors = labels.map((label) => {
@@ -102,17 +112,44 @@ const chartOptions = computed(() => ({
       top: props.showTotal && !props.horizontal ? 18 : 0,
     },
   },
-  onClick: (event, elements) => {
-    if (elements.length > 0) {
-      emit("select", props.labels[elements[0].index]);
+  onClick: (event, elements, chart) => {
+    // Click tolerant : si le clic ne tape pas exactement un segment (barres fines,
+    // clic au-dessus de la pile ou dans un gap entre deux categories), on retombe
+    // sur le mode "index" (intersect:false) qui renvoie la colonne la plus proche.
+    // Evite l'impression que "le filtre ne marche pas".
+    let index = elements.length > 0 ? elements[0].index : null;
+    if (index == null && chart) {
+      const pts = chart.getElementsAtEventForMode(event, "index", { intersect: false }, false);
+      if (pts.length > 0) index = pts[0].index;
     }
+    if (index != null) emit("select", props.labels[index]);
   },
-  onHover: (event, elements) => {
+  onHover: (event, elements, chart) => {
     const canvas = event.native?.target;
-    if (canvas) canvas.style.cursor = elements.length > 0 ? "pointer" : "default";
+    if (!canvas) return;
+    // Curseur "pointer" des qu'on survole une colonne (meme hors segment), pour
+    // signaler que tout le chart est cliquable.
+    let hit = elements.length > 0;
+    if (!hit && chart) {
+      hit = chart.getElementsAtEventForMode(event, "index", { intersect: false }, false).length > 0;
+    }
+    canvas.style.cursor = hit ? "pointer" : "default";
   },
   plugins: {
-    legend: { position: props.legendPosition, labels: { font: { size: 13 }, usePointStyle: true, pointStyle: "rectRounded" } },
+    legend: {
+      position: props.legendPosition,
+      labels: { font: { size: 13 }, usePointStyle: true, pointStyle: "rectRounded" },
+      // Legende-filtre : clic sur un item -> emet le label du dataset au lieu du
+      // toggle de visibilite natif Chart.js.
+      ...(props.legendSelectable
+        ? {
+            onClick: (e, legendItem) => {
+              const ds = props.datasets?.[legendItem.datasetIndex];
+              if (ds) emit("select-legend", ds.label);
+            },
+          }
+        : {}),
+    },
     datalabels: { display: false },
     tooltip: {
       callbacks: {

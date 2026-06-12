@@ -49,7 +49,14 @@ const chartData = computed(() => {
       data: props.data,
       backgroundColor: colors,
       borderRadius: 4,
-      barThickness: Math.min(24, Math.max(12, 300 / (labels.length || 1))),
+      // Espacement garanti entre barres : la bande de catégorie n'est remplie
+      // qu'à ~70% (categoryPercentage·barPercentage), le reste = gouttière. On
+      // plafonne l'épaisseur (maxBarThickness) pour éviter des barres énormes
+      // quand il y a peu de lignes. Remplace l'ancien barThickness fixe qui
+      // collait les barres quand la bande ≈ épaisseur.
+      categoryPercentage: 0.8,
+      barPercentage: 0.88,
+      maxBarThickness: 26,
     }],
   };
 });
@@ -58,6 +65,9 @@ const chartOptions = computed(() => ({
   indexAxis: "y",
   responsive: true,
   maintainAspectRatio: false,
+  // Marge a droite : reserve la place pour le datalabel en bout de barre (sinon
+  // il deborde du canvas et est rogne quand la barre est longue).
+  layout: { padding: { right: 44 } },
   onClick: (event, elements) => {
     if (elements.length > 0) {
       emit("select", props.labels[elements[0].index]);
