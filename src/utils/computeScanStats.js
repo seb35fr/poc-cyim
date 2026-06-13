@@ -408,6 +408,17 @@ function sessionLabelMap(audienceScans) {
   return map;
 }
 
+function sessionStartMap(audienceScans) {
+  // Map session_id -> session_start (1er rencontre) pour prefixer le top sessions.
+  const map = new Map();
+  for (const s of audienceScans) {
+    if (s.sessionId && s.sessionStart && !map.has(s.sessionId)) {
+      map.set(s.sessionId, s.sessionStart);
+    }
+  }
+  return map;
+}
+
 export function computeAllScanStats({ audience = [], checkin = [], zone = [] }, options = {}) {
   const { dateRange = null, badgeTypes = null, qrLookup = null } = options;
   // Filtre date global : un scan n'est compte que si son timestamp tombe dans
@@ -454,6 +465,7 @@ export function computeAllScanStats({ audience = [], checkin = [], zone = [] }, 
 
   const audienceBySession = countBy(audienceScans, (s) => s.sessionId);
   const sessionLabels = sessionLabelMap(audienceScans);
+  const sessionStarts = sessionStartMap(audienceScans);
 
   // Delegues uniques par session + "vues en salle" = somme cumulee par session.
   const audienceUniqBySession = uniqueDelegatesBySession(audienceScans);
@@ -468,11 +480,11 @@ export function computeAllScanStats({ audience = [], checkin = [], zone = [] }, 
     .map(([id, count]) => ({
       key: id,
       label: sessionLabels.get(id) || id,
+      start: sessionStarts.get(id) || null,
       count,
       uniqueDelegates: audienceUniqBySession.get(id)?.size || 0,
     }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 20);
+    .sort((a, b) => b.count - a.count);
 
   const audienceByRoom = countBy(audienceScans, (s) => s.roomName || s.roomId);
   const topRooms = topN(audienceByRoom, 15);

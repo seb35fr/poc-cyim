@@ -173,27 +173,31 @@
         </div>
       </div>
 
-      <!-- Top sessions (filtre par le type de session selectionne ci-dessus) -->
-      <div class="chart-card">
+      <!-- Toutes les sessions (tri décroissant), scroll, hauteur = carte type voisine. -->
+      <div class="chart-card session-list-card">
         <div class="chart-header">
           <h3>
             {{ t("scans.topSessionsTitle") }} <InfoTooltip :text="t('scans.topSessionsHint')" />
             <span v-if="selectedSessionType" class="muted">{{ t("viewers.charts.filtered") }}</span>
           </h3>
           <CsvButton
-            filename="top-sessions"
+            filename="sessions-audience"
             :headers="[t('scans.csv.session'), t('scans.csv.scans'), t('scans.csv.uniqueDelegates')]"
             :rows="topSessions.map(s => [s.label, s.count, s.uniqueDelegates])"
           />
         </div>
-        <HBarChart
-          v-if="topSessions.length > 0"
-          :labels="topSessions.map(s => truncate(s.label, 60))"
-          :data="topSessions.map(s => s.count)"
-          :height="Math.max(220, topSessions.length * 22 + 40)"
-          color="#1E4E66"
-        />
-        <p v-else class="empty-msg">{{ t("scans.empty.noAudience") }}</p>
+        <div class="session-scroll-host">
+          <div class="session-scroll">
+            <HBarChart
+              v-if="topSessions.length > 0"
+              :labels="topSessions.map(s => truncate(sessionLabel(s), 60))"
+              :data="topSessions.map(s => s.count)"
+              :height="Math.max(160, topSessions.length * 22 + 40)"
+              color="#1E4E66"
+            />
+            <p v-else class="empty-msg">{{ t("scans.empty.noAudience") }}</p>
+          </div>
+        </div>
       </div>
       </div>
 
@@ -265,7 +269,7 @@ import CsvButton from "../CsvButton.vue";
 import InfoTooltip from "../InfoTooltip.vue";
 import ScanDetailTable from "../ScanDetailTable.vue";
 import { COUNTRY_CONTINENTS } from "../../utils/countries.js";
-import { parisDateParts, toEpochMs } from "../../utils/parisTime.js";
+import { parisDateParts, toEpochMs, sessionDateShort } from "../../utils/parisTime.js";
 import { fmt } from "@/utils/formatters.js";
 import { getTypeColor } from "@/utils/typeColors.js";
 
@@ -376,16 +380,15 @@ const topSessions = computed(() => {
   for (const s of scans) {
     if (!s.sessionId) continue;
     if (!bySession.has(s.sessionId)) {
-      bySession.set(s.sessionId, { key: s.sessionId, label: s.sessionTitle || s.sessionId, count: 0, delegates: new Set() });
+      bySession.set(s.sessionId, { key: s.sessionId, label: s.sessionTitle || s.sessionId, start: s.sessionStart || null, count: 0, delegates: new Set() });
     }
     const e = bySession.get(s.sessionId);
     e.count++;
     if (s.delegateId && s.delegateId !== "-") e.delegates.add(s.delegateId);
   }
   return [...bySession.values()]
-    .map((e) => ({ key: e.key, label: e.label, count: e.count, uniqueDelegates: e.delegates.size }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 20);
+    .map((e) => ({ key: e.key, label: e.label, start: e.start, count: e.count, uniqueDelegates: e.delegates.size }))
+    .sort((a, b) => b.count - a.count);
 });
 
 // --- Comparaison d'events (optionnelle) ---
@@ -628,6 +631,11 @@ const geoCacheKey = computed(() => `${geoCountries.value.length}-${stats.value.a
 function truncate(s, n) {
   if (!s) return "";
   return s.length > n ? s.slice(0, n - 1) + "…" : s;
+}
+// Libelle d'une session de top : "JJ/MM : titre" (date en prefixe si connue).
+function sessionLabel(s) {
+  const d = sessionDateShort(s.start);
+  return d ? `${d} : ${s.label}` : s.label;
 }
 </script>
 

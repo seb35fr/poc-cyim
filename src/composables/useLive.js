@@ -19,6 +19,10 @@ export function useLive(eventId, options = {}) {
   const refreshing = ref(false);
   const error = ref(null);
   const progress = ref({ loaded: 0, page: 0 });
+  // Sous-états dissociés pour l'écran de préchargement : les vues live (ES) et
+  // les sessions du programme (GraphQL) sont 2 récupérations séparées.
+  const viewsLoading = ref(true);
+  const sessionsLoading = ref(true);
 
   const hits = ref([]);
   const sessions = ref([]);
@@ -41,12 +45,14 @@ export function useLive(eventId, options = {}) {
     else loading.value = true;
     error.value = null;
     progress.value = { loaded: 0, page: 0 };
+    viewsLoading.value = true;
+    sessionsLoading.value = true;
 
     try {
       const [result, sessionsResult] = await Promise.all([
         fetchLiveViews(eventId, (p) => {
           progress.value = { loaded: p.loaded, page: p.page };
-        }),
+        }).finally(() => { viewsLoading.value = false; }),
         fetchEventSessions(eventId).catch((e) => {
           console.warn("[Live] Echec fetch sessions GraphQL :", e.message);
           // Surface en UI : sans les sessions, titres/types/durees sont
@@ -60,7 +66,7 @@ export function useLive(eventId, options = {}) {
             fingerprint: `useLive:sessions:${eventId}`,
           });
           return [];
-        }),
+        }).finally(() => { sessionsLoading.value = false; }),
       ]);
       hits.value = result;
       sessions.value = sessionsResult;
@@ -76,6 +82,8 @@ export function useLive(eventId, options = {}) {
     } finally {
       loading.value = false;
       refreshing.value = false;
+      viewsLoading.value = false;
+      sessionsLoading.value = false;
     }
   }
 
@@ -112,6 +120,8 @@ export function useLive(eventId, options = {}) {
 
   return {
     loading: readonly(loading),
+    viewsLoading: readonly(viewsLoading),
+    sessionsLoading: readonly(sessionsLoading),
     refreshing: readonly(refreshing),
     error: readonly(error),
     progress: readonly(progress),

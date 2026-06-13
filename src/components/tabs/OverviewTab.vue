@@ -219,6 +219,26 @@
 
     <!-- Charts de synthese participation (comparatif si ?compareWith=) -->
     <div v-if="!liveLoading && !replayLoading">
+      <div class="charts-row">
+      <!-- Participants par jour, ventilé par modalité (suit le filtre de page). -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <h3>{{ t("overview.charts.participantsByDayTitle") }} <InfoTooltip :text="t('overview.charts.participantsByDayHint')" /></h3>
+          <CsvButton
+            filename="participants-par-jour"
+            :headers="participantsByDayCsv.headers"
+            :rows="participantsByDayCsv.rows"
+          />
+        </div>
+        <div
+          v-if="participantsByDayDatasets.length > 0 && participantsByDayLabels.length > 0"
+          :style="{ position: 'relative', height: '300px' }"
+        >
+          <Bar :data="participantsByDayChart" :options="participantsByDayOptions" />
+        </div>
+        <p v-else class="empty-msg">{{ t("scans.empty.noTimestamped") }}</p>
+      </div>
+
       <!-- Engagement : nb de sessions consultees par delegue, empile par
            modalite (presentiel / live / replay). Mode decoche => serie masquee. -->
       <div class="chart-card">
@@ -245,6 +265,7 @@
           :height="300"
           legend-position="bottom"
         />
+      </div>
       </div>
 
       <div class="charts-row cols-3">
@@ -341,7 +362,7 @@
 
     <!-- Vue d'ensemble par type de session (tous modes : salle ∪ live ∪ replay).
          Cliquable -> filtre le Top sessions par delegues uniques ci-dessous. -->
-    <div class="charts-row" v-if="overviewSessionTypes.length > 0">
+    <div class="charts-row cols-1-2" v-if="overviewSessionTypes.length > 0">
       <div class="chart-card">
         <div class="chart-header">
           <h3>{{ t("overview.charts.sessionTypeTitle") }} <InfoTooltip :text="t('overview.charts.sessionTypeHint')" /></h3>
@@ -378,27 +399,32 @@
         </div>
       </div>
 
-      <!-- Top sessions par delegues uniques (tous modes), filtre par le type ci-dessus. -->
-      <div class="chart-card">
+      <!-- Sessions par délégués uniques (tous modes), filtré par le type ci-dessus.
+           1/3–2/3 + hauteur alignée sur la carte type voisine (scroll interne). -->
+      <div class="chart-card session-list-card">
         <div class="chart-header">
           <h3>
-            {{ t("overview.charts.topSessionsByType") }}
+            {{ t("overview.charts.topSessionsByType") }} <InfoTooltip :text="t('overview.charts.topSessionsByTypeHint')" />
             <span v-if="selectedSessionType" class="chart-hint">{{ t("viewers.charts.filtered") }}</span>
           </h3>
           <CsvButton
-            filename="top-sessions-delegues-uniques"
+            filename="sessions-delegues-uniques"
             :headers="[t('scans.csv.session'), t('scans.csv.uniqueDelegates')]"
             :rows="overviewTopSessions.map(s => [s.label, s.uniqueDelegates])"
           />
         </div>
-        <HBarChart
-          v-if="overviewTopSessions.length > 0"
-          :labels="overviewTopSessions.map(s => truncate(s.label, 60))"
-          :data="overviewTopSessions.map(s => s.uniqueDelegates)"
-          :height="Math.max(220, overviewTopSessions.length * 22 + 40)"
-          color="#6F45FF"
-        />
-        <p v-else class="empty-msg">{{ t("scans.empty.noAudience") }}</p>
+        <div class="session-scroll-host">
+          <div class="session-scroll">
+            <HBarChart
+              v-if="overviewTopSessions.length > 0"
+              :labels="overviewTopSessions.map(s => truncate(sessionLabel(s), 60))"
+              :data="overviewTopSessions.map(s => s.uniqueDelegates)"
+              :height="Math.max(160, overviewTopSessions.length * 22 + 40)"
+              color="#6F45FF"
+            />
+            <p v-else class="empty-msg">{{ t("scans.empty.noAudience") }}</p>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -479,6 +505,7 @@ import { delegateBadgeType } from "@/utils/checkinByType.js";
 import { computeParticipation } from "@/utils/participation.js";
 import { buildDelegateLookup } from "@/utils/viewerJoin.js";
 import { computeAllStats } from "@/utils/computeStats.js";
+import { sessionDateShort } from "@/utils/parisTime.js";
 import { fmt, pct } from "@/utils/formatters.js";
 
 const { t } = useI18n();
@@ -891,33 +918,34 @@ const participantsByTypeChart = computed(() => {
 const combinedSessions = computed(() => {
   const lookup = buildDelegateLookup(pageFilteredDelegates.value, { datasetLabel: "overview-session-types" });
   const map = new Map(); // sessionId -> { id, title, type, delegates:Set<identity> }
-  const add = (sessionId, title, type, identity) => {
+  const add = (sessionId, title, type, identity, start) => {
     if (!sessionId || !identity) return;
     let e = map.get(sessionId);
     if (!e) {
-      e = { id: sessionId, title: title || sessionId, type: type || "Non renseigné", delegates: new Set() };
+      e = { id: sessionId, title: title || sessionId, type: type || "Non renseigné", start: start || null, delegates: new Set() };
       map.set(sessionId, e);
     }
     if (title && e.title === sessionId) e.title = title;
     if (type && e.type === "Non renseigné") e.type = type;
+    if (start && !e.start) e.start = start;
     e.delegates.add(identity);
   };
   if (selectedModes.value.has("PHYSIQUE")) {
     for (const s of props.scansApi?.stats?.value?.audience?.scans || []) {
       if (!s.delegateId || s.delegateId === "-") continue;
-      add(s.sessionId, s.sessionTitle, s.sessionType, `id:${s.delegateId}`);
+      add(s.sessionId, s.sessionTitle, s.sessionType, `id:${s.delegateId}`, s.sessionStart);
     }
   }
   if (selectedModes.value.has("LIVE")) {
     for (const it of liveStats.value?.items || []) {
       const d = lookup.get(it.userId)?.delegate?.id;
-      add(it.sessionId, it.sessionTitle, it.sessionType, d ? `id:${d}` : `kc:${it.userId}`);
+      add(it.sessionId, it.sessionTitle, it.sessionType, d ? `id:${d}` : `kc:${it.userId}`, it.sessionStart);
     }
   }
   if (selectedModes.value.has("REPLAY")) {
     for (const it of replayStats.value?.items || []) {
       const d = lookup.get(it.userId)?.delegate?.id;
-      add(it.sessionId, it.sessionTitle, it.sessionType, d ? `id:${d}` : `kc:${it.userId}`);
+      add(it.sessionId, it.sessionTitle, it.sessionType, d ? `id:${d}` : `kc:${it.userId}`, it.sessionStart);
     }
   }
   return map;
@@ -949,6 +977,11 @@ function truncate(s, n) {
   if (!s) return "";
   return s.length > n ? s.slice(0, n - 1) + "…" : s;
 }
+// Libelle d'une session de top : "JJ/MM : titre" (date de session en prefixe).
+function sessionLabel(s) {
+  const d = sessionDateShort(s.start);
+  return d ? `${d} : ${s.label}` : s.label;
+}
 // Filtre cross-clic : selectionner un type restreint le Top sessions ci-dessous.
 const selectedSessionType = ref(null);
 function onSessionTypeSelect(type) {
@@ -959,9 +992,8 @@ const overviewTopSessions = computed(() => {
   let sessions = [...combinedSessions.value.values()];
   if (selectedSessionType.value) sessions = sessions.filter((s) => s.type === selectedSessionType.value);
   return sessions
-    .map((s) => ({ id: s.id, label: s.title, uniqueDelegates: s.delegates.size }))
-    .sort((a, b) => b.uniqueDelegates - a.uniqueDelegates)
-    .slice(0, 15);
+    .map((s) => ({ id: s.id, label: s.title, start: s.start, uniqueDelegates: s.delegates.size }))
+    .sort((a, b) => b.uniqueDelegates - a.uniqueDelegates);
 });
 
 const scanAudienceViewsA = computed(
@@ -1291,6 +1323,78 @@ const engagementChart = computed(() => {
 const engagementCsvRows = computed(() => {
   const b = engagementByBucket.value;
   return BUCKETS.map((k) => [k, b[k]]);
+});
+
+// ─── Participants par jour, ventilés par modalité (suit le filtre de page) ────
+// Pour chaque jour : délégués DISTINCTS actifs ce jour-là dans la modalité.
+//  - PHYSIQUE : scansApi combined.uniqueDelegatesByDay (tout scan sur place)
+//  - LIVE     : liveStats.uniqueByDay (sur sessionEnd = jour de diffusion)
+//  - REPLAY   : replayStats.uniqueByDay (sur timestamp = jour de visionnage)
+// Pas de dédoublonnage inter-modalité (cohérent avec l'engagement empilé) : une
+// même personne active en salle ET en live le même jour compte dans les 2 séries.
+const MODE_DAY_COLORS = { PHYSIQUE: "#1E4E66", LIVE: "#30DD92", REPLAY: "#6F45FF" };
+const participantsByDayData = computed(() => {
+  const phys = props.scansApi?.stats?.value?.combined?.uniqueDelegatesByDay || {};
+  const liveArr = liveStats.value?.uniqueByDay || [];
+  const replayArr = replayStats.value?.uniqueByDay || [];
+  const days = new Set();
+  const maps = { PHYSIQUE: {}, LIVE: {}, REPLAY: {} };
+  if (selectedModes.value.has("PHYSIQUE"))
+    for (const [d, c] of Object.entries(phys)) { maps.PHYSIQUE[d] = c; days.add(d); }
+  if (selectedModes.value.has("LIVE"))
+    for (const { day, count } of liveArr) { maps.LIVE[day] = count; days.add(day); }
+  if (selectedModes.value.has("REPLAY"))
+    for (const { day, count } of replayArr) { maps.REPLAY[day] = count; days.add(day); }
+  return { days: [...days].sort(), maps };
+});
+const participantsByDayModes = computed(() =>
+  [
+    // Libellés courts (Live / Replay sans « distanciel ») pour lever l'ambiguïté
+    // avec la décomposition « Total participants » (Live distanciel / Replay distanciel).
+    { mode: "PHYSIQUE", label: t("overview.participation.physical") },
+    { mode: "LIVE", label: t("overview.datasets.live") },
+    { mode: "REPLAY", label: t("overview.datasets.replay") },
+  ].filter((s) => selectedModes.value.has(s.mode)),
+);
+const participantsByDayLabels = computed(() => {
+  const days = participantsByDayData.value.days;
+  const labelFor = makeDateLabeler(days);
+  return days.map(labelFor);
+});
+// Histogramme GROUPÉ : 1 barre par modalité, groupées par jour.
+const participantsByDayDatasets = computed(() => {
+  const { days, maps } = participantsByDayData.value;
+  if (days.length === 0) return [];
+  return participantsByDayModes.value.map((s) => ({
+    label: s.label,
+    data: days.map((d) => maps[s.mode][d] || 0),
+    backgroundColor: MODE_DAY_COLORS[s.mode],
+    borderRadius: 4,
+  }));
+});
+const participantsByDayChart = computed(() => ({
+  labels: participantsByDayLabels.value,
+  datasets: participantsByDayDatasets.value,
+}));
+const participantsByDayOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: { display: true, position: "bottom" },
+    datalabels: { display: false },
+  },
+  scales: {
+    x: { grid: { display: false } },
+    y: { beginAtZero: true, ticks: { precision: 0 } },
+  },
+};
+const participantsByDayCsv = computed(() => {
+  const { days, maps } = participantsByDayData.value;
+  const modes = participantsByDayModes.value;
+  return {
+    headers: [t("overview.csv.date"), ...modes.map((s) => s.label)],
+    rows: days.map((d) => [d, ...modes.map((s) => maps[s.mode][d] || 0)]),
+  };
 });
 
 // --- Export DÉTAILLÉ par délégué : nb de sessions DISTINCTES consultées en

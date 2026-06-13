@@ -72,6 +72,26 @@ export function wallClock(ts, { withSeconds = false } = {}) {
   return withSeconds ? `${base}:${m[6] || "00"}` : base;
 }
 
+// Date courte "JJ/MM" d'une session, pour prefixer un libelle (ex. Top sessions).
+// Gere les deux natures de date du PoC :
+//   - instant UTC (ISO avec "Z"/offset, ex. sessions GraphQL) -> converti Paris
+//   - heure murale naive (ex. session_start SI-views "2026-06-12 12:00:00") ->
+//     date lue telle quelle, sans conversion.
+export function sessionDateShort(start) {
+  if (!start) return "";
+  let ymd;
+  const isInstant = typeof start !== "string" || /[zZ]$|[+-]\d{2}:?\d{2}$/.test(start);
+  if (isInstant) {
+    ymd = parisDateParts(start)?.ymd;
+  } else {
+    const m = start.match(/(\d{4})-(\d{2})-(\d{2})/);
+    ymd = m ? `${m[1]}-${m[2]}-${m[3]}` : null;
+  }
+  if (!ymd) return "";
+  const [, mo, d] = ymd.split("-");
+  return `${d}/${mo}`;
+}
+
 // "YYYY-MM-DD HH:mm:ss" en heure de Paris (CET/CEST gere). Utilise pour les
 // exports CSV : les dates ISO sont en UTC (suffixe "Z") cote API, on veut les
 // presenter en heure locale Paris dans les fichiers livres aux clients.

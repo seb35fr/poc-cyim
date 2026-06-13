@@ -11,7 +11,23 @@
         <span class="topbar-meta">{{ stats.global.registeredCount }} {{ t("topbar.registered") }}<template v-if="compareEventName"> · {{ t("common.comparedTo") }} {{ compareEventName }}</template></span>
       </div>
       <LanguageToggle class="topbar-lang" />
+      <button
+        class="topbar-info"
+        type="button"
+        :title="t('dataSources.buttonTitle')"
+        :aria-label="t('dataSources.buttonTitle')"
+        @click="showDataSources = true"
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <ellipse cx="12" cy="5" rx="9" ry="3" />
+          <path d="M3 5v14a9 3 0 0 0 18 0V5" />
+          <path d="M3 12a9 3 0 0 0 18 0" />
+        </svg>
+      </button>
     </header>
+
+    <DataSourcesInfo v-if="showDataSources" @close="showDataSources = false" />
+
 
     <div class="layout-body">
     <!-- Sidebar -->
@@ -256,6 +272,7 @@ import ViewersComparisonTab from "../components/tabs/ViewersComparisonTab.vue";
 import ExportsTab from "../components/tabs/ExportsTab.vue";
 import BadgeTypeFilter from "../components/BadgeTypeFilter.vue";
 import LanguageToggle from "../components/LanguageToggle.vue";
+import DataSourcesInfo from "../components/DataSourcesInfo.vue";
 
 const { t, locale } = useI18n();
 const route = useRoute();
@@ -263,7 +280,7 @@ const eventId = route.params.eventId;
 const compareEventId = route.query.compareWith || null;
 const statsApi = useStatistics(eventId);
 const {
-  loading, refreshing, error, progress, stats, eventName, eventLogo, delegates, mobileAppId,
+  loading, configLoading, refreshing, error, progress, stats, eventName, eventLogo, delegates, mobileAppId,
   reload, nextRefreshAt,
 } = statsApi;
 
@@ -279,6 +296,7 @@ const compareEventName = computed(() => compareApi?.eventName.value || "");
 
 // Fallback logo : initiales si pas de logoURL ou si l'image casse (@error).
 const logoError = ref(false);
+const showDataSources = ref(false);
 const eventInitials = computed(() => {
   const name = (eventName.value || "").trim();
   if (!name) return "?";
@@ -445,13 +463,20 @@ const progressPercent = computed(() =>
   progress.value.total > 0 ? Math.round((progress.value.loaded / progress.value.total) * 100) : 0
 );
 
-// Etat des sources chargees EN PARALLELE pendant l'ecran de chargement :
-// delegues (GraphQL pagine) + 3 index ES (scans, live, replay). Le `loading`
-// principal ne traque que les delegues ; on expose ici l'avancement de chacun.
+// Etat des sources chargees EN PARALLELE pendant l'ecran de chargement, DISSOCIEES
+// par recuperation reelle (chaque fetch distinct = une ligne) : GraphQL (config,
+// inscriptions, sessions du programme) + Elasticsearch (vues live/replay, scans).
+// Les sessions sont un fetch GraphQL a part, partage live+replay.
 const loadingSources = computed(() => {
   const sp = scansApi.progress?.value || {};
   const scansLoaded = (sp.audience || 0) + (sp.checkin || 0) + (sp.zone || 0);
   return [
+    {
+      key: "config",
+      label: t("states.sources.config"),
+      loading: configLoading.value,
+      detail: "",
+    },
     {
       key: "delegates",
       label: t("states.sources.delegates"),
@@ -459,13 +484,29 @@ const loadingSources = computed(() => {
       detail: progress.value.total > 0 ? `${fmt(progress.value.loaded)} / ${fmt(progress.value.total)}` : "",
     },
     {
+      key: "sessions",
+      label: t("states.sources.sessions"),
+      loading: liveApi.sessionsLoading.value || replayApi.sessionsLoading.value,
+      detail: "",
+    },
+    {
+      key: "live",
+      label: t("states.sources.live"),
+      loading: liveApi.viewsLoading.value,
+      detail: "",
+    },
+    {
+      key: "replay",
+      label: t("states.sources.replay"),
+      loading: replayApi.viewsLoading.value,
+      detail: "",
+    },
+    {
       key: "scans",
       label: t("states.sources.scans"),
       loading: scansApi.loading.value,
       detail: scansLoaded > 0 ? t("states.sources.scansCount", { n: fmt(scansLoaded) }) : "",
     },
-    { key: "live", label: t("states.sources.live"), loading: liveApi.loading.value, detail: "" },
-    { key: "replay", label: t("states.sources.replay"), loading: replayApi.loading.value, detail: "" },
   ];
 });
 
@@ -589,6 +630,18 @@ function toggleGroup(groupId) {
 }
 .topbar-meta { font-size: 12px; font-weight: 500; color: rgba(255,255,255,.7); }
 .topbar-lang { margin-left: auto; flex-shrink: 0; }
+/* Bouton « base de données » : détail technique des sources (GraphQL + index ES). */
+.topbar-info {
+  flex-shrink: 0; margin-left: 10px;
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 1px solid var(--border, #d1d5db); background: #fff;
+  color: var(--primary, #1e4e66);
+  cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.topbar-info:hover {
+  background: var(--primary, #1e4e66); color: #fff; border-color: var(--primary, #1e4e66);
+}
 
 /* ── Sidebar ── */
 .sidebar {
@@ -886,8 +939,22 @@ function toggleGroup(groupId) {
   gap: 10px; margin-bottom: 10px;
 }
 .charts-row.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
-/* Ratio 1/3 (type de session) – 2/3 (top sessions). */
-.charts-row.cols-1-2 { grid-template-columns: 1fr 2fr; align-items: start; }
+/* Ratio 1/3 (type de session) – 2/3 (liste sessions). `stretch` : les 2 cartes
+   ont la même hauteur ; la carte type (gauche) définit la hauteur de la rangée,
+   la liste sessions (droite) scrolle dans cette hauteur (cf. .session-list-card). */
+.charts-row.cols-1-2 { grid-template-columns: 1fr 2fr; align-items: stretch; }
+
+/* Carte « liste de sessions » : flex colonne, la zone de liste scrolle et est
+   positionnée en absolu pour NE PAS gonfler la hauteur de la rangée (c'est la
+   carte type de session voisine qui la fixe). */
+.session-list-card { display: flex; flex-direction: column; }
+/* flex:1 pour remplir la hauteur de la rangée (= carte type) ; min-height plancher
+   pour rester visible si la carte n'est PAS appairée (hors grille -> pas de
+   hauteur définie, le flex:1 s'effondrerait sinon). */
+.session-scroll-host { flex: 1; min-height: 220px; position: relative; }
+.session-scroll { position: absolute; inset: 0; overflow-y: auto; }
+/* Variante non appairée (pleine largeur) : hauteur plafonnée + scroll. */
+.session-scroll-capped { max-height: 520px; overflow-y: auto; }
 .chart-card {
   background: var(--card); border-radius: 10px; padding: 14px 16px;
   box-shadow: var(--shadow); margin-bottom: 10px;

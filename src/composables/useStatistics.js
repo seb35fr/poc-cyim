@@ -10,6 +10,8 @@ export function useStatistics(eventId, options = {}) {
   const refreshing = ref(false);
   const error = ref(null);
   const progress = ref({ loaded: 0, total: 0, page: 0 });
+  // Config event (GraphQL) : récupération séparée des délégués (préchargement).
+  const configLoading = ref(true);
   const stats = ref(null);
   const eventName = ref("");
   const eventLogo = ref("");
@@ -25,17 +27,20 @@ export function useStatistics(eventId, options = {}) {
     }
     error.value = null;
     progress.value = { loaded: 0, total: 0, page: 0 };
+    configLoading.value = true;
 
     try {
       // Config event (titre + logo) : requete legere. On l'expose DES qu'elle
       // arrive — sans attendre la pagination des delegues — pour que l'ecran de
       // chargement affiche le titre/logo de l'event au plus tot.
       const configPromise = fetchEventConfig(eventId).catch(() => null);
-      configPromise.then((c) => {
-        if (c?.branding?.name) eventName.value = c.branding.name;
-        else if (!eventName.value) eventName.value = eventId;
-        if (c?.branding?.logoURL) eventLogo.value = c.branding.logoURL;
-      });
+      configPromise
+        .then((c) => {
+          if (c?.branding?.name) eventName.value = c.branding.name;
+          else if (!eventName.value) eventName.value = eventId;
+          if (c?.branding?.logoURL) eventLogo.value = c.branding.logoURL;
+        })
+        .finally(() => { configLoading.value = false; });
 
       const [config, delegateResult] = await Promise.all([
         configPromise,
@@ -113,6 +118,7 @@ export function useStatistics(eventId, options = {}) {
 
   return {
     loading: readonly(loading),
+    configLoading: readonly(configLoading),
     refreshing: readonly(refreshing),
     error: readonly(error),
     progress: readonly(progress),

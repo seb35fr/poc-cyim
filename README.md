@@ -68,6 +68,8 @@ L'app ne possède aucune base : elle agrège deux sources en lecture seule.
 
 Pagination ES en `search_after` (batch de `ES_BATCH_SIZE` = 2000). Auto-refresh optionnel toutes les 10 min (`AUTO_REFRESH_MS`), désactivé par défaut.
 
+> **Transparence** : un bouton **base de données** dans le header (à droite du toggle FR/EN) ouvre une modale **« Données utilisées — détail technique »** listant les modèles GraphQL interrogés et les 5 index Elasticsearch. L'**écran de chargement** détaille aussi chaque récupération séparément (config · inscriptions · sessions — GraphQL ; vues live · replay · scans — Elasticsearch) avec un état spinner→✓ par source.
+
 ## Architecture
 
 ```
@@ -124,13 +126,15 @@ La navigation (sidebar) regroupe certains onglets. Les sous-onglets « Comparati
 
 | Onglet | Contenu | Source |
 |--------|---------|--------|
-| **Vue d'ensemble** | KPIs, décomposition « Total participants », filtre **modalité** (présentiel/live/replay), cartes géo (monde + Europe), engagement (sessions uniques/délégué) | GraphQL + ES |
+| **Vue d'ensemble** | KPIs, décomposition « Total participants », filtre **modalité** (présentiel/live/replay), **participants par jour** (histogramme groupé suivant la modalité), cartes géo (monde + Europe), engagement (sessions uniques/délégué), type de session + **sessions** (toutes, scroll) | GraphQL + ES |
 | **Démographie** | Pays, continents, genre, professions, qualifications, sociétés | GraphQL |
 | **Registration** (groupe) | **Inscriptions** (types, catégories, jours d'accès), **Dynamique** (courbes, hebdo), **Badges & Check-in** (progression, flux horaire, cartes monde + France), **Données** (table brute) | GraphQL + ES (badges) |
-| **Live** | Délégués uniques, vues totales par origine, top sessions, engagement, par jour | ES (live) |
-| **Replay** | Délégués uniques + nouveaux/cumul par jour, top sessions (par délégués / par vues), présents physiques ayant revu | ES (replay) |
-| **Scans QR** | Volumétrie salle/entrée/zone, scans de zone par jour, flux horaire, top sessions/salles/zones | ES (scans) |
-| **Exports** | Présence par session (combiné + présentiel/live/replay), Parcours par personne | GraphQL + ES |
+| **Live** | Délégués uniques, vues par origine, par jour & par chaîne, type de session + **sessions** (toutes, scroll), engagement | ES + GraphQL (sessions) |
+| **Replay** | Délégués uniques + nouveaux/cumul par jour, type de session + **sessions** (par délégués / par vues, toutes, scroll), présents physiques ayant revu | ES + GraphQL (sessions) |
+| **Scans QR** | Volumétrie salle/entrée/zone, cartes géo, scans de zone par jour, flux horaire, type de session + **sessions** (toutes, scroll), **détail** (filtre QR, modale par ligne) | ES + GraphQL (zones) |
+| **Exports** | Présence par session (combiné + présentiel/live/replay), **scans de session / de zone** (enrichis), Parcours par personne, délégués check-in | GraphQL + ES |
+
+> Les libellés de sessions des graphes sont préfixés de leur date (`JJ/MM : …`). La **ré-association QR** (cf. *Concepts clés*) rattache côté navigateur les scans que le pipeline a laissés sans `delegate_id`.
 
 ## Filtres globaux
 
@@ -154,6 +158,7 @@ Définis dans la barre du haut (`StatisticsView`), propagés à tous les onglets
 - **Jointure ES ↔ délégué** (`viewerJoin.js`) : les vues live/replay sont indexées par `user_id` Keycloak ; on les rattache au délégué Mongo via `contact.emailAddresses[].source.id` de type `ACCOUNT`. Les scans (salle/zone) utilisent directement le `delegate.id` Mongo.
 - **« Total participants » dédoublonné** (`participation.js`) : un même délégué ne compte qu'une fois (présence physique ∪ live ∪ replay).
 - **Sessions uniques** : dans l'engagement, une session du programme vue via plusieurs canaux (salle + replay…) compte **une seule fois**.
+- **Ré-association QR des scans** (`computeScanStats.js`) : quand le pipeline Flink n'a pas résolu un scan (`delegate_id = '-'`) alors que le badge/délégué existent, on le **rattache côté navigateur** via le QR (`raw_qr_code` ↔ `badges.qrCode`), **sans appel réseau** — et on en profite pour enrichir nom/email/type de badge/badgeId quand l'ES les laisse vides. Compteurs « ré-associés / non associés » + cellules surlignées dans le détail.
 
 ## Build
 

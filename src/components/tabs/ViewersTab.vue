@@ -282,46 +282,52 @@
             <button class="filter-clear" @click="selectedSessionType = null">{{ t("viewers.charts.clearFilter") }}</button>
           </div>
         </div>
-        <div class="chart-card" v-if="topSessions.length > 0">
+        <div class="chart-card session-list-card" v-if="topSessions.length > 0">
           <div class="chart-header">
             <h3>
-              {{ L.topSessionsTitle }}
+              {{ L.topSessionsTitle }} <InfoTooltip :text="t('viewers.charts.topSessionsHint')" />
               <span v-if="selectedSessionType">{{ t("viewers.charts.filtered") }}</span>
             </h3>
             <CsvButton
-              :filename="`${kind}-top-sessions`"
+              :filename="`${kind}-sessions`"
               :headers="[t('viewers.csv.session'), t('viewers.csv.uniqueDelegates'), t('viewers.csv.views'), t('viewers.csv.avgDurationS')]"
-              :rows="topSessions.slice(0, topN).map(s => [s.title, s.uniqueUsers, s.views, Math.round(s.avgDuration)])"
+              :rows="topSessions.map(s => [s.title, s.uniqueUsers, s.views, Math.round(s.avgDuration)])"
             />
           </div>
-          <HBarChart
-            :labels="topSessions.slice(0, topN).map(s => truncate(s.title, 60))"
-            :data="topSessions.slice(0, topN).map(s => s.uniqueUsers)"
-            :height="Math.max(220, Math.min(topN, topSessions.length) * 22 + 40)"
-            color="#6F45FF"
-          />
+          <div class="session-scroll-host">
+            <div class="session-scroll">
+              <HBarChart
+                :labels="topSessions.map(s => truncate(sessionLabel(s), 60))"
+                :data="topSessions.map(s => s.uniqueUsers)"
+                :height="Math.max(160, topSessions.length * 22 + 40)"
+                color="#6F45FF"
+              />
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- Replay : top sessions par vues (pleine largeur, sous le couple type/top). -->
+      <!-- Replay : sessions par vues (pleine largeur, scroll plafonné). -->
       <div class="chart-card" v-if="kind === 'replay' && topSessions.length > 0">
         <div class="chart-header">
           <h3>
-            {{ t("viewers.charts.topSessionsViews") }}
+            {{ t("viewers.charts.topSessionsViews") }} <InfoTooltip :text="t('viewers.charts.topSessionsHint')" />
             <span v-if="selectedSessionType">{{ t("viewers.charts.filtered") }}</span>
           </h3>
           <CsvButton
-            filename="replay-top-sessions-vues"
+            filename="replay-sessions-vues"
             :headers="[t('viewers.csv.session'), t('viewers.csv.views'), t('viewers.csv.uniqueDelegates'), t('viewers.csv.avgDurationS')]"
-            :rows="topSessionsByViews.slice(0, topN).map(s => [s.title, s.views, s.uniqueUsers, Math.round(s.avgDuration)])"
+            :rows="topSessionsByViews.map(s => [s.title, s.views, s.uniqueUsers, Math.round(s.avgDuration)])"
           />
         </div>
-        <HBarChart
-          :labels="topSessionsByViews.slice(0, topN).map(s => truncate(s.title, 60))"
-          :data="topSessionsByViews.slice(0, topN).map(s => s.views)"
-          :height="Math.max(220, Math.min(topN, topSessionsByViews.length) * 22 + 40)"
-          color="#1E4E66"
-        />
+        <div class="session-scroll-capped">
+          <HBarChart
+            :labels="topSessionsByViews.map(s => truncate(sessionLabel(s), 60))"
+            :data="topSessionsByViews.map(s => s.views)"
+            :height="Math.max(160, topSessionsByViews.length * 22 + 40)"
+            color="#1E4E66"
+          />
+        </div>
       </div>
 
       <!-- Engagement : standalone (live ET replay) — en replay la colonne droite
@@ -402,7 +408,7 @@ import StackedBarChart from "../charts/StackedBarChart.vue";
 import ChoroplethMap from "../charts/ChoroplethMap.vue";
 import CsvButton from "../CsvButton.vue";
 import InfoTooltip from "../InfoTooltip.vue";
-import { parisDateParts, toEpochMs } from "../../utils/parisTime.js";
+import { parisDateParts, toEpochMs, sessionDateShort } from "../../utils/parisTime.js";
 import { fmt } from "@/utils/formatters.js";
 import { getTypeColor } from "@/utils/typeColors.js";
 import { COUNTRY_CONTINENTS } from "@/utils/countries.js";
@@ -474,7 +480,6 @@ const L = computed(() => {
 const { loading, refreshing, error, progress, stats, reload } = props.viewerApi;
 
 const g = computed(() => stats.value.global);
-const topN = 15;
 const pageSize = 200;
 
 // --- Top sessions par VUES (replay) : même liste que topSessions mais triée
@@ -1285,6 +1290,11 @@ function pctOf(v, total) {
 function truncate(s, n) {
   if (!s) return "";
   return s.length > n ? s.slice(0, n - 1) + "…" : s;
+}
+// Libelle d'une session de top : "JJ/MM : titre" (date de session en prefixe).
+function sessionLabel(s) {
+  const d = sessionDateShort(s.start);
+  return d ? `${d} : ${s.title}` : s.title;
 }
 
 function formatDuration(sec) {
