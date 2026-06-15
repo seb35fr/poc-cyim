@@ -70,7 +70,77 @@ Pagination ES en `search_after` (batch de `ES_BATCH_SIZE` = 2000). Auto-refresh 
 
 > **Transparence** : un bouton **base de données** dans le header (à droite du toggle FR/EN) ouvre une modale **« Données utilisées — détail technique »** listant les modèles GraphQL interrogés et les 5 index Elasticsearch. L'**écran de chargement** détaille aussi chaque récupération séparément (config · inscriptions · sessions — GraphQL ; vues live · replay · scans — Elasticsearch) avec un état spinner→✓ par source.
 
-## Architecture
+## Architecture — actuelle (PoC) vs cible (production)
+
+### Actuelle (PoC)
+
+Le **navigateur fait tout** : il interroge deux sources et calcule l'intégralité des statistiques côté client. Rapide à livrer, mais l'accès Elasticsearch est direct et non sécurisé.
+
+```
+                    ┌─────────────────────────────────────────────┐
+                    │            NAVIGATEUR — Vue 3 SPA            │
+                    │  Fetch brut (délégués, scans, vues…) PUIS    │
+                    │  TOUT le calcul des stats côté client        │
+                    │  (computeStats / computeScanStats / …)       │
+                    └───────┬─────────────────────────────┬───────┘
+            GraphQL (HTTPS)  │                             │  HTTP direct
+                             │                             │  (dev : proxy Vite /api/es)
+                             ▼                             ▼
+                  ┌─────────────────────┐      ┌──────────────────────────────┐
+                  │   Apollo Gateway    │      │     Elasticsearch (5 index)  │
+                  │     (GraphQL)       │      │  audience · checkin · zone   │
+                  └──────────┬──────────┘      │  · live · replay             │
+       délégués · sessions · │                 │  ⚠ aucune auth, aucun        │
+       locations · branding  │                 │    whitelist, ES exposé au   │
+                             ▼                 │    navigateur, 100% en RAM   │
+                   (Mongo / SI-views)          └───────────────▲──────────────┘
+                                                               │ CDC / sink
+                                                        ┌──────┴──────┐   Kafka
+                                                        │    Flink    │◄── cyim.webhooks
+                                                        └─────────────┘    (app de scan)
+```
+
+> Limites assumées (PoC) : ES joignable sans authentification ni filtrage d'index, tout le volume chargé en mémoire navigateur, ré-association QR et masquage RGPD faits côté client, proxy `/api/es` **dev-only sans équivalent prod**.
+
+### Cible (production)
+
+Le navigateur ne parle **qu'au gateway GraphQL** (authentifié). Un **resolver fédéré `scanStatistics`** (sur `registration-badges` ou un micro-service `stats` dédié) fait les **agrégations Elasticsearch côté serveur** et applique les règles (auth Cerbos, RGPD). Plus aucun accès ES direct depuis le navigateur.
+
+```
+                    ┌─────────────────────────────────────────────┐
+                    │            NAVIGATEUR — Vue 3 SPA            │
+                    │  Rendu + interactions ; reçoit des AGRÉGATS  │
+                    │  prêts à l'emploi (plus de calcul lourd)     │
+                    └────────────────────┬────────────────────────┘
+                         GraphQL (HTTPS, token Keycloak)
+                                          ▼
+                            ┌─────────────────────────────┐
+                            │        Apollo Gateway        │
+                            │   (fédération + @hasPermission Cerbos)
+                            └──────┬───────────────┬───────┘
+            délégués · sessions ·  │               │  scanStatistics(eventId, filters)
+            branding (existant)    │               │  liveStats / replayStats …
+                                   ▼               ▼
+                        (registration / …)   ┌──────────────────────────────┐
+                                             │  Resolver stats (back)       │
+                                             │  • agrégations ES            │
+                                             │    (size:0 · terms ·         │
+                                             │     date_histogram ·         │
+                                             │     cardinality)             │
+                                             │  • ré-association QR + RGPD  │
+                                             │  • jointure délégués         │
+                                             └───────────────┬──────────────┘
+                                                             ▼
+                                                  Elasticsearch (interne, non exposé)
+                                                             ▲
+                                                      ┌──────┴──────┐   Kafka
+                                                      │    Flink    │◄── cyim.webhooks
+                                                      └─────────────┘
+```
+
+> Gains : ES **jamais** exposé au navigateur, permissions Cerbos, agrégations serveur (plus de download de 100k docs ni de calcul lourd côté client), RGPD et ré-association QR centralisés et fiables, refresh incrémental possible (PIT/`search_after` ou SSE depuis le back qui écoute `cyim.webhooks`).
+
+## Arborescence du code
 
 ```
 src/
