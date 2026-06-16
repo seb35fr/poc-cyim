@@ -42,6 +42,7 @@ export const ZONE_SCAN_HEADERS = [
 export const SESSION_SCAN_HEADERS = [
   "Horodatage",
   "SessionId",
+  "Session organisateur",
   "Session",
   "Type de session",
   "Début session",
@@ -159,17 +160,23 @@ export function buildSessionScanRows({
   delegates = [],
   sessionTypeById = null,
   sessionTimesById = null,
+  sessionOrganizerById = null,
 } = {}) {
   const byMongoId = new Map((delegates || []).filter((d) => d?.id).map((d) => [d.id, d]));
   const typeMap = sessionTypeById instanceof Map ? sessionTypeById : null;
   const timeMap = sessionTimesById instanceof Map ? sessionTimesById : null;
+  const orgMap = sessionOrganizerById instanceof Map ? sessionOrganizerById : null;
   return (audienceScans || []).map((s) => {
     const c = delegateColumns(s, byMongoId);
     const type = s.sessionType || (typeMap && s.sessionId && typeMap.get(s.sessionId)) || "";
+    // Organisateur de la session : priorite au industry_name porte par le scan
+    // (ES, par scan), repli sur les organizers GraphQL keyes par sessionId.
+    const organizer = s.industryName || (orgMap && s.sessionId && orgMap.get(s.sessionId)) || "";
     const times = timeMap && s.sessionId ? timeMap.get(s.sessionId) : null;
     return {
       horodatage: fmtParis(s.timestamp),
       sessionId: s.sessionId || "",
+      sessionOrganizer: organizer,
       session: s.sessionTitle || s.sessionId || "",
       sessionType: type,
       // Début : session GraphQL (UTC -> Paris) sinon session_start brut du scan.
@@ -187,6 +194,7 @@ export function sessionScanRowToCsv(r) {
   return [
     r.horodatage,
     r.sessionId,
+    r.sessionOrganizer,
     r.session,
     r.sessionType,
     r.sessionStart,

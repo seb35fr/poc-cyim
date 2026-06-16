@@ -25,7 +25,7 @@ Copy `.env.example` to `.env` with:
 
 ## Stack
 
-Vue 3 + Vite 6 + Vue Router + Chart.js 4 (vue-chartjs) + chartjs-chart-geo (cartes monde/Europe/FR) + d3-geo (Lambert projection FR, fallback mercator) + chartjs-plugin-datalabels + **vue-i18n** (bilingue FR/EN). No UI framework (custom CSS with CSS variables defined in `App.vue`). **Exports** : Markdown (destiné aux LLM) **+ dump JSON intégral** (téléchargés ensemble), **CSV par session** (combiné + mono-source présentiel/live/replay) et **CSV par graphe**. Les exports PDF/PPTX ont été retirés.
+Vue 3 + Vite 6 + Vue Router + Chart.js 4 (vue-chartjs) + chartjs-chart-geo (cartes monde/Europe/FR) + d3-geo (Lambert projection FR, fallback mercator) + chartjs-plugin-datalabels + **vue-i18n** (bilingue FR/EN). No UI framework (custom CSS with CSS variables defined in `App.vue`). **Exports** : Markdown (destiné aux LLM) **+ dump JSON intégral** (téléchargés ensemble), **CSV par session** (combiné + mono-source présentiel/live/replay), **CSV par graphe**, et **XLSX par industrie** (SheetJS `xlsx`, en **import dynamique** → chunk chargé à la demande ; 1 fichier par organisation, onglets Live/Replay/On site). Les exports PDF/PPTX ont été retirés.
 
 **Vite alias** : `@/` → `/src/` (configuré dans `vite.config.js`). Tous les nouveaux imports utilisent `@/utils/...` au lieu de `../../utils/...`. Les imports legacy `../../` restent valides — pas de migration forcée.
 
@@ -67,7 +67,7 @@ Sources de données :
 | Filter UI | `src/components/FilterBanner.vue` | Filtres cross-clic actifs avec boutons d'effacement |
 | | `src/components/BadgeTypeFilter.vue` | Pills multi-select badge type. Composant UI seul, l'état vient de `useBadgeTypeFilter`. |
 | Diagnostics UI | `src/components/DiagnosticsBanner.vue` | Toasts fixed top-right alimentés par `useDiagnostics`. Monté globalement dans `App.vue`. |
-| CSV | `src/components/CsvButton.vue` | Bouton de téléchargement CSV (props `label` + `primary` pour accentuer un export), `src/utils/exportCsv.js`. `src/components/SessionPresenceExport.vue` : bloc réutilisable « présence par session » mono-source (présentiel/live/replay) avec recherche + filtre type de session. |
+| CSV | `src/components/CsvButton.vue` | Bouton de téléchargement CSV (props `label` + `primary` pour accentuer un export), `src/utils/exportCsv.js`. `src/components/SessionPresenceExport.vue` : bloc réutilisable « présence par session » mono-source (présentiel/live/replay) avec recherche + filtre type de session + **filtre organisation** + colonne **Organisateur**. `src/utils/exportXlsx.js` : `downloadWorkbook` multi-onglets (SheetJS, import dynamique) pour l'export industrie. |
 | Utils | `src/utils/formatters.js` | `fmt(n)`, `pct(a, b)`, `shortName(name, maxLen)`, `formatDurationHMS(sec)` — partagés (avant : 15 redéfinitions dans les tabs) |
 | | `src/utils/debug.js` | Wrapper `debug.log` / `debug.table` no-op en PROD via `import.meta.env.DEV` |
 | | `src/constants.js` | `AUTO_REFRESH_MS`, `COUNTDOWN_TICK_MS`, `DELEGATES_PAGE_SIZE`, `SLOW_QUERY_THRESHOLD_MS`, `ES_BATCH_SIZE` |
@@ -81,8 +81,8 @@ Sources de données :
 | | `src/utils/heatColor.js` | Échelle de chaleur partagée (gris→vert→orange→rouge) pour les cartes |
 | | `src/utils/burndown.js` | Courbes de décroissance (restants à check-in) absolue/relative, paramétrable par step (15 min / 30 min) |
 | | `src/utils/checkinByType.js` | Bar horizontale stacked check-in/restants par type de badge (partagé BadgesTab + ComparisonTab) |
-| | `src/utils/buildSessionAttendance.js` | Croise scans audience + live + replay pour une session — CSV « présence par session ». Sérialiseurs combiné + mono-source (`physical`/`live`/`replay`) via `filterAttendanceBySource`. Marqueurs **`YES`/`NO`**. Exporte `delegateCoreFields(d)` + `getRpps(d)` (réutilisés par `buildScanExport`). |
-| | `src/utils/buildScanExport.js` | Export **à plat** des scans (1 ligne = 1 scan) enrichi délégué + type de badge. `buildZoneScanRows` (scans de zone) et `buildSessionScanRows` (scans de salle/audience, avec **Début/Fin session** depuis les sessions GraphQL UTC→Paris, repli `wallClock` sur `session_start` brut). Colonne `Rapproché` O/N. Source = scans déjà récupérés/enrichis (cf. **Ré-association QR**). |
+| | `src/utils/buildSessionAttendance.js` | Croise scans audience + live + replay pour une session — CSV « présence par session ». Sérialiseurs combiné + mono-source (`physical`/`live`/`replay`) via `filterAttendanceBySource`. Marqueurs **`YES`/`NO`**. Les exports mono-source portent une colonne **« Session organisateur »** (avant le titre, depuis `session.organizer`). Exporte `delegateCoreFields(d)` + `getRpps(d)` (réutilisés par `buildScanExport`). |
+| | `src/utils/buildScanExport.js` | Export **à plat** des scans (1 ligne = 1 scan) enrichi délégué + type de badge. `buildZoneScanRows` (scans de zone) et `buildSessionScanRows` (scans de salle/audience, avec **Début/Fin session** depuis les sessions GraphQL UTC→Paris, repli `wallClock` sur `session_start` brut, **+ colonne « Session organisateur »** avant le titre = `scan.industryName` ES, repli `organizers` GraphQL via `sessionOrganizerById`). Colonne `Rapproché` O/N. Source = scans déjà récupérés/enrichis (cf. **Ré-association QR**). |
 | | `src/utils/buildDelegateJourney.js` | Parcours d'une personne : 1 ligne par session interagie (salle/live/replay) **+ par zone scannée** (stands, lounges). Présence physique **dissociée salle/zone** ; colonne CSV « Nature » (Session/Zone). Marqueurs `YES`/`NO`. |
 | | `src/utils/generateAnalysis.js` | Analyse textuelle (présence, no-show, mix, comparatif Δ pts, etc.) — utilisée dans l'export MD |
 
@@ -133,7 +133,7 @@ Une **toolbar** en haut du contenu (`StatisticsView`, classe `.global-filters`) 
 Entry points utilisés :
 - `event(id).searchDelegates(...)` — pagination cursor des délégués (`createdAt` asc, 500/page)
 - `event(id).config.branding` — nom + logo de l'event
-- `event(id).children(eventType: [SESSION], first: 500, pageToken)` — sessions du congrès (enrichit Live/Replay)
+- `event(id).children(eventType: [SESSION], first: 500, pageToken)` — sessions du congrès (enrichit Live/Replay) ; inclut `organizers { id displayName }` (= **organisateur de session**, exposé dans les exports « Session organisateur » + filtre Organisation)
 - `getEvent(id).config.mobileApplicationId` — service registration
 
 Delegate fields : `givenName/familyName/email/status/gender/company/occupation/jobTitle/qualification/practiceModes/title/createdAt/checkedInDate/gdpr/categories/contactId/externalContactId/externalId/firstOnboardingConnection/notes`, `primaryAddress { countryCode city zipCode country.code }`, `registrations { id type status categories accessDays }`, `badges { id type deliveredAt deliveredBy storage.publicUrl qrCode.value/decodedValue }`, et `contact { ... on Person { externalIds { value type } emailAddresses { value source { id type } } memberships.items.type apps { id lastUsed version name platform } } }`.
@@ -185,6 +185,8 @@ Delegate fields : `givenName/familyName/email/status/gender/company/occupation/j
 **Scans de session / Scans de zone** (`ExportsTab.vue` + `buildScanExport.js`) : export **à plat** (1 ligne = 1 scan) de tous les scans d'entrée de salle (audience) resp. d'accès aux zones, **enrichis** des infos délégué (identité, profession, RPPS, pays…) + type de badge. L'export *scans de session* porte **Début/Fin session** (sessions GraphQL UTC→Paris). Colonne `Rapproché` O/N. **Inclut les scans ré-associés** (cf. **Ré-association QR**) puisqu'ils lisent `scansApi.stats.value.{audience,zone}.scans` (post-récupération).
 
 **Parcours par personne** (`ExportsTab.vue` + `buildDelegateJourney.js`) : à partir d'un email, 1 CSV avec toutes les sessions interagies (salle/live/replay) **et les zones scannées**. Indicateurs dissociés « Présence en salle » / « Présence en zone » ; colonne « Nature ».
+
+**Export industrie** (`ExportsTab.vue` + `src/utils/exportXlsx.js`) : accordéon listant les **organisations** (organisateur de session, cf. `sessionOrganizerById`), filtrable par nom. Produit **1 fichier XLSX par organisation** (export d'une seule ou de toutes d'un coup, comme « Tout exporter » des autres exports), avec **3 onglets — Live / Replay / On site** — listant les personnes ayant consulté les sessions de cette organisation via chaque canal. Réutilise `buildRowsForSession` + `filterAttendanceBySource` sur les sessions de l'organisation, sérialisés avec **exactement les colonnes des exports mono-source** correspondants (`LIVE_/REPLAY_/PHYSICAL_ATTENDANCE_HEADERS` + leurs `rowToCsv`). `downloadWorkbook(filename, sheets)` (SheetJS `xlsx`, **import dynamique**) construit le classeur multi-onglets. Compteurs affichés = volumes bruts (vues/scans), pas personnes uniques.
 
 **Cohérence enrichissement** : tous les exports de l'onglet s'appuient sur les scans déjà **récupérés/enrichis** par `computeScanStats` (jointure clé = `delegateId`, posé même sur les scans `'-'` rattrapés). Un scan que Flink avait laissé orphelin remonte donc dans la présence par session, le parcours et les exports à plat.
 

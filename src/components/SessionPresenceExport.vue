@@ -32,6 +32,10 @@
             <option value="">{{ t("exports.presence.allTypes") }}</option>
             <option v-for="ty in types" :key="ty" :value="ty">{{ ty }}</option>
           </select>
+          <select v-if="organizers.length > 0" v-model="selectedOrganizer" class="type-select">
+            <option value="">{{ t("exports.presence.allOrganizers") }}</option>
+            <option v-for="org in organizers" :key="org" :value="org">{{ org }}</option>
+          </select>
           <button
             class="btn-primary"
             :disabled="filtered.length === 0 || exportingAll"
@@ -52,6 +56,7 @@
             <thead>
               <tr>
                 <th>{{ t("exports.presence.colSession") }}</th>
+                <th>{{ t("exports.presence.colOrganizer") }}</th>
                 <th>{{ t("exports.presence.colType") }}</th>
                 <th>{{ t("exports.presence.colStart") }}</th>
                 <th class="num">
@@ -66,6 +71,7 @@
                   <div class="session-title">{{ s.title }}</div>
                   <code class="session-id">{{ s.id }}</code>
                 </td>
+                <td>{{ s.organizer || "—" }}</td>
                 <td>{{ s.type || "—" }}</td>
                 <td class="session-start">{{ formatStart(s.start) }}</td>
                 <td class="num">{{ fmt(s.count) }}</td>
@@ -96,7 +102,7 @@ const props = defineProps({
   loading: { type: Boolean, default: false },
   title: { type: String, required: true },
   desc: { type: String, default: "" },
-  // [{ id, title, start, count, type }] — deja restreintes a la source.
+  // [{ id, title, start, count, type, organizer }] — deja restreintes a la source.
   sessions: { type: Array, default: () => [] },
   countLabel: { type: String, default: "" },
   countHint: { type: String, default: "" },
@@ -110,6 +116,7 @@ const { t, locale } = useI18n();
 
 const search = ref("");
 const selectedType = ref("");
+const selectedOrganizer = ref("");
 const exportingAll = ref(false);
 const exportAllProgress = ref(0);
 
@@ -119,10 +126,17 @@ const types = computed(() => {
   return [...set].sort((a, b) => a.localeCompare(b));
 });
 
+const organizers = computed(() => {
+  const set = new Set();
+  for (const s of props.sessions) if (s.organizer) set.add(s.organizer);
+  return [...set].sort((a, b) => a.localeCompare(b));
+});
+
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase();
   return props.sessions.filter((s) => {
     if (selectedType.value && s.type !== selectedType.value) return false;
+    if (selectedOrganizer.value && s.organizer !== selectedOrganizer.value) return false;
     if (!q) return true;
     return (s.title || "").toLowerCase().includes(q) || s.id.toLowerCase().includes(q);
   });

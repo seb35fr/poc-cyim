@@ -250,6 +250,10 @@ export async function fetchEventSessions(eventId, onProgress) {
             start(utc: true)
             end(utc: true)
             duration
+            organizers {
+              id
+              displayName
+            }
           }
           nextPageToken
         }

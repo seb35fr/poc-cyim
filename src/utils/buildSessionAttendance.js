@@ -128,6 +128,7 @@ export function buildSessionAttendance({
   // merge de plusieurs CSV par session dans un meme tableur).
   const sessionFields = {
     sessionId: session.id || "",
+    sessionOrganizer: session.organizer || "",
     sessionTitle: session.title || "",
     sessionStart: fmtParis(session.start),
     sessionEnd: fmtParis(session.end),
@@ -141,6 +142,7 @@ export function buildSessionAttendance({
       ...sessionFields,
       ...core,
       physiquePresent: "N",
+      qrCode: "",
       premierScanPhysique: "",
       nbScansPhysiques: 0,
       live: "N",
@@ -162,6 +164,8 @@ export function buildSessionAttendance({
     const row = getOrCreate(key, delegate, s);
     row.physiquePresent = "O";
     row.nbScansPhysiques += 1;
+    // QR reellement scanne a l'entree de salle (raw_qr_code) : trace de la presence.
+    if (!row.qrCode && s.rawQrCode) row.qrCode = s.rawQrCode;
     const ts = fmtParis(s.timestamp);
     if (ts && (!row.premierScanPhysique || ts < row.premierScanPhysique)) {
       row.premierScanPhysique = ts;
@@ -272,6 +276,7 @@ export function attendanceRowToCsv(row) {
 // Champs d'identite communs a tous les exports mono-source.
 const IDENTITY_HEADERS = [
   "Session ID",
+  "Session organisateur",
   "Session titre",
   "Session début",
   "Session fin",
@@ -294,6 +299,7 @@ const IDENTITY_HEADERS = [
 function identityCols(row) {
   return [
     row.sessionId,
+    row.sessionOrganizer,
     row.sessionTitle,
     row.sessionStart,
     row.sessionEnd,
@@ -317,12 +323,13 @@ function identityCols(row) {
 // Présentiel (présence physique en salle) : uniquement les personnes scannées.
 export const PHYSICAL_ATTENDANCE_HEADERS = [
   ...IDENTITY_HEADERS,
+  "QR code",
   "Nb scans physiques",
   "1er scan physique",
 ];
 
 export function physicalAttendanceRowToCsv(row) {
-  return [...identityCols(row), row.nbScansPhysiques || "", row.premierScanPhysique];
+  return [...identityCols(row), row.qrCode || "", row.nbScansPhysiques || "", row.premierScanPhysique];
 }
 
 // Live : uniquement les personnes ayant consulté du live.

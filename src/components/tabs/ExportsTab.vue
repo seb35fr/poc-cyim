@@ -146,6 +146,88 @@
       @toggle="toggleCategory('replay-attendance')"
     />
 
+    <!-- ═══ Catégorie : Export industrie (1 XLSX par organisation) ═══ -->
+    <section class="export-category" :class="{ open: openCategory === 'industry' }">
+      <header class="export-category-header" @click="toggleCategory('industry')">
+        <div>
+          <h3>{{ t("exports.industry.title") }}</h3>
+          <p>{{ t("exports.industry.desc") }}</p>
+        </div>
+        <span class="chevron" :class="{ rotated: openCategory === 'industry' }">▾</span>
+      </header>
+
+      <div v-if="openCategory === 'industry'" class="export-category-body">
+        <div v-if="loading" class="loading-row">
+          <div class="spinner-small-dark"></div>
+          <span>{{ t("exports.loadingSources") }}</span>
+        </div>
+        <template v-else>
+          <div class="info-row">
+            <div class="info-chip">
+              <span class="info-chip-label">{{ t("exports.industry.detected") }}</span>
+              <span class="info-chip-value">{{ industries.length }}</span>
+            </div>
+          </div>
+
+          <div v-if="industries.length === 0" class="empty-msg">{{ t("exports.industry.empty") }}</div>
+          <template v-else>
+            <div class="search-row">
+              <input
+                v-model="industrySearch"
+                type="text"
+                :placeholder="t('exports.industry.searchPlaceholder')"
+                class="search-input"
+              />
+              <button
+                class="btn-primary"
+                :disabled="filteredIndustries.length === 0 || exportingIndustries"
+                @click="exportAllIndustries"
+              >
+                <span v-if="exportingIndustries" class="spinner-small-light"></span>
+                {{ exportingIndustries
+                  ? t("exports.industry.exportAllProgress", { done: industryProgress, total: filteredIndustries.length })
+                  : t("exports.industry.exportAll", { n: filteredIndustries.length }) }}
+              </button>
+            </div>
+
+            <div v-if="filteredIndustries.length === 0" class="empty-msg">
+              {{ t("exports.industry.noMatch") }}
+            </div>
+            <div v-else class="table-wrapper">
+              <table class="data-table sessions-table">
+                <thead>
+                  <tr>
+                    <th>{{ t("exports.industry.colOrganizer") }}</th>
+                    <th class="num">{{ t("exports.industry.colSessions") }}</th>
+                    <th class="num">{{ t("exports.industry.colLive") }}</th>
+                    <th class="num">{{ t("exports.industry.colReplay") }}</th>
+                    <th class="num">{{ t("exports.industry.colOnsite") }}</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="e in filteredIndustries" :key="e.organizer">
+                    <td><div class="session-title">{{ e.organizer }}</div></td>
+                    <td class="num">{{ fmt(e.sessions) }}</td>
+                    <td class="num">{{ fmt(e.live) }}</td>
+                    <td class="num">{{ fmt(e.replay) }}</td>
+                    <td class="num">{{ fmt(e.onsite) }}</td>
+                    <td>
+                      <button class="btn-export" @click="exportIndustryXlsx(e.organizer)">
+                        {{ t("exports.industry.exportXlsx") }}
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </template>
+
+          <p class="footnote" v-html="t('exports.industry.footnote')"></p>
+        </template>
+      </div>
+    </section>
+
     <!-- ═══ Catégorie : Parcours par personne ═══ -->
     <section class="export-category" :class="{ open: openCategory === 'delegate-journey' }">
       <header class="export-category-header" @click="toggleCategory('delegate-journey')">
@@ -357,13 +439,33 @@
           <div class="info-row">
             <div class="info-chip">
               <span class="info-chip-label">{{ t("exports.sessionScans.count") }}</span>
-              <span class="info-chip-value">{{ fmt(sessionScanRows.length) }}</span>
+              <span class="info-chip-value">{{ fmt(filteredSessionScanRows.length) }}</span>
             </div>
           </div>
           <div v-if="sessionScanRows.length === 0" class="empty-msg">{{ t("exports.sessionScans.empty") }}</div>
           <div v-else class="search-row">
-            <button class="btn-primary" @click="exportSessionScansCsv">
-              {{ t("exports.sessionScans.exportCsv", { n: sessionScanRows.length }) }}
+            <select
+              v-if="scanSessionTypes.length > 0"
+              v-model="selectedScanSessionType"
+              class="type-select"
+            >
+              <option value="">{{ t("exports.presence.allTypes") }}</option>
+              <option v-for="ty in scanSessionTypes" :key="ty" :value="ty">{{ ty }}</option>
+            </select>
+            <select
+              v-if="scanOrganizers.length > 0"
+              v-model="selectedScanOrganizer"
+              class="type-select"
+            >
+              <option value="">{{ t("exports.presence.allOrganizers") }}</option>
+              <option v-for="org in scanOrganizers" :key="org" :value="org">{{ org }}</option>
+            </select>
+            <button
+              class="btn-primary"
+              :disabled="filteredSessionScanRows.length === 0"
+              @click="exportSessionScansCsv"
+            >
+              {{ t("exports.sessionScans.exportCsv", { n: filteredSessionScanRows.length }) }}
             </button>
           </div>
           <p class="footnote" v-html="t('exports.sessionScans.footnote')"></p>
@@ -411,6 +513,7 @@ import { ref, computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import { downloadCsv } from "../../utils/exportCsv.js";
+import { downloadWorkbook } from "@/utils/exportXlsx.js";
 import { fmt } from "@/utils/formatters.js";
 import SessionPresenceExport from "../SessionPresenceExport.vue";
 import {
@@ -466,8 +569,13 @@ const scans = props.scansApi;
 const openCategory = ref(null); // tous les volets replies par defaut
 const search = ref("");
 const selectedSessionType = ref(""); // "" = tous les types (filtre categorie "Presence par session")
+const selectedScanSessionType = ref(""); // "" = tous les types (filtre categorie "Scans de session")
+const selectedScanOrganizer = ref(""); // "" = tous les organisateurs (filtre categorie "Scans de session")
 const exportingAll = ref(false);
 const exportAllProgress = ref(0);
+const industrySearch = ref(""); // filtre texte sur le nom d'organisation (categorie "Export industrie")
+const exportingIndustries = ref(false);
+const industryProgress = ref(0);
 
 // Parcours par personne
 const journeyEmail = ref("");
@@ -489,22 +597,54 @@ const errors = computed(() => {
   return arr;
 });
 
-// Type de session par sessionId. Source prioritaire : les sessions GraphQL
-// exposees par useLive / useReplay (champ `type`). Repli : le `sessionType`
-// porte par les items ES live/replay (enrichi via le meme sessionMap GraphQL).
-// Les scans audience n'exposent pas le type — d'ou la jointure par sessionId.
+// Type de session par sessionId. PRIORITE au `session_type` ES (deja resolu
+// dans les items normalises audience/live/replay) — exactement la meme source
+// que les indicateurs (computeLiveStats/computeReplayStats/computeScanStats) et
+// que l'export xlsx-stats. Le `type` du noeud event GraphQL
+// (children(eventType: SESSION).type) n'est que le discriminant generique
+// (~ "SESSION"), trop large : on ne le garde qu'en dernier recours pour les
+// sessions sans session_type ES.
 const sessionTypeById = computed(() => {
   const map = new Map();
+  const addItems = (arr) => {
+    for (const it of arr || []) {
+      if (it.sessionId && it.sessionType && !map.has(it.sessionId)) {
+        map.set(it.sessionId, it.sessionType);
+      }
+    }
+  };
+  addItems(scans.stats.value.audience.scans);
+  addItems(live.stats.value.items);
+  addItems(replay.stats.value.items);
+  // Repli GraphQL pour les sessions sans session_type ES.
   const addList = (arr) => {
     for (const s of arr || []) if (s?.id && s.type && !map.has(s.id)) map.set(s.id, s.type);
   };
   addList(live.sessions?.value);
   addList(replay.sessions?.value);
-  for (const it of live.stats.value.items || []) {
-    if (it.sessionId && it.sessionType && !map.has(it.sessionId)) map.set(it.sessionId, it.sessionType);
-  }
-  for (const it of replay.stats.value.items || []) {
-    if (it.sessionId && it.sessionType && !map.has(it.sessionId)) map.set(it.sessionId, it.sessionType);
+  return map;
+});
+
+// Organisateur de session par sessionId. Source primaire : le champ GraphQL
+// `organizers { displayName }` du noeud SESSION (children). Repli : le
+// `industry_name` porte par les scans audience ES (meme entite — l'industry_id
+// du webhook = l'organisation "telle que specifiee dans le programme").
+const sessionOrganizerById = computed(() => {
+  const map = new Map();
+  const addList = (arr) => {
+    for (const s of arr || []) {
+      if (!s?.id || map.has(s.id)) continue;
+      const label = (s.organizers || [])
+        .map((o) => o?.displayName || o?.id)
+        .filter(Boolean)
+        .join(", ");
+      if (label) map.set(s.id, label);
+    }
+  };
+  addList(live.sessions?.value);
+  addList(replay.sessions?.value);
+  for (const s of scans.stats.value.audience?.scans || []) {
+    if (s.sessionId && s.industryName && !map.has(s.sessionId)) map.set(s.sessionId, s.industryName);
   }
   return map;
 });
@@ -558,9 +698,13 @@ const sessions = computed(() => {
     e.replayCount += 1;
   }
 
-  // Tri par date de debut puis titre. On attache le type de session resolu.
+  // Tri par date de debut puis titre. On attache le type + l'organisateur resolus.
   return [...map.values()]
-    .map((e) => ({ ...e, type: sessionTypeById.value.get(e.id) || "" }))
+    .map((e) => ({
+      ...e,
+      type: sessionTypeById.value.get(e.id) || "",
+      organizer: sessionOrganizerById.value.get(e.id) || "",
+    }))
     .sort((a, b) => {
       const sa = a.start || "";
       const sb = b.start || "";
@@ -591,17 +735,17 @@ const filteredSessions = computed(() => {
 const physicalSessions = computed(() =>
   sessions.value
     .filter((s) => s.audienceCount > 0)
-    .map((s) => ({ id: s.id, title: s.title, start: s.start, type: s.type, count: s.audienceCount }))
+    .map((s) => ({ id: s.id, title: s.title, start: s.start, type: s.type, organizer: s.organizer, count: s.audienceCount }))
 );
 const liveSessions = computed(() =>
   sessions.value
     .filter((s) => s.liveCount > 0)
-    .map((s) => ({ id: s.id, title: s.title, start: s.start, type: s.type, count: s.liveCount }))
+    .map((s) => ({ id: s.id, title: s.title, start: s.start, type: s.type, organizer: s.organizer, count: s.liveCount }))
 );
 const replaySessions = computed(() =>
   sessions.value
     .filter((s) => s.replayCount > 0)
-    .map((s) => ({ id: s.id, title: s.title, start: s.start, type: s.type, count: s.replayCount }))
+    .map((s) => ({ id: s.id, title: s.title, start: s.start, type: s.type, organizer: s.organizer, count: s.replayCount }))
 );
 
 // Construit les lignes (3 sources croisees) d'UNE session — base commune des
@@ -688,6 +832,76 @@ async function exportAllSessionsCsv() {
   } finally {
     exportingAll.value = false;
     exportAllProgress.value = 0;
+  }
+}
+
+// ─── Export industrie (1 XLSX par organisation, onglets Live/Replay/On site) ──
+// Liste des organisations detectees comme organisateur d'au moins une session,
+// avec les compteurs bruts (vues/scans) par source — meme semantique que la
+// table "Presence par session".
+const industries = computed(() => {
+  const map = new Map();
+  for (const s of sessions.value) {
+    if (!s.organizer) continue;
+    let e = map.get(s.organizer);
+    if (!e) {
+      e = { organizer: s.organizer, sessions: 0, live: 0, replay: 0, onsite: 0 };
+      map.set(s.organizer, e);
+    }
+    e.sessions += 1;
+    e.live += s.liveCount;
+    e.replay += s.replayCount;
+    e.onsite += s.audienceCount;
+  }
+  return [...map.values()].sort((a, b) => a.organizer.localeCompare(b.organizer));
+});
+
+const filteredIndustries = computed(() => {
+  const q = industrySearch.value.trim().toLowerCase();
+  if (!q) return industries.value;
+  return industries.value.filter((e) => e.organizer.toLowerCase().includes(q));
+});
+
+// Construit les 3 onglets (Live / Replay / On site) d'UNE organisation : on
+// croise les sources sur chaque session de l'organisation, puis on filtre par
+// source et on serialise avec EXACTEMENT les colonnes des exports mono-source.
+function buildIndustrySheets(organizer) {
+  const orgSessions = sessions.value.filter((s) => s.organizer === organizer);
+  const live = [];
+  const replay = [];
+  const onsite = [];
+  for (const session of orgSessions) {
+    const rows = buildRowsForSession(session);
+    for (const r of filterAttendanceBySource(rows, "live")) live.push(liveAttendanceRowToCsv(r));
+    for (const r of filterAttendanceBySource(rows, "replay")) replay.push(replayAttendanceRowToCsv(r));
+    for (const r of filterAttendanceBySource(rows, "physique")) onsite.push(physicalAttendanceRowToCsv(r));
+  }
+  return [
+    { name: t("exports.industry.sheetLive"), headers: LIVE_ATTENDANCE_HEADERS, rows: live },
+    { name: t("exports.industry.sheetReplay"), headers: REPLAY_ATTENDANCE_HEADERS, rows: replay },
+    { name: t("exports.industry.sheetOnsite"), headers: PHYSICAL_ATTENDANCE_HEADERS, rows: onsite },
+  ];
+}
+
+async function exportIndustryXlsx(organizer) {
+  const sheets = buildIndustrySheets(organizer);
+  await downloadWorkbook(`industrie_${slug(props.eventName || eventId, 40)}-${slug(organizer, 60)}`, sheets);
+}
+
+async function exportAllIndustries() {
+  if (exportingIndustries.value) return;
+  exportingIndustries.value = true;
+  industryProgress.value = 0;
+  try {
+    for (const e of filteredIndustries.value) {
+      await exportIndustryXlsx(e.organizer);
+      industryProgress.value += 1;
+      // Petite pause pour laisser le navigateur enchainer les telechargements.
+      await new Promise((r) => setTimeout(r, 250));
+    }
+  } finally {
+    exportingIndustries.value = false;
+    industryProgress.value = 0;
   }
 }
 
@@ -792,19 +1006,39 @@ const sessionScanRows = computed(() =>
     delegates: props.delegates,
     sessionTypeById: sessionTypeById.value,
     sessionTimesById: sessionTimesById.value,
+    sessionOrganizerById: sessionOrganizerById.value,
   }),
 );
+// Types de session distincts presents dans les scans de salle (filtre deroulant).
+const scanSessionTypes = computed(() => {
+  const set = new Set();
+  for (const r of sessionScanRows.value) if (r.sessionType) set.add(r.sessionType);
+  return [...set].sort((a, b) => a.localeCompare(b));
+});
+// Organisateurs distincts presents dans les scans de salle (filtre deroulant).
+const scanOrganizers = computed(() => {
+  const set = new Set();
+  for (const r of sessionScanRows.value) if (r.sessionOrganizer) set.add(r.sessionOrganizer);
+  return [...set].sort((a, b) => a.localeCompare(b));
+});
+const filteredSessionScanRows = computed(() => {
+  return sessionScanRows.value.filter((r) => {
+    if (selectedScanSessionType.value && r.sessionType !== selectedScanSessionType.value) return false;
+    if (selectedScanOrganizer.value && r.sessionOrganizer !== selectedScanOrganizer.value) return false;
+    return true;
+  });
+});
 
 function exportZoneScansCsv() {
   if (zoneScanRows.value.length === 0) return;
   downloadCsv(`scans_zone_${safeEventName()}`, ZONE_SCAN_HEADERS, zoneScanRows.value.map(zoneScanRowToCsv));
 }
 function exportSessionScansCsv() {
-  if (sessionScanRows.value.length === 0) return;
+  if (filteredSessionScanRows.value.length === 0) return;
   downloadCsv(
     `scans_session_${safeEventName()}`,
     SESSION_SCAN_HEADERS,
-    sessionScanRows.value.map(sessionScanRowToCsv),
+    filteredSessionScanRows.value.map(sessionScanRowToCsv),
   );
 }
 
