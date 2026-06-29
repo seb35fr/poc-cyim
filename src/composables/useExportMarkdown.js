@@ -1,4 +1,5 @@
 import { ref } from "vue";
+import { buildDataDump, jsonReplacer } from "@/utils/buildDataDump.js";
 import { generateAnalysis } from "@/utils/generateAnalysis.js";
 import { buildCheckinByType } from "@/utils/checkinByType.js";
 import { buildDelegateLookup, getRemoteOnlyDelegateIds } from "@/utils/viewerJoin.js";
@@ -906,88 +907,6 @@ function renderEventBody({ stats, delegates = [], liveStats = null, replayStats 
   out += sectionLiveReplay(t("md.viewers.replayLabel"), replayStats, delegates, "replay");
   out += sectionScans(scanStats);
   return out;
-}
-
-// --- Dump JSON integral ------------------------------------------------------
-// Objectif : un fichier JSON contenant 100% des donnees ayant servi a produire
-// les stats — pour rejouer / auditer / recalculer hors de l'app. On serialise :
-//   - delegates : objets delegues BRUTS (GraphQL), tels que chargés
-//   - stats : tous les indicateurs calcules (computeAllStats, toutes sections)
-//   - live / replay / scans : stats ES incluant les items/scans normalises bruts
-// Les sections de `stats` sont des getters lazy -> on les lit explicitement pour
-// forcer leur materialisation avant serialisation.
-function materializeStats(stats) {
-  if (!stats) return null;
-  return {
-    global: stats.global,
-    demographics: stats.demographics,
-    registrations: stats.registrations,
-    temporal: stats.temporal,
-    checkinFlow: stats.checkinFlow,
-    badges: stats.badges,
-    onboarding: stats.onboarding,
-    mobileApp: stats.mobileApp,
-  };
-}
-
-// Replacer JSON : convertit Set -> Array, Map -> Object, BigInt -> string.
-// (Les structures de stats sont normalement deja plates ; filet de securite.)
-function jsonReplacer(key, value) {
-  if (value instanceof Set) return [...value];
-  if (value instanceof Map) return Object.fromEntries(value);
-  if (typeof value === "bigint") return value.toString();
-  return value;
-}
-
-function buildDataDump(opts) {
-  const {
-    eventId,
-    eventName,
-    delegates = [],
-    stats = null,
-    liveStats = null,
-    replayStats = null,
-    scanStats = null,
-    compareStats = null,
-    compareEventName = null,
-    compareDelegates = null,
-    compareLiveStats = null,
-    compareReplayStats = null,
-    compareScanStats = null,
-    badgeFilterTypes = [],
-  } = opts;
-
-  const dump = {
-    meta: {
-      schema: "cyim-statistics-reg/full-dump@1",
-      eventId: eventId || null,
-      eventName: eventName || null,
-      generatedAt: new Date().toISOString(),
-      locale: i18n.global.locale.value,
-      badgeTypeFilter: badgeFilterTypes,
-      delegatesCount: delegates.length,
-    },
-    event: {
-      delegates,
-      stats: materializeStats(stats),
-      live: liveStats,
-      replay: replayStats,
-      scans: scanStats,
-    },
-  };
-
-  if (compareStats && compareEventName) {
-    dump.compare = {
-      eventName: compareEventName,
-      delegates: compareDelegates || [],
-      stats: materializeStats(compareStats),
-      live: compareLiveStats,
-      replay: compareReplayStats,
-      scans: compareScanStats,
-    };
-  }
-
-  return dump;
 }
 
 // --- Composable principal ---------------------------------------------------

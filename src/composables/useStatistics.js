@@ -16,6 +16,8 @@ export function useStatistics(eventId, options = {}) {
   const eventName = ref("");
   const eventLogo = ref("");
   const mobileAppId = ref(null);
+  // Objet config complet (branding + mobileAppId) — exposé pour le dump JSON.
+  const eventConfig = ref(null);
   const delegates = ref([]);
 
   async function load() {
@@ -52,6 +54,7 @@ export function useStatistics(eventId, options = {}) {
       eventName.value = config?.branding?.name || eventId;
       eventLogo.value = config?.branding?.logoURL || "";
       mobileAppId.value = config?.mobileAppId || null;
+      eventConfig.value = config || null;
       delegates.value = delegateResult.items;
       stats.value = computeAllStats(delegateResult.items, mobileAppId.value);
 
@@ -125,6 +128,7 @@ export function useStatistics(eventId, options = {}) {
     stats: readonly(stats),
     eventName: readonly(eventName),
     eventLogo: readonly(eventLogo),
+    eventConfig: readonly(eventConfig),
     delegates: readonly(delegates),
     mobileAppId: readonly(mobileAppId),
     nextRefreshAt: readonly(nextRefreshAt),

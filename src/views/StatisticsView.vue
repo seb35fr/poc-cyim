@@ -280,7 +280,7 @@ const eventId = route.params.eventId;
 const compareEventId = route.query.compareWith || null;
 const statsApi = useStatistics(eventId);
 const {
-  loading, configLoading, refreshing, error, progress, stats, eventName, eventLogo, delegates, mobileAppId,
+  loading, configLoading, refreshing, error, progress, stats, eventName, eventLogo, eventConfig, delegates, mobileAppId,
   reload, nextRefreshAt,
 } = statsApi;
 
@@ -444,10 +444,18 @@ async function handleExportMarkdown() {
   await exportToMarkdown({
     eventId,
     eventName: eventName.value,
+    config: eventConfig.value,
+    // Référentiel sessions du programme : identique côté live et replay
+    // (children SESSION) — on prend le live, repli sur le replay.
+    sessions: liveApi.sessions.value?.length ? liveApi.sessions.value : replayApi.sessions.value,
     delegates: pageDelegates.value,
     stats: pageStats.value,
     compareStats: pageCompareStats.value,
     compareEventName: compareEventName.value,
+    compareConfig: compareApi?.eventConfig.value || null,
+    compareSessions: compareLiveApi?.sessions.value?.length
+      ? compareLiveApi.sessions.value
+      : compareReplayApi?.sessions.value || [],
     compareDelegates: pageCompareDelegates.value,
     compareLiveStats: compareLiveApi?.stats.value || null,
     compareReplayStats: compareReplayApi?.stats.value || null,
