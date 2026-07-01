@@ -5,8 +5,8 @@
         <h3>{{ t("maps.worldTitle") }}</h3>
         <CsvButton
           :filename="`${filenamePrefix}-monde`"
-          :headers="[t('maps.csv.countryCode'), t('maps.csv.registered')]"
-          :rows="geoCountries.map(c => [c.value, c.totalCount])"
+          :headers="[t('maps.csv.countryCode'), t('maps.csv.countryName'), t('maps.csv.registered')]"
+          :rows="geoCountries.map(c => [c.value, countryName(c.value), c.totalCount])"
         />
       </div>
       <ChoroplethMap :countries="geoCountries" :height="380" :show-legend="showScaleLegend" :key="`world-${cacheKey}`" />
@@ -68,6 +68,7 @@ import ChoroplethMap from "./ChoroplethMap.vue";
 import FrenchRegionMap from "./FrenchRegionMap.vue";
 import CsvButton from "../CsvButton.vue";
 import { zipToRegion, REGION_NAMES } from "../../utils/frenchRegions.js";
+import { countryName } from "../../utils/countries.js";
 
 const { t } = useI18n();
 

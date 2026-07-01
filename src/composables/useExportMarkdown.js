@@ -6,6 +6,7 @@ import { buildDelegateLookup, getRemoteOnlyDelegateIds } from "@/utils/viewerJoi
 import { computeParticipation } from "@/utils/participation.js";
 import { toEpochMs } from "@/utils/parisTime.js";
 import { zipToRegion, REGION_NAMES } from "@/utils/frenchRegions.js";
+import { countryName } from "@/utils/countries.js";
 import { i18n } from "@/i18n/index.js";
 import { weekdayNames } from "@/i18n/labels.js";
 
@@ -186,8 +187,8 @@ function sectionDemographics(stats, delegates = []) {
   out += h(3, t("md.demo.countriesTop"));
   const totalCountries = (d.countries || []).reduce((s, c) => s + c.totalCount, 0);
   out += mdTable(
-    [t("md.demo.colCountry"), t("md.demo.colDelegates"), t("md.demo.colPct")],
-    (d.countries || []).map((c) => [c.value, fmtNum(c.totalCount), fmtPct(c.totalCount, totalCountries)]),
+    [t("md.demo.colCountry"), t("md.demo.colCountryName"), t("md.demo.colDelegates"), t("md.demo.colPct")],
+    (d.countries || []).map((c) => [c.value, countryName(c.value), fmtNum(c.totalCount), fmtPct(c.totalCount, totalCountries)]),
   );
   out += `${t("md.demo.countriesSummary", { unique: d.uniqueCountries || 0, total: (d.countries || []).length })}\n\n`;
 

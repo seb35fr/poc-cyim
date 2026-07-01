@@ -95,6 +95,13 @@ export const NUMERIC_TO_ALPHA2 = {
   704: "VN", 887: "YE", 894: "ZM", 716: "ZW", 180: "CD",
 };
 
+// Libelle (FR) d'un code pays ISO alpha-2. Renvoie "" si inconnu/vide — utilise
+// pour ajouter une colonne "nom de pays" a cote du code dans les exports CSV.
+export function countryName(code) {
+  if (!code) return "";
+  return COUNTRY_NAMES[code.toUpperCase()] || "";
+}
+
 export function countryCodeToFlag(code) {
   if (!code || code.length !== 2) return "";
   return String.fromCodePoint(

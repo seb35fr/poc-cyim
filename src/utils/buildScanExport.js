@@ -10,6 +10,7 @@
 
 import { delegateCoreFields } from "./buildSessionAttendance.js";
 import { parisDateTime, wallClock, toEpochMs } from "./parisTime.js";
+import { countryName } from "./countries.js";
 
 // En-tetes CSV (FR, non traduits — meme convention que les autres exports CSV).
 const DELEGATE_HEADERS = [
@@ -26,6 +27,7 @@ const DELEGATE_HEADERS = [
   "Mode d'exercice",
   "RPPS",
   "Pays",
+  "Pays (nom)",
   "Type de badge",
   "Check-in congrès",
   "Rapproché",
@@ -125,6 +127,7 @@ function delegateCsvCells(c) {
     c.practiceModes,
     c.rpps,
     c.pays,
+    countryName(c.pays),
     c.typeBadge,
     c.checkIn,
     c.matched,

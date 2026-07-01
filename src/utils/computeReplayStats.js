@@ -41,6 +41,10 @@ function normalize(hit, sessionMap) {
     origin: s.origin || s.platform || s.source || "Inconnu",
     timestamp,
     duration: Number(s.view_duration ?? s.duration ?? s.vod_duration ?? 0) || 0,
+    // Granularite VOD : media/presentation consultes (cf. export VOD xlsx-stats).
+    mediaId: s.media_id || "",
+    presentationId: s.presentation_id || "",
+    presentationTitle: s.presentation_title || "",
   };
 }
 

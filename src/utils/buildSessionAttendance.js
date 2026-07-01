@@ -13,6 +13,7 @@
 import { delegateBadgeType } from "./checkinByType.js";
 import { parisDateTime, toEpochMs } from "./parisTime.js";
 import { hasValidCheckin, getRpps } from "./viewerJoin.js";
+import { countryName } from "./countries.js";
 
 // Re-export pour compat (buildScanExport importe getRpps/delegateCoreFields ici).
 export { getRpps };
@@ -222,6 +223,7 @@ export const ATTENDANCE_HEADERS = [
   "Mode d'exercice (practiceModes)",
   "RPPS",
   "Pays",
+  "Pays (nom)",
   "Type badge",
   "Check-in congrès",
   "Présent physique (session)",
@@ -253,6 +255,7 @@ export function attendanceRowToCsv(row) {
     row.practiceModes,
     row.rpps,
     row.pays,
+    countryName(row.pays),
     row.typeBadge,
     yesNo(row.checkInCongres),
     yesNo(row.physiquePresent),
@@ -292,6 +295,7 @@ const IDENTITY_HEADERS = [
   "Mode d'exercice (practiceModes)",
   "RPPS",
   "Pays",
+  "Pays (nom)",
   "Type badge",
   "Check-in congrès",
 ];
@@ -315,6 +319,7 @@ function identityCols(row) {
     row.practiceModes,
     row.rpps,
     row.pays,
+    countryName(row.pays),
     row.typeBadge,
     yesNo(row.checkInCongres),
   ];
@@ -343,7 +348,9 @@ export function liveAttendanceRowToCsv(row) {
   return [...identityCols(row), row.nbVuesLive || "", formatDuration(row.dureeLiveSec)];
 }
 
-// Replay : uniquement les personnes ayant consulté du replay.
+// Replay (agrege par personne) : utilise par l'export industrie XLSX (onglet
+// Replay), ou la maille reste "1 personne". L'export Replay PAR SESSION
+// autonome, lui, est par VUE (cf. buildReplayViewRows plus bas).
 export const REPLAY_ATTENDANCE_HEADERS = [
   ...IDENTITY_HEADERS,
   "Nb vues replay",
@@ -352,6 +359,118 @@ export const REPLAY_ATTENDANCE_HEADERS = [
 
 export function replayAttendanceRowToCsv(row) {
   return [...identityCols(row), row.nbVuesReplay || "", formatDuration(row.dureeReplaySec)];
+}
+
+// ─── Export Replay PAR VUE (1 ligne = 1 vue VOD) ───────────────────────────
+// Aligne sur l'export VOD du microservice xlsx-stats : la maille est la VUE,
+// pas la personne. view_date / origin / media_id / presentation_* sont des
+// donnees PAR VUE — impossible a representer sur une ligne agregee par personne
+// sans perdre la correspondance 1:1. Consequence directe : pas de "Nb vues"
+// (chaque ligne EST une vue) et la duree est celle de la vue (pas de cumul).
+//
+// Ordre des colonnes (demande) : bloc session -> media/presentation/view/origin
+// (juste a droite de "Session fin") -> identite du delegue -> duree de la vue.
+export const REPLAY_VIEW_HEADERS = [
+  "Session ID",
+  "Session organisateur",
+  "Session titre",
+  "Session début",
+  "Session fin",
+  "Media ID",
+  "Presentation ID",
+  "Presentation titre",
+  "View date",
+  "Origin",
+  "Délégué ID",
+  "Civilité",
+  "Prénom",
+  "Nom",
+  "Email",
+  "Société",
+  "Profession (occupation)",
+  "Fonction (jobTitle)",
+  "Spécialité (qualification)",
+  "Mode d'exercice (practiceModes)",
+  "RPPS",
+  "Pays",
+  "Pays (nom)",
+  "Type badge",
+  "Check-in congrès",
+  "Durée de la vue (mm:ss)",
+];
+
+/**
+ * Construit les lignes "par vue" du replay pour UNE session.
+ * @param {object} args
+ * @param {object} args.session      - { id, organizer, title, start, end }
+ * @param {Array}  args.replayItems  - items replay normalises (computeReplayStats.items) de la session
+ * @param {Array}  args.delegates    - tous les delegues (enrichissement identite)
+ * @returns {Array<object>} 1 objet par vue
+ */
+export function buildReplayViewRows({ session = {}, replayItems = [], delegates = [] } = {}) {
+  const lookup = buildDelegateLookup(delegates);
+  const sessionFields = {
+    sessionId: session.id || "",
+    sessionOrganizer: session.organizer || "",
+    sessionTitle: session.title || "",
+    sessionStart: fmtParis(session.start),
+    sessionEnd: fmtParis(session.end),
+  };
+
+  const rows = (replayItems || []).map((it) => {
+    const delegate = it.userId ? lookup.byKeycloakId.get(it.userId) : null;
+    const core = delegate ? delegateCoreFields(delegate) : unmatchedCoreFields(it);
+    return {
+      ...sessionFields,
+      mediaId: it.mediaId || "",
+      presentationId: it.presentationId || "",
+      presentationTitle: it.presentationTitle || "",
+      viewDate: fmtParis(it.timestamp),
+      origin: it.origin || "",
+      ...core,
+      dureeSec: it.duration || 0,
+    };
+  });
+
+  // Tri : delegues rapproches d'abord, puis par nom, puis par date de vue.
+  return rows.sort((a, b) => {
+    if (a.matched !== b.matched) return a.matched ? -1 : 1;
+    const an = `${a.nom} ${a.prenom}`.toLowerCase();
+    const bn = `${b.nom} ${b.prenom}`.toLowerCase();
+    if (an !== bn) return an.localeCompare(bn);
+    return (a.viewDate || "").localeCompare(b.viewDate || "");
+  });
+}
+
+export function replayViewRowToCsv(row) {
+  return [
+    row.sessionId,
+    row.sessionOrganizer,
+    row.sessionTitle,
+    row.sessionStart,
+    row.sessionEnd,
+    row.mediaId,
+    row.presentationId,
+    row.presentationTitle,
+    row.viewDate,
+    row.origin,
+    row.delegateId,
+    row.civilite,
+    row.prenom,
+    row.nom,
+    row.email,
+    row.societe,
+    row.occupation,
+    row.jobTitle,
+    row.qualification,
+    row.practiceModes,
+    row.rpps,
+    row.pays,
+    countryName(row.pays),
+    row.typeBadge,
+    yesNo(row.checkInCongres),
+    formatDuration(row.dureeSec),
+  ];
 }
 
 // Filtre les lignes d'une session sur une seule source de présence.

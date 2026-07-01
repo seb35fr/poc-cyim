@@ -526,6 +526,9 @@ import {
   liveAttendanceRowToCsv,
   REPLAY_ATTENDANCE_HEADERS,
   replayAttendanceRowToCsv,
+  REPLAY_VIEW_HEADERS,
+  buildReplayViewRows,
+  replayViewRowToCsv,
   filterAttendanceBySource,
 } from "../../utils/buildSessionAttendance.js";
 import {
@@ -735,17 +738,17 @@ const filteredSessions = computed(() => {
 const physicalSessions = computed(() =>
   sessions.value
     .filter((s) => s.audienceCount > 0)
-    .map((s) => ({ id: s.id, title: s.title, start: s.start, type: s.type, organizer: s.organizer, count: s.audienceCount }))
+    .map((s) => ({ id: s.id, title: s.title, start: s.start, end: s.end, type: s.type, organizer: s.organizer, count: s.audienceCount }))
 );
 const liveSessions = computed(() =>
   sessions.value
     .filter((s) => s.liveCount > 0)
-    .map((s) => ({ id: s.id, title: s.title, start: s.start, type: s.type, organizer: s.organizer, count: s.liveCount }))
+    .map((s) => ({ id: s.id, title: s.title, start: s.start, end: s.end, type: s.type, organizer: s.organizer, count: s.liveCount }))
 );
 const replaySessions = computed(() =>
   sessions.value
     .filter((s) => s.replayCount > 0)
-    .map((s) => ({ id: s.id, title: s.title, start: s.start, type: s.type, organizer: s.organizer, count: s.replayCount }))
+    .map((s) => ({ id: s.id, title: s.title, start: s.start, end: s.end, type: s.type, organizer: s.organizer, count: s.replayCount }))
 );
 
 // Construit les lignes (3 sources croisees) d'UNE session — base commune des
@@ -810,13 +813,18 @@ const exportLiveCsv = (session) =>
     rowToCsv: liveAttendanceRowToCsv,
     prefix: "live",
   });
-const exportReplayCsv = (session) =>
-  exportSourceCsv(session, {
-    source: "replay",
-    headers: REPLAY_ATTENDANCE_HEADERS,
-    rowToCsv: replayAttendanceRowToCsv,
-    prefix: "replay",
-  });
+// Replay autonome : export PAR VUE (1 ligne = 1 vue VOD), aligne sur xlsx-stats
+// (media/presentation/view date/origin par vue). N'utilise donc PAS
+// exportSourceCsv (qui agrege par personne) mais le builder dedie.
+function exportReplayCsv(session) {
+  const replayItems = (replay.stats.value.items || []).filter((it) => it.sessionId === session.id);
+  const rows = buildReplayViewRows({ session, replayItems, delegates: props.delegates });
+  if (rows.length === 0) {
+    alert(t("exports.presence.noParticipant"));
+    return;
+  }
+  downloadCsv(buildFilename("replay", session), REPLAY_VIEW_HEADERS, rows.map(replayViewRowToCsv));
+}
 
 async function exportAllSessionsCsv() {
   if (exportingAll.value) return;

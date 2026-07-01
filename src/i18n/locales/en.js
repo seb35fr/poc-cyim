@@ -298,7 +298,8 @@ export default {
     demo: {
       title: "Demographics",
       countriesTop: "Countries (all)",
-      colCountry: "Country",
+      colCountry: "Country code",
+      colCountryName: "Country",
       colDelegates: "Delegates",
       colPct: "%",
       countriesSummary: "_{unique} unique countries, {total} entries total._",
@@ -1099,7 +1100,7 @@ export default {
     loadError: "Unable to load the map",
     registered: "Participants",
     registeredN: "participant | participants",
-    csv: { countryCode: "Country code", registered: "Registered", regionCode: "Region code", region: "Region" },
+    csv: { countryCode: "Country code", countryName: "Country", registered: "Registered", regionCode: "Region code", region: "Region" },
   },
   data: {
     searchPlaceholder: "Search...",
@@ -1315,6 +1316,7 @@ export default {
       delegatesCumul: "Cumulative delegates",
       bucket: "Bucket",
       countryCode: "Country code",
+      countryName: "Country",
       delegates: "Delegates",
       attendances: "Presences (all modes)",
       distribution: "Distribution",

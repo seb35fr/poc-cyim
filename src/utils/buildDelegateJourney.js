@@ -10,6 +10,7 @@
 import { delegateBadgeType } from "./checkinByType.js";
 import { parisDateTime, toEpochMs } from "./parisTime.js";
 import { getKeycloakId, hasValidCheckin, getRpps } from "./viewerJoin.js";
+import { countryName } from "./countries.js";
 
 // Formatage unifie en heure de Paris (cf. buildSessionAttendance.js).
 function fmtParis(ts) {
@@ -289,6 +290,7 @@ export const JOURNEY_HEADERS = [
   "Spécialité (qualification)",
   "RPPS",
   "Pays",
+  "Pays (nom)",
   "Type badge",
   "Check-in congrès",
   "Nature",
@@ -321,6 +323,7 @@ export function journeyRowToCsv(row) {
     row.qualification,
     row.rpps,
     row.pays,
+    countryName(row.pays),
     row.typeBadge,
     yesNo(row.checkInCongres),
     row.kind === "zone" ? "Zone" : "Session",

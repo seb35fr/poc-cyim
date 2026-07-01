@@ -312,7 +312,8 @@ export default {
     demo: {
       title: "Démographie",
       countriesTop: "Pays (tous)",
-      colCountry: "Pays",
+      colCountry: "Code pays",
+      colCountryName: "Pays",
       colDelegates: "Délégués",
       colPct: "%",
       countriesSummary: "_{unique} pays uniques, {total} entrées au total._",
@@ -1113,7 +1114,7 @@ export default {
     loadError: "Impossible de charger la carte",
     registered: "Participants",
     registeredN: "participant | participants",
-    csv: { countryCode: "Code pays", registered: "Inscrits", regionCode: "Code région", region: "Région" },
+    csv: { countryCode: "Code pays", countryName: "Pays", registered: "Inscrits", regionCode: "Code région", region: "Région" },
   },
   data: {
     searchPlaceholder: "Rechercher...",
@@ -1329,6 +1330,7 @@ export default {
       delegatesCumul: "Délégués cumulés",
       bucket: "Tranche",
       countryCode: "Code pays",
+      countryName: "Pays",
       delegates: "Délégués",
       attendances: "Présences (tous modes)",
       distribution: "Distribution",

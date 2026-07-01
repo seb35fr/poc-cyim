@@ -82,8 +82,8 @@
             <h3>{{ t("maps.worldTitle") }} <InfoTooltip :text="t('viewers.charts.geoHint')" /></h3>
             <CsvButton
               :filename="`${kind}-delegues-par-pays-monde`"
-              :headers="[t('maps.csv.countryCode'), t('viewers.csv.uniqueDelegates')]"
-              :rows="geoCountries.map(c => [c.value, c.totalCount])"
+              :headers="[t('maps.csv.countryCode'), t('maps.csv.countryName'), t('viewers.csv.uniqueDelegates')]"
+              :rows="geoCountries.map(c => [c.value, countryName(c.value), c.totalCount])"
             />
           </div>
           <ChoroplethMap :key="`world-${geoCacheKey}`" :countries="geoCountries" scope="world" :show-legend="true" :height="420" />
@@ -93,8 +93,8 @@
             <h3>{{ t("maps.europeTitle") }} <InfoTooltip :text="t('viewers.charts.geoHint')" /></h3>
             <CsvButton
               :filename="`${kind}-delegues-par-pays-europe`"
-              :headers="[t('maps.csv.countryCode'), t('viewers.csv.uniqueDelegates')]"
-              :rows="geoCountriesEurope.map(c => [c.value, c.totalCount])"
+              :headers="[t('maps.csv.countryCode'), t('maps.csv.countryName'), t('viewers.csv.uniqueDelegates')]"
+              :rows="geoCountriesEurope.map(c => [c.value, countryName(c.value), c.totalCount])"
             />
           </div>
           <ChoroplethMap :key="`europe-${geoCacheKey}`" :countries="geoCountries" scope="europe" :show-legend="true" :height="420" />
@@ -411,7 +411,7 @@ import InfoTooltip from "../InfoTooltip.vue";
 import { parisDateParts, toEpochMs, sessionDateShort } from "../../utils/parisTime.js";
 import { fmt } from "@/utils/formatters.js";
 import { getTypeColor } from "@/utils/typeColors.js";
-import { COUNTRY_CONTINENTS } from "@/utils/countries.js";
+import { COUNTRY_CONTINENTS, countryName } from "@/utils/countries.js";
 import { delegateBadgeType } from "@/utils/checkinByType.js";
 import { buildDelegateLookup } from "@/utils/viewerJoin.js";
 import { debug } from "@/utils/debug.js";

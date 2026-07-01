@@ -115,8 +115,8 @@
             <h3>{{ t("maps.worldTitle") }} <InfoTooltip :text="t('scans.geoHint')" /></h3>
             <CsvButton
               filename="scans-pays-monde"
-              :headers="[t('overview.csv.countryCode'), t('scans.csv.uniqueDelegates')]"
-              :rows="geoCountries.map(c => [c.value, c.totalCount])"
+              :headers="[t('overview.csv.countryCode'), t('overview.csv.countryName'), t('scans.csv.uniqueDelegates')]"
+              :rows="geoCountries.map(c => [c.value, countryName(c.value), c.totalCount])"
             />
           </div>
           <ChoroplethMap :key="`scans-world-${geoCacheKey}`" :countries="geoCountries" scope="world" :show-legend="true" :height="420" />
@@ -126,8 +126,8 @@
             <h3>{{ t("maps.europeTitle") }} <InfoTooltip :text="t('scans.geoHint')" /></h3>
             <CsvButton
               filename="scans-pays-europe"
-              :headers="[t('overview.csv.countryCode'), t('scans.csv.uniqueDelegates')]"
-              :rows="geoCountriesEurope.map(c => [c.value, c.totalCount])"
+              :headers="[t('overview.csv.countryCode'), t('overview.csv.countryName'), t('scans.csv.uniqueDelegates')]"
+              :rows="geoCountriesEurope.map(c => [c.value, countryName(c.value), c.totalCount])"
             />
           </div>
           <ChoroplethMap :key="`scans-europe-${geoCacheKey}`" :countries="geoCountries" scope="europe" :show-legend="true" :height="420" />
@@ -268,7 +268,7 @@ import KpiCompareGrid from "../charts/KpiCompareGrid.vue";
 import CsvButton from "../CsvButton.vue";
 import InfoTooltip from "../InfoTooltip.vue";
 import ScanDetailTable from "../ScanDetailTable.vue";
-import { COUNTRY_CONTINENTS } from "../../utils/countries.js";
+import { COUNTRY_CONTINENTS, countryName } from "../../utils/countries.js";
 import { parisDateParts, toEpochMs, sessionDateShort } from "../../utils/parisTime.js";
 import { fmt } from "@/utils/formatters.js";
 import { getTypeColor } from "@/utils/typeColors.js";

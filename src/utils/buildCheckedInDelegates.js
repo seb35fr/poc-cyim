@@ -10,6 +10,7 @@
 import { delegateBadgeType } from "./checkinByType.js";
 import { hasValidCheckin, getRpps } from "./viewerJoin.js";
 import { parisDateTime } from "./parisTime.js";
+import { countryName } from "./countries.js";
 
 function fmtParis(ts) {
   if (ts == null || ts === "") return "";
@@ -90,6 +91,7 @@ export const CHECKED_IN_HEADERS = [
   "Mode d'exercice (practiceModes)",
   "RPPS",
   "Pays",
+  "Pays (nom)",
   "Ville",
   "Type badge",
   "Statut",
@@ -112,6 +114,7 @@ export function checkedInRowToCsv(row) {
     row.practiceModes,
     row.rpps,
     row.pays,
+    countryName(row.pays),
     row.ville,
     row.typeBadge,
     row.statut,
