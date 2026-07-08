@@ -745,6 +745,8 @@ export default {
       desc: "Tous les scans d'accès aux zones, 1 ligne par scan, enrichis des informations du délégué et de son type de badge. Un seul CSV.",
       count: "Scans de zone",
       empty: "Aucun scan de zone pour cet événement.",
+      filterLabel: "Filtrer par zone :",
+      allZones: "Toutes les zones",
       exportCsv: "Exporter CSV ({n} scans)",
       footnote: "Inclut les scans <strong>ré-associés</strong> par l'application (delegate_id manquant côté pipeline mais badge/délégué retrouvés via le QR). Colonne <code>Rapproché</code> = O si le délégué a été retrouvé, N sinon. Horodatage en heure de Paris.",
     },

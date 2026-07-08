@@ -492,15 +492,44 @@
           <div class="info-row">
             <div class="info-chip">
               <span class="info-chip-label">{{ t("exports.zoneScans.count") }}</span>
-              <span class="info-chip-value">{{ fmt(zoneScanRows.length) }}</span>
+              <span class="info-chip-value">{{ fmt(filteredZoneScanRows.length) }}</span>
             </div>
           </div>
           <div v-if="zoneScanRows.length === 0" class="empty-msg">{{ t("exports.zoneScans.empty") }}</div>
-          <div v-else class="search-row">
-            <button class="btn-primary" @click="exportZoneScansCsv">
-              {{ t("exports.zoneScans.exportCsv", { n: zoneScanRows.length }) }}
-            </button>
-          </div>
+          <template v-else>
+            <div v-if="scanZones.length > 1" class="zone-filter">
+              <div class="zone-filter-head">
+                <span class="zone-filter-label">{{ t("exports.zoneScans.filterLabel") }}</span>
+                <button
+                  v-if="selectedZones.length > 0"
+                  class="zone-filter-clear"
+                  @click="selectedZones = []"
+                >
+                  {{ t("exports.zoneScans.allZones") }}
+                </button>
+              </div>
+              <div class="zone-pills">
+                <button
+                  v-for="z in scanZones"
+                  :key="z"
+                  class="zone-pill"
+                  :class="{ active: selectedZones.includes(z) }"
+                  @click="toggleZone(z)"
+                >
+                  {{ z }}
+                </button>
+              </div>
+            </div>
+            <div class="search-row">
+              <button
+                class="btn-primary"
+                :disabled="filteredZoneScanRows.length === 0"
+                @click="exportZoneScansCsv"
+              >
+                {{ t("exports.zoneScans.exportCsv", { n: filteredZoneScanRows.length }) }}
+              </button>
+            </div>
+          </template>
           <p class="footnote" v-html="t('exports.zoneScans.footnote')"></p>
         </template>
       </div>
@@ -574,6 +603,7 @@ const search = ref("");
 const selectedSessionType = ref(""); // "" = tous les types (filtre categorie "Presence par session")
 const selectedScanSessionType = ref(""); // "" = tous les types (filtre categorie "Scans de session")
 const selectedScanOrganizer = ref(""); // "" = tous les organisateurs (filtre categorie "Scans de session")
+const selectedZones = ref([]); // [] = toutes les zones (filtre multi-select categorie "Scans de zone")
 const exportingAll = ref(false);
 const exportAllProgress = ref(0);
 const industrySearch = ref(""); // filtre texte sur le nom d'organisation (categorie "Export industrie")
@@ -996,6 +1026,23 @@ const zoneScanRows = computed(() =>
     zoneNames: scans.zoneNames?.value || null,
   }),
 );
+// Zones distinctes presentes dans les scans (filtre multi-select).
+const scanZones = computed(() => {
+  const set = new Set();
+  for (const r of zoneScanRows.value) if (r.zone) set.add(r.zone);
+  return [...set].sort((a, b) => a.localeCompare(b));
+});
+function toggleZone(z) {
+  const i = selectedZones.value.indexOf(z);
+  if (i === -1) selectedZones.value.push(z);
+  else selectedZones.value.splice(i, 1);
+}
+// Rien de selectionne => toutes les zones (pas de filtrage).
+const filteredZoneScanRows = computed(() => {
+  if (selectedZones.value.length === 0) return zoneScanRows.value;
+  const sel = new Set(selectedZones.value);
+  return zoneScanRows.value.filter((r) => sel.has(r.zone));
+});
 // Début/fin de session (sessions GraphQL, start/end en UTC) par sessionId.
 const sessionTimesById = computed(() => {
   const map = new Map();
@@ -1038,8 +1085,12 @@ const filteredSessionScanRows = computed(() => {
 });
 
 function exportZoneScansCsv() {
-  if (zoneScanRows.value.length === 0) return;
-  downloadCsv(`scans_zone_${safeEventName()}`, ZONE_SCAN_HEADERS, zoneScanRows.value.map(zoneScanRowToCsv));
+  if (filteredZoneScanRows.value.length === 0) return;
+  downloadCsv(
+    `scans_zone_${safeEventName()}`,
+    ZONE_SCAN_HEADERS,
+    filteredZoneScanRows.value.map(zoneScanRowToCsv),
+  );
 }
 function exportSessionScansCsv() {
   if (filteredSessionScanRows.value.length === 0) return;
@@ -1168,6 +1219,25 @@ function formatStart(iso) {
   background: #fff; color: var(--text); cursor: pointer; max-width: 220px;
 }
 .type-select:focus { outline: none; border-color: var(--primary); }
+.zone-filter { margin-bottom: 12px; }
+.zone-filter-head {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 8px;
+}
+.zone-filter-label { font-size: 13px; font-weight: 600; color: var(--text); }
+.zone-filter-clear {
+  padding: 0; border: none; background: none; cursor: pointer;
+  font-size: 12px; color: var(--primary); text-decoration: underline;
+}
+.zone-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.zone-pill {
+  padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+  background: #fff; color: var(--text); font-size: 13px; font-family: inherit;
+  cursor: pointer; transition: all .15s;
+}
+.zone-pill:hover { border-color: var(--primary); }
+.zone-pill.active {
+  background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600;
+}
 .btn-primary {
   padding: 7px 14px; border: none; border-radius: 6px;
   background: var(--primary); color: #fff;
