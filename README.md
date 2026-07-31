@@ -1,6 +1,11 @@
-# Statistics Registration — POC
+# Statistics — dashboard statistiques congrès (PoC)
 
 Dashboard de statistiques pour les organisateurs de congrès. Application **standalone** qui se branche sur l'infrastructure existante (gateway GraphQL + cluster Elasticsearch) en **lecture seule**, sans rien modifier côté production. Tout le calcul des statistiques se fait **côté navigateur**.
+
+> **Documentation technique complète** : [`docs/`](docs/README.md) — architecture, sources de
+> données, modèle de calcul, dictionnaire des indicateurs, exploitation, dette technique
+> ([version HTML](docs/documentation-technique.html)).
+> **Passage en production** : [`perennisation/plan-migration.html`](perennisation/plan-migration.html).
 
 ## Ce que ça fait
 
@@ -104,7 +109,7 @@ Le **navigateur fait tout** : il interroge deux sources et calcule l'intégralit
 
 ### Cible (production)
 
-Le navigateur ne parle **qu'au gateway GraphQL** (authentifié). Un **resolver fédéré `scanStatistics`** (sur `registration-badges` ou un micro-service `stats` dédié) fait les **agrégations Elasticsearch côté serveur** et applique les règles (auth Cerbos, RGPD). Plus aucun accès ES direct depuis le navigateur.
+Le navigateur ne parle **qu'au gateway GraphQL** (authentifié). Un **resolver fédéré `scanStatistics`**, porté par un **nouveau micro-service `stats` dédié** (décision arrêtée : aucune greffe sur un service existant), fait les **agrégations Elasticsearch côté serveur** et applique les règles (auth Cerbos, RGPD). Plus aucun accès ES direct depuis le navigateur.
 
 ```
                     ┌─────────────────────────────────────────────┐
@@ -122,7 +127,7 @@ Le navigateur ne parle **qu'au gateway GraphQL** (authentifié). Un **resolver f
             branding (existant)    │               │  liveStats / replayStats …
                                    ▼               ▼
                         (registration / …)   ┌──────────────────────────────┐
-                                             │  Resolver stats (back)       │
+                                             │  micro-service `stats` (NEW)  │
                                              │  • agrégations ES            │
                                              │    (size:0 · terms ·         │
                                              │     date_histogram ·         │

@@ -7,7 +7,7 @@
 
 ## 1. Objectif
 
-Reconstruire l'interface du dashboard dans l'app `statistics-admin` (Phase 3), branchée sur
+Reconstruire l'interface du dashboard dans l'app `statistics` v1 (Phase 3), branchée sur
 `stats-core` (Phase 1) et le resolver `scanStatistics` (Phase 2), en réutilisant les
 composants `@platform/common-ui` pour tout le générique. Les **charts Chart.js sont
 conservés** (aucun équivalent `@platform`).

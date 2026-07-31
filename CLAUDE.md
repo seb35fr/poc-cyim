@@ -313,7 +313,7 @@ Ces choix sont assumés pour un PoC (livraison rapide, périmètre chirurgical),
 
 1. **ES exposé via proxy applicatif sans auth ni whitelist**
    - **Problème** : `/api/es/{index}/_search` forwarde tel quel vers ES. Aucune authentification, aucun whitelist d'index, aucun rate limiting.
-   - **Prod** : créer un resolver GraphQL fédéré `scanStatistics(eventId, filters)` côté `registration-badges` (ou nouveau micro `stats`). Auth Cerbos. Supprimer le proxy `/api/es`.
+   - **Prod** : créer un resolver GraphQL fédéré `scanStatistics(eventId, filters)` dans un **nouveau micro-service `stats`** — **décision arrêtée : aucune greffe sur un microservice existant** (ni `registration-badges`, ni `xlsx-stats`) ; leurs patterns sont repris, pas leur code. Auth Cerbos. Supprimer le proxy `/api/es`.
 
 2. **Tout chargé en RAM côté navigateur**
    - **Problème** : sur un gros congrès (>100k scans), la mémoire et les `computed` deviennent lourds.
@@ -348,7 +348,7 @@ Ces choix sont assumés pour un PoC (livraison rapide, périmètre chirurgical),
 
 ### Chemin de migration recommandé
 
-1. Créer un resolver GraphQL `scanStatistics(eventId, filters)` côté `registration-badges` qui retourne aggs + échantillon de scans bruts. Auth Cerbos.
+1. Créer le **micro-service `stats`** (nouveau, pas de greffe) portant un resolver GraphQL `scanStatistics(eventId, filters)` qui retourne aggs + échantillon de scans bruts. Auth Cerbos.
 2. Supprimer `src/api/elasticsearch.js` et le proxy `/api/es`, brancher `useRoomScans` sur `useGQLQueryStore().query()`.
 3. Implémenter cross-filtering + jointure avec `delegates` pour enrichissement + masquage RGPD.
 4. Migrer la liste tableau vers une virtualization + pagination ES serveur.

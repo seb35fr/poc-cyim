@@ -257,7 +257,7 @@ export default {
     noData: "Aucune donnée",
     doc: {
       title: "Bilan — {name}",
-      intro: "Export Markdown du dashboard CYIM statistics-reg, conçu pour être donné en entrée à un LLM (Claude, ChatGPT, Gemini) pour génération automatique de bilans, comparaisons, emails, présentations.",
+      intro: "Export Markdown du dashboard CYIM Statistics, conçu pour être donné en entrée à un LLM (Claude, ChatGPT, Gemini) pour génération automatique de bilans, comparaisons, emails, présentations.",
       annexTitle: "Annexe — Données complètes de l'event comparé : {name}",
       annexIntro: "Toutes les sections ci-dessous concernent **{name}** (l'event de comparaison), avec la même structure que l'event principal pour faciliter la mise en regard.",
       annexNoScans: " _Aucun scan QR n'a été chargé/trouvé pour l'event comparé._",
@@ -269,7 +269,7 @@ export default {
       delegatesLoaded: "Délégués chargés",
       generatedAt: "Généré le",
       source: "Source",
-      sourceValue: "Dashboard CYIM statistics-reg",
+      sourceValue: "Dashboard CYIM Statistics",
       compareEvent: "Event de comparaison",
       filterActive: "**Filtre badge type actif** : {types} — toutes les sections ci-dessous sont filtrées.",
       filterNone: "Aucun filtre badge type actif (vue complète des délégués).",

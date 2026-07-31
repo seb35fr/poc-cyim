@@ -1,4 +1,4 @@
-# Phase 3 — Scaffolding de l'app `statistics-admin`
+# Phase 3 — Scaffolding de l'app `statistics` (v1)
 
 > **Porte de validation : G2** (conformité au modèle + accès Keycloak).
 > **Risque : faible**. **Parallélisable** avec la Phase 2.
@@ -7,7 +7,7 @@
 
 ## 1. Objectif
 
-Générer le **shell** d'une vraie application plateforme `statistics-admin`, conforme au
+Générer le **shell** d'une vraie application plateforme `statistics` (v1), conforme au
 monorepo `@platform`, prête à accueillir l'UI (Phase 4). Aucune logique métier ici — juste
 l'ossature standard.
 

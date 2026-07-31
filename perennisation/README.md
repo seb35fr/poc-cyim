@@ -1,8 +1,23 @@
-# Pérennisation `statistics-reg` — dossier d'exécution
+# Pérennisation `statistics` — dossier d'exécution
+
+> ⚠️ **Le séquencement de référence est désormais [`plan-migration.html`](plan-migration.html)**
+> (lots L0→L7, priorité **backend + authentification** puis interface). Les fichiers
+> `phase-*.md` de ce dossier reflètent un **ordre antérieur** (`stats-core` d'abord, backend
+> ensuite) et servent de notes de détail par sujet — pas d'ordonnancement.
+>
+> | Ancienne phase | Nouveau lot |
+> |---|---|
+> | Phase 0 — Cadrage | **L0** |
+> | Phase 1 — `stats-core` | **L4** (déplacée après la sécurisation, parallélisable) |
+> | Phase 2 — Backend resolver | **L1 + L2 + L3** (éclatée : service · auth/Cerbos · API d'agrégation) |
+> | Phase 3 — Scaffolding | **L5** |
+> | Phase 4 — UI | **L6** (découpée en 4 vagues d'écrans) |
+> | Phase 5 — Durcissement | **L7** |
 
 Ce dossier décompose la pérennisation du PoC dashboard statistiques en **phases, une par
 fichier**. Le cadrage global, le mapping PoC → `@platform/*` et le chiffrage vivent dans
 [`../perennisation-mapping.md`](../perennisation-mapping.md) (section 8 = plan supervisé).
+La **documentation technique de l'état actuel** vit dans [`../docs/`](../docs/README.md).
 
 ## Principe de supervision
 
@@ -21,7 +36,7 @@ Claude Code produit le volume de code ; un humain tient **3 portes de validation
 | 0 | [phase-0-cadrage.md](phase-0-cadrage.md) | Périmètre `stats-core`, spec resolver, plan de tests | G2 | — |
 | 1 | [phase-1-stats-core.md](phase-1-stats-core.md) | Extraire l'IP métier (TS + tests) — **proof-of-value** | G1 | Très faible |
 | 2 | [phase-2-backend-resolver.md](phase-2-backend-resolver.md) | Resolver GraphQL `scanStatistics` + Cerbos | G3 | Élevé |
-| 3 | [phase-3-scaffolding.md](phase-3-scaffolding.md) | Shell app `statistics-admin` (Quasar/auth/theming) | G2 | Faible |
+| 3 | [phase-3-scaffolding.md](phase-3-scaffolding.md) | Shell app `statistics` v1 (Quasar/auth/theming) | G2 | Faible |
 | 4 | [phase-4-ui-rewrite.md](phase-4-ui-rewrite.md) | Réécriture UI sur `common-ui`, onglet par onglet | G1+G2 | Moyen |
 | 5 | [phase-5-durcissement.md](phase-5-durcissement.md) | RGPD, perf, recette, bascule | G1+G3 | Moyen |
 

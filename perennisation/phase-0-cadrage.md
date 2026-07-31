@@ -187,7 +187,7 @@ On s'en sert comme **golden master**.
 - **Retour** : agrégations serveur (`size:0` + `terms`/`date_histogram`/`cardinality`) +
   **échantillon de scans bruts** (pour la table détail + ré-association QR).
 - **Auth** : directive Cerbos, action type `event:scan:stats:read` (à valider avec les policies).
-- **Hôte** : `registration-badges` (lit déjà la DB registration) ou nouveau micro `stats`.
+- **Hôte** : **nouveau micro `stats`** — *décision arrêtée*. Aucune greffe sur un microservice existant (ni `registration-badges`, ni `xlsx-stats`).
 - **Effet** : supprime le proxy `/api/es`, le token en clair, et le chargement RAM navigateur.
 
 ---

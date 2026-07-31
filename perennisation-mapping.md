@@ -1,4 +1,4 @@
-# Pérennisation `statistics-reg` — mapping PoC → stack `@platform/*`, effort & avantages
+# Pérennisation `statistics` — mapping PoC → stack `@platform/*`, effort & avantages
 
 > **Objet** : le PoC dashboard statistiques recueille la satisfaction de ses premiers
 > utilisateurs et doit devenir une solution pérenne. Ce document mappe chaque brique du
@@ -96,7 +96,7 @@ pérennisation = réaligner sur le stack maison **sans perdre l'IP métier**.
 
 | Lot | Contenu | Charge (j·h) |
 |---|---|---|
-| **0. Backend prérequis** ⚠️ | Resolver GraphQL fédéré `scanStatistics(eventId, filters)` (registration-badges ou micro `stats`), aggs ES côté serveur, auth Cerbos, suppression du proxy `/api/es` | **5 – 15** |
+| **0. Backend prérequis** ⚠️ | **Nouveau micro-service `stats`** portant le resolver GraphQL fédéré `scanStatistics(eventId, filters)`, aggs ES côté serveur, auth Cerbos, suppression du proxy `/api/es`. *Décision arrêtée : aucune greffe sur un service existant.* | **5 – 15** |
 | **1. Bootstrap app** | Scaffolding via `tech_front_app_init` (Vite/Quasar/Pinia/router/i18n, Keycloak+`config-module`, theming, CI/Docker/nginx) | **3 – 5** |
 | **2. Port IP métier (B)** | ~3,5 k l. de calcul → TS + types + **Vitest** (lib `stats-core`) | **8 – 12** |
 | **3. Remplacement plomberie (A)** | graphql-core, theme-core, snackbar, logger, filtres ; suppressions | **3 – 5** |
@@ -122,8 +122,9 @@ C'est documenté comme choix PoC dans le `CLAUDE.md` — mais **inacceptable en 
 
 ➡️ La pérennisation **impose** de créer un **resolver GraphQL fédéré** côté backend qui
 renvoie des agrégations (et un échantillon de scans bruts), authentifié Cerbos. C'est le
-**lot 0**, prérequis à toute la suite. Aucune skill front ne le couvre — c'est du backend
-(`registration-badges` ou un nouveau micro `stats`).
+**lot 0**, prérequis à toute la suite. Aucune skill front ne le couvre — c'est du backend,
+dans un **nouveau micro-service `stats`** (contrainte d'architecture : **aucune greffe sur un
+microservice existant**, ni `registration-badges`, ni `xlsx-stats`).
 
 ---
 
@@ -133,7 +134,7 @@ Le mapping montre que **~80 % du PoC est soit jetable (plomberie), soit de la pr
 réécrire de toute façon** pour passer sur Quasar/common-ui. Seule l'**IP métier (~29 %)**
 est à préserver telle quelle.
 
-➡️ **Reconstruire** (nouvelle app `statistics-admin` via `tech_front_app_init` + lib
+➡️ **Reconstruire** (nouvelle app `statistics` v1 via `tech_front_app_init` + lib
 `stats-core` portée du PoC) est **préférable à migrer** le JS/CSS legacy in situ :
 
 1. on **isole l'IP** dans une lib testée et réutilisable (`stats-core`), au lieu de la
@@ -208,15 +209,16 @@ et l'**intégration** (infra, accès, déploiement).
 - *Charge : lot 2 du §4 (8–12 j·h), fortement compressée par Claude.*
 
 #### Phase 2 — Backend `scanStatistics` *(chemin critique, supervision G3)*
-- **Claude** : implémente le resolver GraphQL fédéré (aggs ES côté serveur, échantillon de
-  scans bruts), auth Cerbos, en suivant les patterns `registration-badges`.
+- **Claude** : crée le **nouveau micro-service `stats`** et y implémente le resolver GraphQL
+  fédéré (aggs ES côté serveur, échantillon de scans bruts), auth Cerbos, en **reprenant les
+  patterns** de `registration-badges` (sans le modifier).
 - **Humain** : review sécurité/Cerbos, intègre, déploie, teste contre données réelles.
 - **Critère de sortie** : resolver authentifié en staging, parité avec les lectures ES
   directes du PoC. **Peut démarrer en parallèle de la Phase 1.**
 - *Charge : lot 0 (5–15 j·h).*
 
 #### Phase 3 — Scaffolding de l'app *(supervision G2)*
-- **Claude** : génère le shell `statistics-admin` via la skill `tech_front_app_init`
+- **Claude** : génère le shell `statistics` v1 via la skill `tech_front_app_init`
   (Vite/Quasar/Pinia/router/i18n, Keycloak + `config-module`, theming `theme-core`, CI/Docker/nginx).
 - **Humain** : valide la conformité au modèle `communication-admin`, branche les accès Keycloak.
 - **Critère de sortie** : app vide buildable + déployable, qui s'authentifie.

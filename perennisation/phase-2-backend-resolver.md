@@ -26,8 +26,8 @@ non négociable de toute mise en prod (cf. mapping §5).
     KPI du PoC (vues en salle, top sessions/salles/zones, par jour/heure/sens/type de badge) ;
   - **échantillon de scans bruts** paginé (pour la table détail + la ré-association QR côté `stats-core`).
 - **Auth** : directive Cerbos, action `event:scan:stats:read` (à confirmer avec les policies).
-- **Hôte** : `registration-badges` (lit déjà la DB registration + connaît les badges/QR) ou
-  un nouveau micro `stats`.
+- **Hôte** : **nouveau micro `stats`** — *décision arrêtée*. Aucune greffe sur un
+  microservice existant (ni `registration-badges`, ni `xlsx-stats`).
 - **Index source** (à aliaser proprement, cf. mapping) :
   `stats_user__onsite-audience-per-session-per-user`, `*onsite_congress_checkin_per_user`,
   `*onsite_zone_checkin_per_user`.
@@ -35,7 +35,7 @@ non négociable de toute mise en prod (cf. mapping §5).
 ## 4. Tâches
 
 - **Claude** : implémente le schéma fédéré + resolver + aggs ES, suit les patterns
-  `registration-badges` (datasources per-request, DataLoader, directive Cerbos).
+  `registration-badges` — **patterns repris, service non modifié** (datasources per-request, DataLoader, directive Cerbos).
 - **Humain (G3)** : review sécurité + policies Cerbos, fournit accès infra ES/Mongo, intègre,
   déploie en staging, teste contre données réelles.
 

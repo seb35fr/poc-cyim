@@ -28,9 +28,9 @@ décommissionner le PoC.
 - Exports (MD/JSON, CSV par session, parcours, industrie XLSX) vérifiés.
 
 ### 2.4 Bascule
-- Mise en prod de `statistics-admin`.
+- Mise en prod de `statistics` v1.
 - Communication utilisateurs.
-- **Décommissionnement du PoC** (`statistics-reg`) une fois la prod validée.
+- **Décommissionnement du PoC** (`statistics` v0) une fois la prod validée.
 
 ## 3. Critère de sortie (portes G1 + G3)
 
