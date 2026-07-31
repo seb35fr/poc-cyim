@@ -1,0 +1,1373 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan de migration technique — statistics</title>
+<style>
+:root{
+  --primary:#1e4e66; --primary-dark:#173b4d; --primary-light:#2a6a8a;
+  --accent:#30dd92; --accent-dark:#1b9b63;
+  --purple:#6f45ff; --warning:#ffa600; --danger:#e53935;
+  --bg:#eef1f5; --card:#ffffff; --card-alt:#f7f9fb;
+  --text:#33393f; --text-2:#5c666f; --text-3:#8b959e;
+  --border:#dde3e9; --border-strong:#c3ccd5;
+  --radius:12px;
+  --shadow:0 1px 2px rgba(16,32,45,.06),0 4px 14px rgba(16,32,45,.07);
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#12171c; --card:#1a2128; --card-alt:#212a32;
+    --text:#e4e9ee; --text-2:#a9b4be; --text-3:#78848e;
+    --border:#2c363f; --border-strong:#3d4a55;
+    --primary:#4f8fad; --primary-dark:#1e4e66; --primary-light:#71aec9;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 14px rgba(0,0,0,.35);
+  }
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:"Poppins","Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+  background:var(--bg); color:var(--text);
+  line-height:1.62; font-size:15px;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1160px;margin:0 auto;padding:0 24px 80px}
+
+/* ---------- COVER ---------- */
+.cover{
+  background:linear-gradient(135deg,#173b4d 0%,#1e4e66 45%,#2a6a8a 100%);
+  color:#fff; padding:64px 0 56px; margin-bottom:44px;
+  position:relative; overflow:hidden;
+}
+.cover::after{
+  content:""; position:absolute; right:-120px; top:-120px;
+  width:420px; height:420px; border-radius:50%;
+  background:radial-gradient(circle,rgba(48,221,146,.22),transparent 68%);
+}
+.cover-inner{max-width:1160px;margin:0 auto;padding:0 24px;position:relative;z-index:1}
+.eyebrow{
+  display:inline-block; font-size:11px; font-weight:600; letter-spacing:.16em;
+  text-transform:uppercase; color:var(--accent);
+  border:1px solid rgba(48,221,146,.42); border-radius:999px;
+  padding:5px 14px; margin-bottom:22px;
+}
+.cover h1{font-size:39px;line-height:1.16;font-weight:600;letter-spacing:-.6px;max-width:20ch}
+.cover .lede{font-size:17px;color:rgba(255,255,255,.86);margin-top:16px;max-width:74ch}
+.cover-meta{
+  display:flex;flex-wrap:wrap;gap:0 40px;margin-top:34px;
+  padding-top:22px;border-top:1px solid rgba(255,255,255,.18);
+}
+.cover-meta div{font-size:13px}
+.cover-meta dt{color:rgba(255,255,255,.6);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px}
+.cover-meta dd{color:#fff;font-weight:500}
+
+/* ---------- SECTIONS ---------- */
+section{margin-bottom:56px;scroll-margin-top:20px}
+h2{
+  font-size:13px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--primary-light); padding-bottom:12px; margin-bottom:26px;
+  border-bottom:2px solid var(--border);
+  display:flex;align-items:baseline;gap:12px;
+}
+h2 .num{
+  font-family:var(--mono);font-size:12px;color:var(--accent-dark);
+  letter-spacing:0;font-weight:700;
+}
+@media (prefers-color-scheme:dark){h2 .num{color:var(--accent)}}
+h3{font-size:19px;font-weight:600;margin:32px 0 12px;letter-spacing:-.2px}
+h4{font-size:15px;font-weight:600;margin:22px 0 8px}
+p{margin-bottom:14px;color:var(--text-2);max-width:88ch}
+p strong,li strong{color:var(--text);font-weight:600}
+a{color:var(--primary-light);text-decoration:none;border-bottom:1px solid transparent}
+a:hover{border-bottom-color:currentColor}
+code{
+  font-family:var(--mono);font-size:.87em;background:var(--card-alt);
+  border:1px solid var(--border);border-radius:4px;padding:1px 5px;color:var(--text);
+}
+ul,ol{margin:0 0 16px 22px;color:var(--text-2)}
+li{margin-bottom:6px}
+li::marker{color:var(--text-3)}
+
+/* ---------- CARDS ---------- */
+.card{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:24px 26px;
+}
+.grid{display:grid;gap:18px}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:900px){.g2,.g3,.g4{grid-template-columns:1fr}}
+
+/* KPI */
+.kpi{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+  padding:20px 22px;box-shadow:var(--shadow);border-top:3px solid var(--primary-light);
+}
+.kpi.is-danger{border-top-color:var(--danger)}
+.kpi.is-warn{border-top-color:var(--warning)}
+.kpi.is-ok{border-top-color:var(--accent)}
+.kpi-val{font-size:31px;font-weight:600;letter-spacing:-1px;line-height:1.1}
+.kpi-lab{font-size:12.5px;color:var(--text-3);margin-top:5px;font-weight:500}
+.kpi-note{font-size:12.5px;color:var(--text-2);margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+
+/* callout */
+.callout{
+  border-left:3px solid var(--primary-light);background:var(--card-alt);
+  border-radius:0 8px 8px 0;padding:16px 20px;margin:20px 0;
+}
+.callout.key{border-left-color:var(--accent);}
+.callout.warn{border-left-color:var(--warning)}
+.callout.danger{border-left-color:var(--danger)}
+.callout p:last-child{margin-bottom:0}
+.callout .tag{
+  display:block;font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;
+  font-weight:700;color:var(--text-3);margin-bottom:6px;
+}
+
+/* ---------- TABLES ---------- */
+.tbl-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:18px 0;
+  border:1px solid var(--border);border-radius:var(--radius);background:var(--card);box-shadow:var(--shadow)}
+table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:560px}
+th{
+  background:var(--card-alt);text-align:left;padding:11px 14px;font-weight:600;
+  font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);
+  border-bottom:1px solid var(--border-strong);white-space:nowrap;
+}
+td{padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:top;color:var(--text-2)}
+tr:last-child td{border-bottom:none}
+td strong{color:var(--text)}
+tbody tr:hover td{background:var(--card-alt)}
+tfoot td{background:var(--card-alt);font-weight:600;color:var(--text);border-top:2px solid var(--border-strong)}
+.num-cell{font-family:var(--mono);white-space:nowrap;font-size:12.5px}
+
+/* ---------- BADGES ---------- */
+.b{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.06em;
+  text-transform:uppercase;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.b-red{background:rgba(229,57,53,.13);color:#c62828;border:1px solid rgba(229,57,53,.3)}
+.b-orange{background:rgba(255,166,0,.15);color:#b47100;border:1px solid rgba(255,166,0,.34)}
+.b-green{background:rgba(48,221,146,.16);color:#12784c;border:1px solid rgba(48,221,146,.36)}
+.b-blue{background:rgba(42,106,138,.13);color:#1e4e66;border:1px solid rgba(42,106,138,.3)}
+.b-purple{background:rgba(111,69,255,.13);color:#5330c9;border:1px solid rgba(111,69,255,.3)}
+.b-grey{background:var(--card-alt);color:var(--text-3);border:1px solid var(--border-strong)}
+@media (prefers-color-scheme:dark){
+  .b-red{color:#ff8a85}.b-orange{color:#ffc35c}.b-green{color:#5ce8ab}
+  .b-blue{color:#8cc4dd}.b-purple{color:#b298ff}
+}
+
+/* ---------- DIAGRAMS ---------- */
+.arch{display:grid;grid-template-columns:1fr auto 1fr;gap:20px;align-items:stretch;margin:22px 0}
+@media(max-width:900px){.arch{grid-template-columns:1fr}}
+.arch-col{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+  padding:20px;box-shadow:var(--shadow)}
+.arch-col.target{border-color:var(--accent);box-shadow:0 0 0 1px rgba(48,221,146,.2),var(--shadow)}
+.arch-h{font-size:11px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;
+  color:var(--text-3);margin-bottom:14px;padding-bottom:9px;border-bottom:1px solid var(--border)}
+.arch-col.target .arch-h{color:var(--accent-dark)}
+@media (prefers-color-scheme:dark){.arch-col.target .arch-h{color:var(--accent)}}
+.node{border:1px solid var(--border-strong);border-radius:8px;padding:10px 13px;
+  margin-bottom:9px;background:var(--card-alt);font-size:13px}
+.node .nt{font-weight:600;color:var(--text);font-size:13px}
+.node .nd{font-size:12px;color:var(--text-3);margin-top:2px;line-height:1.45}
+.node.bad{border-color:rgba(229,57,53,.45);background:rgba(229,57,53,.06)}
+.node.good{border-color:rgba(48,221,146,.5);background:rgba(48,221,146,.07)}
+.node.browser{border-color:var(--primary-light);background:rgba(42,106,138,.07)}
+.flow{text-align:center;color:var(--text-3);font-size:19px;line-height:1;margin:2px 0 9px}
+.arch-mid{display:flex;align-items:center;justify-content:center;color:var(--accent-dark);
+  font-size:27px;font-weight:300}
+@media (prefers-color-scheme:dark){.arch-mid{color:var(--accent)}}
+@media(max-width:900px){.arch-mid{transform:rotate(90deg);padding:6px 0}}
+
+/* ---------- LOT CARDS ---------- */
+.phase{margin-bottom:30px}
+.phase-head{display:flex;align-items:center;gap:14px;margin:34px 0 16px;flex-wrap:wrap}
+.phase-badge{
+  font-size:11px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;
+  color:#fff;background:var(--primary);padding:6px 14px;border-radius:6px;
+}
+.phase-badge.pA{background:linear-gradient(135deg,#c62828,#e53935)}
+.phase-badge.pB{background:linear-gradient(135deg,#1b9b63,#30dd92);color:#0b3c26}
+.phase-badge.pC{background:linear-gradient(135deg,#1e4e66,#2a6a8a)}
+.phase-badge.pD{background:linear-gradient(135deg,#5330c9,#6f45ff)}
+.phase-title{font-size:20px;font-weight:600;letter-spacing:-.2px}
+.phase-sub{font-size:13px;color:var(--text-3);flex-basis:100%}
+
+.lot{
+  background:var(--card);border:1px solid var(--border);border-left:4px solid var(--primary-light);
+  border-radius:0 var(--radius) var(--radius) 0;box-shadow:var(--shadow);
+  padding:22px 26px;margin-bottom:16px;
+}
+.lot.crit{border-left-color:var(--danger)}
+.lot.core{border-left-color:var(--accent)}
+.lot.ui{border-left-color:var(--primary)}
+.lot.prod{border-left-color:var(--purple)}
+.lot-top{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:4px}
+.lot-id{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--text-3);
+  background:var(--card-alt);border:1px solid var(--border);border-radius:5px;padding:2px 8px}
+.lot-name{font-size:17.5px;font-weight:600;letter-spacing:-.2px;flex:1;min-width:220px}
+.lot-load{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--primary-light);white-space:nowrap}
+.lot-goal{font-size:14px;color:var(--text-2);margin-bottom:16px;max-width:88ch}
+.lot-body{display:grid;grid-template-columns:1fr 1fr;gap:20px 28px}
+@media(max-width:820px){.lot-body{grid-template-columns:1fr}}
+.lot-block h5{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--text-3);font-weight:700;margin-bottom:7px}
+.lot-block ul{margin:0 0 0 18px;font-size:13.5px}
+.lot-block li{margin-bottom:4px}
+.lot-foot{display:flex;flex-wrap:wrap;gap:10px 22px;margin-top:16px;padding-top:14px;
+  border-top:1px solid var(--border);font-size:12.5px;color:var(--text-3)}
+.lot-foot b{color:var(--text-2);font-weight:600}
+.exit{background:var(--card-alt);border:1px dashed var(--border-strong);border-radius:8px;
+  padding:11px 14px;margin-top:14px;font-size:13px;color:var(--text-2)}
+.exit b{color:var(--text);font-weight:600}
+
+/* ---------- MILESTONE / TIMELINE ---------- */
+.ms{position:relative;padding-left:34px;margin:26px 0}
+.ms::before{content:"";position:absolute;left:9px;top:6px;bottom:6px;width:2px;background:var(--border-strong)}
+.ms-item{position:relative;margin-bottom:22px}
+.ms-item::before{
+  content:"";position:absolute;left:-30px;top:5px;width:14px;height:14px;border-radius:50%;
+  background:var(--card);border:3px solid var(--primary-light);
+}
+.ms-item.key::before{border-color:var(--accent);box-shadow:0 0 0 4px rgba(48,221,146,.18)}
+.ms-item.final::before{border-color:var(--purple)}
+.ms-t{font-weight:600;font-size:15.5px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.ms-when{font-family:var(--mono);font-size:11.5px;color:var(--text-3);font-weight:600}
+.ms-d{font-size:13.5px;color:var(--text-2);margin-top:3px;max-width:88ch}
+
+/* gantt */
+.gantt{margin:20px 0;font-size:12.5px}
+.gantt-row{display:grid;grid-template-columns:190px 1fr;gap:12px;align-items:center;margin-bottom:7px}
+@media(max-width:700px){.gantt-row{grid-template-columns:120px 1fr}}
+.gantt-lab{font-weight:600;color:var(--text-2);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gantt-track{position:relative;height:26px;background:var(--card-alt);border:1px solid var(--border);border-radius:5px}
+.gantt-bar{position:absolute;top:3px;bottom:3px;border-radius:4px;display:flex;align-items:center;
+  padding:0 8px;color:#fff;font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden}
+.bar-crit{background:linear-gradient(90deg,#c62828,#e5573f)}
+.bar-core{background:linear-gradient(90deg,#1b9b63,#30dd92);color:#083824}
+.bar-ui{background:linear-gradient(90deg,#1e4e66,#3d84a8)}
+.bar-prod{background:linear-gradient(90deg,#5330c9,#8a6bff)}
+.bar-scope{background:var(--border-strong);color:var(--text)}
+.gantt-scale{display:grid;grid-template-columns:190px 1fr;gap:12px;margin-bottom:8px}
+@media(max-width:700px){.gantt-scale{grid-template-columns:120px 1fr}}
+.gantt-weeks{display:flex;font-size:10px;color:var(--text-3);letter-spacing:.04em}
+.gantt-weeks span{flex:1;text-align:center;border-left:1px solid var(--border)}
+.gantt-weeks span:first-child{border-left:none}
+
+/* risk */
+.risk-sev{font-family:var(--mono);font-weight:700;font-size:12px}
+.mono-list{font-family:var(--mono);font-size:12px;color:var(--text-2)}
+
+/* decision */
+.dec{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:20px 24px;margin-bottom:14px;border-top:3px solid var(--warning)}
+.dec.is-settled{border-top-color:var(--accent)}
+.dec-opt.rejected{opacity:.62;border-style:dashed}
+.dec-opt.rejected .oh{text-decoration:line-through;text-decoration-color:var(--text-3)}
+.dec-opt.rejected .oh .b{text-decoration:none}
+.dec-q{font-size:16px;font-weight:600;margin-bottom:10px}
+.dec-opts{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px}
+@media(max-width:760px){.dec-opts{grid-template-columns:1fr}}
+.dec-opt{border:1px solid var(--border);border-radius:8px;padding:12px 14px;background:var(--card-alt);font-size:13px}
+.dec-opt.reco{border-color:var(--accent);background:rgba(48,221,146,.07)}
+.dec-opt .oh{font-weight:600;color:var(--text);margin-bottom:4px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+hr.sep{border:none;border-top:1px solid var(--border);margin:38px 0}
+
+footer{
+  border-top:1px solid var(--border);margin-top:20px;padding-top:22px;
+  font-size:12.5px;color:var(--text-3);
+}
+footer p{color:var(--text-3);font-size:12.5px}
+
+@media print{
+  body{background:#fff;font-size:10.5pt}
+  .cover{background:#1e4e66 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .card,.lot,.kpi,.dec,.tbl-scroll,.arch-col{box-shadow:none;break-inside:avoid}
+  .lot,.dec,.ms-item{break-inside:avoid}
+  section{break-inside:auto}
+  h2{break-after:avoid}
+  .tbl-scroll{overflow:visible}
+  table{min-width:0}
+}
+</style>
+</head>
+<body>
+
+<header class="cover">
+  <div class="cover-inner">
+    <span class="eyebrow">Note de cadrage technique</span>
+    <h1>Plan de migration<br>du PoC statistiques vers la production</h1>
+    <p class="lede">Découpage en 8 lots, séquencé <strong>backend et authentification d'abord</strong>,
+    interface ensuite. Objectif : éliminer les 4 dettes bloquantes de sécurité avant tout
+    investissement d'interface — et sécuriser le dashboard <em>sans attendre</em> sa réécriture.</p>
+    <dl class="cover-meta">
+      <div><dt>Projet</dt><dd>statistics (PoC v0 → produit)</dd></div>
+      <div><dt>Charge estimée</dt><dd>41 – 71 j·h</dd></div>
+      <div><dt>Statut</dt><dd>Proposition, à arbitrer</dd></div>
+      <div><dt>Date</dt><dd>31 juillet 2026</dd></div>
+      <div><dt>Auteur</dt><dd>S. Méaudre — CYIM</dd></div>
+    </dl>
+  </div>
+</header>
+
+<div class="wrap">
+
+<!-- ============ 1. SYNTHESE ============ -->
+<section id="synthese">
+  <h2><span class="num">01</span> Synthèse exécutive</h2>
+
+  <p>Le PoC <code>statistics</code> est adopté par ses utilisateurs et doit devenir une
+  solution pérenne. Il fonctionne, mais il n'est <strong>pas déployable</strong> en l'état :
+  il interroge Elasticsearch directement depuis le navigateur, sans authentification, avec un
+  token utilisateur inscrit dans le fichier JavaScript livré, et sans aucun masquage RGPD.</p>
+
+  <div class="grid g4" style="margin:22px 0">
+    <div class="kpi is-danger">
+      <div class="kpi-val">5</div>
+      <div class="kpi-lab">dettes bloquantes</div>
+      <div class="kpi-note">4 relèvent du backend et de l'authentification. 1 seule concerne le front (absence de tests).</div>
+    </div>
+    <div class="kpi is-warn">
+      <div class="kpi-val">0</div>
+      <div class="kpi-lab">test automatisé</div>
+      <div class="kpi-note">Sur ~6 500 lignes de calcul métier critique — jointures, dédoublonnage, exports.</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-val">~23 000</div>
+      <div class="kpi-lab">lignes, 74 fichiers</div>
+      <div class="kpi-note">Dont ~5 500 de plomberie remplaçable par des bibliothèques <code>@platform/*</code> testées.</div>
+    </div>
+    <div class="kpi is-ok">
+      <div class="kpi-val">41–71</div>
+      <div class="kpi-lab">jours·homme</div>
+      <div class="kpi-note">Soit 8 à 14 semaines pour un développeur, backend et front confondus.</div>
+    </div>
+  </div>
+
+  <h3>La stratégie en une phrase</h3>
+  <p>Construire d'abord une <strong>API GraphQL fédérée authentifiée</strong> qui agrège
+  Elasticsearch côté serveur, y <strong>rebrancher le front actuel</strong> — ce qui supprime
+  d'un coup les quatre dettes bloquantes de sécurité sans réécrire une ligne d'interface —
+  puis extraire le cœur métier en bibliothèque testée, et enfin reconstruire l'interface sur
+  le socle <code>@platform/*</code>.</p>
+
+  <div class="callout key">
+    <span class="tag">Le point clé du séquencement</span>
+    <p>La réécriture d'interface est le lot <strong>le plus lourd</strong> (15–25 j·h) et le
+    <strong>moins urgent</strong> : l'interface actuelle fonctionne et satisfait ses
+    utilisateurs. À l'inverse, l'exposition d'Elasticsearch est un risque
+    <strong>immédiat</strong> pour un coût de correction modéré. Traiter le backend et
+    l'authentification d'abord, c'est retirer 80 % du risque avec 25 % de l'effort.</p>
+  </div>
+
+  <h3>Les quatre phases</h3>
+  <div class="tbl-scroll">
+  <table>
+    <thead><tr><th>Phase</th><th>Lots</th><th>Ce qu'elle produit</th><th>Charge</th><th>Risque levé</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="b b-grey">Cadrage</span></td>
+        <td class="num-cell">L0</td>
+        <td>Arbitrages tranchés, accès ouverts, plan de non-régression</td>
+        <td class="num-cell">1–2 j</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td><span class="b b-red">A — Backend &amp; sécurité</span></td>
+        <td class="num-cell">L1 · L2 · L3</td>
+        <td><strong>API authentifiée</strong> avec agrégations serveur, Cerbos et masquage RGPD ; front actuel rebranché</td>
+        <td class="num-cell">10–19 j</td>
+        <td><strong>4 dettes bloquantes sur 5</strong></td>
+      </tr>
+      <tr>
+        <td><span class="b b-green">B — Cœur métier</span></td>
+        <td class="num-cell">L4</td>
+        <td>Bibliothèque <code>stats-core</code> en TypeScript, couverte par Vitest, à parité prouvée</td>
+        <td class="num-cell">8–12 j</td>
+        <td>La 5<sup>e</sup> dette bloquante</td>
+      </tr>
+      <tr>
+        <td><span class="b b-blue">C — Interface</span></td>
+        <td class="num-cell">L5 · L6</td>
+        <td>Application <code>statistics</code> (v1) sur Quasar / <code>common-ui</code>, par vagues d'écrans</td>
+        <td class="num-cell">18–30 j</td>
+        <td>Cohérence, maintenabilité</td>
+      </tr>
+      <tr>
+        <td><span class="b b-purple">D — Mise en production</span></td>
+        <td class="num-cell">L7</td>
+        <td>Performance, recette bilingue, bascule des utilisateurs, retrait du PoC</td>
+        <td class="num-cell">4–8 j</td>
+        <td>Exploitabilité</td>
+      </tr>
+    </tbody>
+    <tfoot><tr><td colspan="3">Total</td><td class="num-cell">41–71 j·h</td><td>—</td></tr></tfoot>
+  </table>
+  </div>
+
+  <p style="font-size:13px;color:var(--text-3)">Les charges sont des <strong>ordres de
+  grandeur</strong>, pas un devis. Elles reprennent la même enveloppe que
+  <a href="../perennisation-mapping.md">perennisation-mapping.md</a>, avec le périmètre backend
+  détaillé en trois lots au lieu d'un, conformément à la priorité retenue.</p>
+</section>
+
+<!-- ============ 2. POURQUOI CET ORDRE ============ -->
+<section id="ordre">
+  <h2><span class="num">02</span> Pourquoi le backend et l'authentification d'abord</h2>
+
+  <p>Trois raisons, dans l'ordre d'importance.</p>
+
+  <div class="grid g3">
+    <div class="card">
+      <h4 style="margin-top:0">1 · Le risque est là, pas dans l'interface</h4>
+      <p style="font-size:13.5px;margin-bottom:0">Sur les cinq dettes bloquantes,
+      <strong>quatre sont backend ou authentification</strong> : Elasticsearch exposé sans
+      authentification, token dans le bundle, absence de masquage RGPD, absence de proxy en
+      production. Une interface laide ne met personne en danger ; un cluster de production
+      interrogeable depuis un navigateur, si.</p>
+    </div>
+    <div class="card">
+      <h4 style="margin-top:0">2 · Cela débloque tout le reste</h4>
+      <p style="font-size:13.5px;margin-bottom:0">Le resolver d'agrégation est le
+      <strong>chemin critique</strong> : la nouvelle application front, comme l'ancienne,
+      en dépend. Le construire en dernier reviendrait à réécrire l'interface contre une API
+      inexistante, puis à la re-brancher. Le construire en premier permet aux deux fronts —
+      l'actuel et le futur — de consommer la même API.</p>
+    </div>
+    <div class="card">
+      <h4 style="margin-top:0">3 · Le gain est immédiat et visible</h4>
+      <p style="font-size:13.5px;margin-bottom:0">Dès la fin de la phase A, le
+      <strong>PoC actuel devient déployable</strong> : token supprimé, Elasticsearch
+      inaccessible depuis le navigateur, permissions Cerbos appliquées, RGPD respecté. Un
+      livrable défendable après ~3 semaines, sans attendre les 6 à 8 semaines de réécriture
+      d'interface.</p>
+    </div>
+  </div>
+
+  <h3>Courbe d'élimination du risque</h3>
+  <div class="tbl-scroll">
+  <table>
+    <thead><tr><th>Après…</th><th>Dettes bloquantes restantes</th><th>Le dashboard est-il déployable ?</th><th>Effort cumulé</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Aujourd'hui</strong></td><td><span class="b b-red">5 / 5</span></td><td>Non — usage local uniquement</td><td class="num-cell">—</td></tr>
+      <tr><td><strong>Phase A</strong> (L1→L3)</td><td><span class="b b-orange">1 / 5</span> — reste l'absence de tests</td><td><strong>Oui</strong>, avec le front actuel</td><td class="num-cell">11–21 j</td></tr>
+      <tr><td><strong>Phase B</strong> (L4)</td><td><span class="b b-green">0 / 5</span></td><td>Oui, et non-régression outillée</td><td class="num-cell">19–33 j</td></tr>
+      <tr><td><strong>Phase C+D</strong></td><td><span class="b b-green">0 / 5</span></td><td>Oui, aligné sur le standard CYIM</td><td class="num-cell">41–71 j</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="callout warn">
+    <span class="tag">Conséquence à assumer</span>
+    <p>Ce séquencement signifie que <strong>le PoC reste en service plus longtemps</strong> —
+    en JavaScript, sans framework UI, hors du système de design. C'est un arbitrage délibéré :
+    on accepte une dette d'interface visible pour supprimer d'abord une dette de sécurité
+    invisible. La conséquence pratique est que la phase A doit livrer une API dont le contrat
+    est <strong>stable</strong>, puisque deux fronts successifs la consommeront.</p>
+  </div>
+</section>
+
+<!-- ============ 3. ARCHITECTURE ============ -->
+<section id="architecture">
+  <h2><span class="num">03</span> Architecture : actuelle → cible</h2>
+
+  <div class="arch">
+    <div class="arch-col">
+      <div class="arch-h">Aujourd'hui — le navigateur fait tout</div>
+      <div class="node browser">
+        <div class="nt">Navigateur — SPA Vue 3</div>
+        <div class="nd">Télécharge délégués + scans + vues, puis calcule 100 % des statistiques</div>
+      </div>
+      <div class="flow">↓ &nbsp; ↓</div>
+      <div class="node">
+        <div class="nt">Apollo Gateway (GraphQL)</div>
+        <div class="nd">Token Bearer figé dans le bundle — pas de Keycloak, pas de Cerbos</div>
+      </div>
+      <div class="node bad">
+        <div class="nt">Elasticsearch — 5 index</div>
+        <div class="nd">Accès HTTP direct depuis le navigateur (proxy Vite en dev, rien en prod).
+        Aucune authentification, aucune liste blanche d'index, aucune limitation de débit.</div>
+      </div>
+      <div class="flow">↑</div>
+      <div class="node">
+        <div class="nt">Flink ← Kafka <code>cyim.webhooks</code></div>
+        <div class="nd">Alimentation des index (inchangée)</div>
+      </div>
+    </div>
+
+    <div class="arch-mid">→</div>
+
+    <div class="arch-col target">
+      <div class="arch-h">Cible — le serveur agrège, le navigateur affiche</div>
+      <div class="node browser">
+        <div class="nt">Navigateur — SPA</div>
+        <div class="nd">Reçoit des agrégats prêts à l'emploi. Ne parle qu'au gateway.</div>
+      </div>
+      <div class="flow">↓</div>
+      <div class="node good">
+        <div class="nt">Apollo Gateway — jeton Keycloak</div>
+        <div class="nd">Fédération + <code>@hasPermission</code> Cerbos par événement</div>
+      </div>
+      <div class="node good">
+        <div class="nt">Nouveau microservice <code>stats</code></div>
+        <div class="nd">Agrégations Elasticsearch <code>size:0</code> · ré-association QR
+        centralisée · jointure délégués · masquage RGPD</div>
+      </div>
+      <div class="node">
+        <div class="nt">Elasticsearch — interne, non exposé</div>
+        <div class="nd">Atteint uniquement depuis le réseau serveur, via alias versionnés</div>
+      </div>
+      <div class="flow">↑</div>
+      <div class="node">
+        <div class="nt">Flink ← Kafka <code>cyim.webhooks</code></div>
+        <div class="nd">Inchangé — hors périmètre de ce plan</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tbl-scroll">
+  <table>
+    <thead><tr><th>Dimension</th><th>Aujourd'hui</th><th>Cible</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Accès Elasticsearch</strong></td><td>direct depuis le navigateur, sans authentification</td><td>serveur uniquement, jamais exposé</td></tr>
+      <tr><td><strong>Authentification</strong></td><td>token Bearer dans le bundle, sans expiration gérée</td><td>Keycloak (<code>@congress/auth-helper</code>)</td></tr>
+      <tr><td><strong>Autorisation</strong></td><td>aucune</td><td>Cerbos par événement, directive <code>@hasPermission</code></td></tr>
+      <tr><td><strong>RGPD</strong></td><td><code>delegate.gdpr</code> chargé mais non appliqué</td><td>masquage côté serveur, avant sérialisation</td></tr>
+      <tr><td><strong>Volumétrie</strong></td><td>tout téléchargé et calculé dans le navigateur</td><td>agrégations serveur (<code>terms</code>, <code>date_histogram</code>, <code>cardinality</code>)</td></tr>
+      <tr><td><strong>Ré-association QR</strong></td><td>contournement client, non partagé</td><td>centralisée côté serveur, bénéficie à tous les consommateurs</td></tr>
+      <tr><td><strong>Langage du calcul</strong></td><td>JavaScript, 0 test</td><td>TypeScript strict, Vitest</td></tr>
+      <tr><td><strong>Interface</strong></td><td>CSS maison, aucun framework</td><td>Quasar + <code>@platform/common-ui</code> + <code>theme-core</code></td></tr>
+      <tr><td><strong>Déploiement</strong></td><td>aucun (build local, variables figées)</td><td>Docker + CI GitLab, variables injectées au démarrage</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<!-- ============ 4. LES LOTS ============ -->
+<section id="lots">
+  <h2><span class="num">04</span> Les huit lots</h2>
+
+  <!-- PHASE 0 -->
+  <div class="phase">
+    <div class="phase-head">
+      <span class="phase-badge">Phase 0</span>
+      <span class="phase-title">Cadrage</span>
+      <span class="phase-sub">Trancher les arbitrages et ouvrir les accès avant d'écrire du code.</span>
+    </div>
+
+    <div class="lot">
+      <div class="lot-top">
+        <span class="lot-id">L0</span>
+        <span class="lot-name">Cadrage, arbitrages et accès</span>
+        <span class="lot-load">1 – 2 j·h</span>
+      </div>
+      <p class="lot-goal">Figer les quatre décisions structurantes (cf. §08), ouvrir les accès
+      techniques, et écrire le plan de non-régression qui servira d'arbitre pendant tout le
+      chantier.</p>
+      <div class="lot-body">
+        <div class="lot-block">
+          <h5>Contenu</h5>
+          <ul>
+            <li>Nom, périmètre et frontière du <strong>nouveau microservice <code>stats</code></strong> — l'hébergement est déjà tranché (cf. §09), reste à cadrer sa responsabilité exacte</li>
+            <li>Spécification du schéma GraphQL cible : agrégats exposés, filtres, pagination des données brutes</li>
+            <li>Politique RGPD : que masque-t-on, pour qui, sous quelle permission</li>
+            <li>Capture de <strong>jeux de données réels</strong> depuis le PoC (dump JSON existant) comme oracle de non-régression</li>
+            <li>Ouverture des accès : registre npm privé <code>@platform/*</code>, politiques Cerbos, environnement de recette</li>
+          </ul>
+        </div>
+        <div class="lot-block">
+          <h5>Livrables</h5>
+          <ul>
+            <li>Décisions consignées (une page)</li>
+            <li>Schéma GraphQL en brouillon, revu par un développeur backend</li>
+            <li>Jeu d'oracle versionné (entrées + sorties attendues)</li>
+          </ul>
+          <h5 style="margin-top:14px">Dépendances</h5>
+          <ul><li>Aucune — c'est le point d'entrée</li></ul>
+        </div>
+      </div>
+      <div class="exit"><b>Critère de sortie</b> — décisions tranchées, accès ouverts, oracle
+      de non-régression disponible et rejouable.</div>
+      <div class="lot-foot">
+        <span><b>Porte</b> G2</span><span><b>Risque</b> faible</span>
+        <span><b>Dettes traitées</b> —</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PHASE A -->
+  <div class="phase">
+    <div class="phase-head">
+      <span class="phase-badge pA">Phase A — priorité 1</span>
+      <span class="phase-title">Backend &amp; authentification</span>
+      <span class="phase-sub">10 – 19 j·h · lève 4 des 5 dettes bloquantes · chemin critique du projet</span>
+    </div>
+
+    <div class="lot crit">
+      <div class="lot-top">
+        <span class="lot-id">L1</span>
+        <span class="lot-name">Création du microservice <code>stats</code> &amp; accès Elasticsearch côté serveur</span>
+        <span class="lot-load">3 – 6 j·h</span>
+      </div>
+      <p class="lot-goal">Créer un <strong>microservice dédié</strong> qui lit les cinq index
+      Elasticsearch depuis le réseau serveur — et rien d'autre. Aucune logique métier à ce
+      stade : on établit le canal. <strong>Aucune modification d'un service existant.</strong></p>
+      <div class="lot-body">
+        <div class="lot-block">
+          <h5>Contenu</h5>
+          <ul>
+            <li>Squelette du <strong>nouveau service <code>stats</code></strong> : Node 20, TypeScript, Apollo Server 4, Apollo Federation v2, <code>GET /.well-known/apollo/server-health</code>, port 8080</li>
+            <li>Client Elasticsearch serveur (<code>@elastic/elasticsearch</code>), configuration par <code>ES_API</code> — même dépendance que <code>xlsx-stats</code>, qui lit déjà ces index</li>
+            <li><strong>Alias versionnés</strong> pour les cinq index, en remplacement des noms codés en dur (l'index audience utilise des tirets, les deux autres des underscores)</li>
+            <li>Dockerfile + <code>.gitlab-ci.yml</code> alignés sur les autres microservices (<code>common/local.mk</code>)</li>
+            <li>Enregistrement dans le gateway de fédération</li>
+          </ul>
+        </div>
+        <div class="lot-block">
+          <h5>Livrables</h5>
+          <ul>
+            <li>Service déployé en recette, visible du gateway</li>
+            <li>Requête de vérification retournant le nombre de documents des cinq index pour un <code>eventId</code></li>
+          </ul>
+          <h5 style="margin-top:14px">Dépendances</h5>
+          <ul><li>L0 (cadrage du périmètre du service)</li><li>Accès CI/CD, registre d'images et environnement de recette</li></ul>
+        </div>
+      </div>
+      <div class="exit"><b>Critère de sortie</b> — le service répond depuis la recette et lit
+      les cinq index. <b>Plus aucun besoin d'atteindre Elasticsearch depuis un navigateur.</b></div>
+      <div class="lot-foot">
+        <span><b>Porte</b> G3</span><span><b>Risque</b> moyen</span>
+        <span><b>Dettes traitées</b> <span class="mono-list">D1 (partiel) · D5 · D10</span></span>
+      </div>
+    </div>
+
+    <div class="lot crit">
+      <div class="lot-top">
+        <span class="lot-id">L2</span>
+        <span class="lot-name">Authentification Keycloak &amp; autorisation Cerbos</span>
+        <span class="lot-load">2 – 4 j·h</span>
+      </div>
+      <p class="lot-goal">Rendre l'accès aux statistiques nominatif et vérifié par événement.
+      C'est le lot qui supprime définitivement le token collé dans un fichier <code>.env</code>.</p>
+      <div class="lot-body">
+        <div class="lot-block">
+          <h5>Contenu</h5>
+          <ul>
+            <li>Intégration Keycloak côté service via <code>@congress/auth-helper</code></li>
+            <li>Directive <code>@hasPermission(actions:["event:statistics:read"])</code> sur les points d'entrée, avec <code>@requires(fields:"me { id identityId roles }")</code> — même patron que <code>registrationByBadgeQRCode</code> dans <code>registration-badges</code></li>
+            <li>Politique Cerbos dans <code>congress/microservices/policies</code> + tests de politique</li>
+            <li><strong>Contrôle d'accès par événement</strong> : l'<code>eventId</code> demandé est confronté aux droits du porteur du jeton</li>
+            <li>Côté front : authentification Keycloak et <strong>suppression de <code>VITE_AUTH_TOKEN</code></strong></li>
+          </ul>
+        </div>
+        <div class="lot-block">
+          <h5>Livrables</h5>
+          <ul>
+            <li>Politique Cerbos versionnée et testée</li>
+            <li>Matrice de recette par rôle : <code>admin</code>, <code>organizer</code>, <code>registration_manager</code>, utilisateur non habilité</li>
+          </ul>
+          <h5 style="margin-top:14px">Dépendances</h5>
+          <ul><li>L1 (le service doit exister)</li><li>Accès Cerbos et client Keycloak (L0)</li></ul>
+        </div>
+      </div>
+      <div class="exit"><b>Critère de sortie</b> — un utilisateur non habilité reçoit un refus
+      sur un événement qui n'est pas le sien ; un organisateur habilité obtient ses données.
+      Vérifié en recette, sur les quatre profils.</div>
+      <div class="lot-foot">
+        <span><b>Porte</b> G3</span><span><b>Risque</b> moyen</span>
+        <span><b>Dettes traitées</b> <span class="mono-list">D2 · D4</span></span>
+      </div>
+    </div>
+
+    <div class="lot crit">
+      <div class="lot-top">
+        <span class="lot-id">L3</span>
+        <span class="lot-name">API d'agrégation <code>eventStatistics</code> / <code>scanStatistics</code></span>
+        <span class="lot-load">5 – 9 j·h</span>
+      </div>
+      <p class="lot-goal">Déplacer côté serveur ce que le navigateur fait aujourd'hui à ses
+      frais : agréger, normaliser, ré-associer, masquer. C'est le lot le plus dense de la
+      phase — et celui qui rend le PoC déployable.</p>
+      <div class="lot-body">
+        <div class="lot-block">
+          <h5>Contenu</h5>
+          <ul>
+            <li><strong>Agrégations Elasticsearch</strong> : <code>size: 0</code> + <code>terms</code>, <code>date_histogram</code>, <code>cardinality</code> — plus de téléchargement exhaustif</li>
+            <li><strong>Normalisation des champs</strong> : remplace les onze champs candidats d'horodatage, les quatre de durée, l'heuristique millisecondes/secondes et le sens de passage deviné par sous-chaîne</li>
+            <li><strong>Ré-association QR centralisée</strong> : le rattachement des scans orphelins bénéficie à tous les consommateurs des index, plus seulement à ce dashboard</li>
+            <li><strong>Masquage RGPD</strong> appliqué avant sérialisation, selon <code>delegate.gdpr</code> et la permission de l'appelant</li>
+            <li>Règle unique d'exclusion des comptes internes (aujourd'hui appliquée au live et au replay, pas aux scans)</li>
+            <li><strong>Accès paginé aux données brutes</strong> pour les exports nominatifs (présence par session, parcours individuel), soumis à permission dédiée</li>
+            <li>Utilisation des agrégats déjà exposés par le backend (<code>event.metrics.registration</code>), que le PoC recalcule inutilement</li>
+            <li>Pagination Elasticsearch en Point-in-Time plutôt que <code>search_after</code> nu</li>
+          </ul>
+        </div>
+        <div class="lot-block">
+          <h5>Livrables</h5>
+          <ul>
+            <li>Schéma GraphQL fédéré, documenté</li>
+            <li><strong>Rapport de parité</strong> : agrégats du service comparés aux lectures Elasticsearch directes du PoC, sur au moins deux congrès réels de taille différente</li>
+            <li>Front PoC rebranché sur l'API, <code>api/elasticsearch.js</code> et le proxy <code>/api/es</code> <strong>supprimés</strong></li>
+          </ul>
+          <h5 style="margin-top:14px">Dépendances</h5>
+          <ul><li>L1 et L2</li></ul>
+        </div>
+      </div>
+      <div class="exit"><b>Critère de sortie</b> — <b>parité chiffrée démontrée</b> avec le PoC
+      sur des données réelles, et le PoC ne contient plus aucun accès direct à Elasticsearch
+      ni aucun token en dur. <b>Jalon M2 atteint.</b></div>
+      <div class="lot-foot">
+        <span><b>Porte</b> G1 + G3</span><span><b>Risque</b> élevé</span>
+        <span><b>Dettes traitées</b> <span class="mono-list">D1 · D3 · D6 · D7 · D8 · D9 · D11 · D13</span></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PHASE B -->
+  <div class="phase">
+    <div class="phase-head">
+      <span class="phase-badge pB">Phase B</span>
+      <span class="phase-title">Cœur métier</span>
+      <span class="phase-sub">8 – 12 j·h · parallélisable avec la phase A · risque quasi nul (rien en production n'est touché)</span>
+    </div>
+
+    <div class="lot core">
+      <div class="lot-top">
+        <span class="lot-id">L4</span>
+        <span class="lot-name">Extraction de <code>stats-core</code> — TypeScript + tests</span>
+        <span class="lot-load">8 – 12 j·h</span>
+      </div>
+      <p class="lot-goal">Sortir la propriété intellectuelle métier des onglets Vue et la
+      transformer en bibliothèque typée, testée et réutilisable. C'est aussi la
+      <strong>preuve de valeur</strong> du chantier : elle se vérifie objectivement, sans rien
+      déployer.</p>
+      <div class="lot-body">
+        <div class="lot-block">
+          <h5>Contenu</h5>
+          <ul>
+            <li>Portage JavaScript → <strong>TypeScript strict</strong> de ~6 500 lignes : <code>computeStats</code>, <code>computeScanStats</code>, <code>computeLiveStats</code>, <code>computeReplayStats</code>, <code>viewerJoin</code>, <code>participation</code>, <code>physicalReplay</code>, <code>burndown</code>, <code>checkinByType</code>, les constructeurs d'exports, <code>generateAnalysis</code></li>
+            <li>Aucune dépendance à Vue — bibliothèque <code>-core</code> pure, conforme à la césure <code>core</code>/<code>ui</code> du monorepo</li>
+            <li><strong>Suite Vitest de non-régression</strong> alimentée par l'oracle capturé en L0</li>
+            <li>Corrections d'incohérences relevées : deux définitions de la validité du check-in, regroupements résiduels en UTC pour l'onboarding et le mobile</li>
+            <li>Abandon du code mort (<code>DayOfTab.vue</code>, <code>fetchMetrics</code>)</li>
+          </ul>
+        </div>
+        <div class="lot-block">
+          <h5>Livrables</h5>
+          <ul>
+            <li>Bibliothèque compilable et publiable sur le registre privé</li>
+            <li>Suite de tests verte, avec taux de couverture mesuré</li>
+            <li><strong>Attestation de parité</strong> : sorties identiques à celles du PoC sur les jeux de données réels</li>
+          </ul>
+          <h5 style="margin-top:14px">Dépendances</h5>
+          <ul><li>L0 (oracle) · accès au registre npm privé</li><li><strong>Indépendant de L1–L3</strong> : peut démarrer en parallèle</li></ul>
+        </div>
+      </div>
+      <div class="exit"><b>Critère de sortie</b> — bibliothèque compilable, tests verts,
+      <b>parité avec le PoC confirmée par un humain</b>. Si ce lot passe, la délégabilité du
+      reste du chantier est démontrée.</div>
+      <div class="lot-foot">
+        <span><b>Porte</b> G1</span><span><b>Risque</b> très faible</span>
+        <span><b>Dettes traitées</b> <span class="mono-list">D14 · D15 (calcul) · D19 · D20 · D21</span></span>
+      </div>
+    </div>
+
+    <div class="callout">
+      <span class="tag">Note de séquencement</span>
+      <p>Une partie de la logique portée en L4 (normalisation, ré-association QR, jointure)
+      a vocation à s'exécuter <strong>côté serveur</strong> en L3. Faire de
+      <code>stats-core</code> une bibliothèque <strong>isomorphe</strong> — sans dépendance
+      Vue ni navigateur — permet au service backend de la consommer directement, au lieu de
+      réimplémenter la même logique deux fois. C'est le principal gain d'une exécution
+      parallèle des phases A et B, et cela suppose de le décider dès L0.</p>
+    </div>
+  </div>
+
+  <!-- PHASE C -->
+  <div class="phase">
+    <div class="phase-head">
+      <span class="phase-badge pC">Phase C</span>
+      <span class="phase-title">Interface</span>
+      <span class="phase-sub">18 – 30 j·h · le lot le plus lourd, délibérément placé après la sécurisation</span>
+    </div>
+
+    <div class="lot ui">
+      <div class="lot-top">
+        <span class="lot-id">L5</span>
+        <span class="lot-name">Échafaudage de l'application <code>statistics</code> (v1)</span>
+        <span class="lot-load">3 – 5 j·h</span>
+      </div>
+      <p class="lot-goal">Produire une application vide mais conforme : elle compile, elle se
+      déploie, elle s'authentifie.</p>
+      <div class="lot-body">
+        <div class="lot-block">
+          <h5>Contenu</h5>
+          <ul>
+            <li>Génération du socle : Vite, Quasar 2.18, TypeScript ~5.7 strict, Pinia, vue-router, vue-i18n 11</li>
+            <li>Amorçage standard : <code>@platform/config-module</code>, Keycloak, <code>@platform/theme-core</code> + palette, <code>@platform/application-context</code></li>
+            <li><code>@platform/front-configs</code> : ESLint 10 (plat) + Prettier 3 + tsconfig</li>
+            <li>Vitest 4 + <code>@vue/test-utils</code> en jsdom</li>
+            <li>Docker + nginx + CI GitLab, <strong>avec substitution des variables au démarrage du conteneur</strong> (le PoC les fige à la compilation)</li>
+          </ul>
+        </div>
+        <div class="lot-block">
+          <h5>Livrables</h5>
+          <ul><li>Application déployée en recette, s'authentifiant contre Keycloak, affichant un écran vide</li></ul>
+          <h5 style="margin-top:14px">Dépendances</h5>
+          <ul><li>L2 (client Keycloak) · accès au registre npm privé</li></ul>
+        </div>
+      </div>
+      <div class="exit"><b>Critère de sortie</b> — application vide déployée et authentifiée,
+      conforme au projet de référence retenu comme modèle.</div>
+      <div class="lot-foot">
+        <span><b>Porte</b> G2 + G3</span><span><b>Risque</b> faible</span>
+        <span><b>Dettes traitées</b> <span class="mono-list">D16</span></span>
+      </div>
+    </div>
+
+    <div class="lot ui">
+      <div class="lot-top">
+        <span class="lot-id">L6</span>
+        <span class="lot-name">Migration des écrans, par vagues</span>
+        <span class="lot-load">15 – 25 j·h</span>
+      </div>
+      <p class="lot-goal">Reconstruire l'interface sur Quasar et <code>@platform/common-ui</code>,
+      branchée sur <code>stats-core</code> et l'API d'agrégation. <strong>Vague par vague</strong>,
+      chacune atteignant la parité avant la suivante — jamais un basculement global.</p>
+      <div class="lot-body">
+        <div class="lot-block">
+          <h5>Les quatre vagues</h5>
+          <ul>
+            <li><strong>V1</strong> — coquille applicative (en-tête, tiroir de navigation, barre de filtres globaux) + Vue d'ensemble + Démographie</li>
+            <li><strong>V2</strong> — groupe Registration : Inscriptions, Dynamique, Badges &amp; Check-in, Données</li>
+            <li><strong>V3</strong> — Live, Replay, Scans QR</li>
+            <li><strong>V4</strong> — Exports et vues comparatives</li>
+          </ul>
+          <h5 style="margin-top:14px">Remplacements de plomberie</h5>
+          <ul>
+            <li><code>gqlFetch</code> + pagination maison → <code>@platform/graphql-core</code></li>
+            <li>jetons CSS de <code>App.vue</code> → <code>theme-core</code> / <code>theme-ui</code></li>
+            <li><code>useDiagnostics</code> + bandeau → <code>common-ui</code> <code>useSnackbar</code></li>
+            <li><code>debug.js</code> → <code>@platform/vue-logger</code></li>
+            <li>filtres badge et date → <code>filter-core</code> + <code>filter-ui</code></li>
+            <li>tableaux, modales, boutons, infobulles → <code>common-ui</code> et Quasar (<code>q-table</code> apporte tri, pagination et virtualisation)</li>
+          </ul>
+        </div>
+        <div class="lot-block">
+          <h5>Conservé tel quel</h5>
+          <ul>
+            <li><strong>Les graphiques Chart.js</strong> (~1 100 lignes) — <code>common-ui</code> ne fournit pas de graphiques. Anneaux, barres, courbes, empilées, choroplèthes monde/Europe/France, grille de comparaison</li>
+            <li><strong>Les fichiers de traduction</strong> (~2 700 lignes FR + EN), rebranchés via <code>registerI18n</code></li>
+          </ul>
+          <h5 style="margin-top:14px">Découpages à faire au passage</h5>
+          <ul>
+            <li><code>OverviewTab</code> (1 725 l.), <code>ExportsTab</code> (1 407 l.), <code>ViewersTab</code> (1 422 l.), <code>ComparisonTab</code> (1 157 l.), <code>BadgesTab</code> (1 114 l.)</li>
+          </ul>
+          <h5 style="margin-top:14px">Dépendances</h5>
+          <ul><li>L3 (API), L4 (<code>stats-core</code>), L5 (coquille)</li></ul>
+        </div>
+      </div>
+      <div class="exit"><b>Critère de sortie</b> — chaque vague atteint la <b>parité
+      fonctionnelle et chiffrée</b> avec l'écran correspondant du PoC avant que la suivante ne
+      commence. Livraison incrémentale, jamais un basculement global.</div>
+      <div class="lot-foot">
+        <span><b>Porte</b> G1 + G2</span><span><b>Risque</b> moyen</span>
+        <span><b>Dettes traitées</b> <span class="mono-list">D15 (interface) · D17 · D18 · D22</span></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PHASE D -->
+  <div class="phase">
+    <div class="phase-head">
+      <span class="phase-badge pD">Phase D</span>
+      <span class="phase-title">Mise en production</span>
+      <span class="phase-sub">4 – 8 j·h</span>
+    </div>
+
+    <div class="lot prod">
+      <div class="lot-top">
+        <span class="lot-id">L7</span>
+        <span class="lot-name">Durcissement, recette et bascule</span>
+        <span class="lot-load">4 – 8 j·h</span>
+      </div>
+      <p class="lot-goal">Rendre la solution exploitable dans la durée, puis retirer le PoC.</p>
+      <div class="lot-body">
+        <div class="lot-block">
+          <h5>Contenu</h5>
+          <ul>
+            <li><strong>Performance sur gros congrès</strong> : validation des agrégations serveur au-delà de 100 000 scans et 15 000 délégués</li>
+            <li><strong>Rafraîchissement incrémental</strong> : Point-in-Time + <code>timestamp &gt; last_seen</code>, ou flux serveur depuis le service qui écoute <code>cyim.webhooks</code></li>
+            <li>Observabilité : journalisation vers Kibana, traces OpenTelemetry, suivi des erreurs — aujourd'hui inexistants</li>
+            <li><strong>Recette RGPD signée</strong> et recette bilingue FR/EN complète</li>
+            <li>Bascule des utilisateurs, puis <strong>décommissionnement du PoC</strong></li>
+          </ul>
+        </div>
+        <div class="lot-block">
+          <h5>Livrables</h5>
+          <ul>
+            <li>Procès-verbal de recette</li>
+            <li>Attestation de conformité RGPD</li>
+            <li>Documentation d'exploitation</li>
+          </ul>
+          <h5 style="margin-top:14px">Dépendances</h5>
+          <ul><li>L6 complet</li></ul>
+        </div>
+      </div>
+      <div class="exit"><b>Critère de sortie</b> — production validée, PoC retiré, aucun accès
+      résiduel direct à Elasticsearch depuis un navigateur.</div>
+      <div class="lot-foot">
+        <span><b>Porte</b> G1 + G3</span><span><b>Risque</b> moyen</span>
+        <span><b>Dettes traitées</b> <span class="mono-list">D3 (recette) · D6 · D12</span></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 5. SEQUENCEMENT ============ -->
+<section id="sequencement">
+  <h2><span class="num">05</span> Séquencement &amp; jalons</h2>
+
+  <h3>Enchaînement (hypothèse : un développeur backend et un développeur front, partiellement en parallèle)</h3>
+
+  <div class="gantt">
+    <div class="gantt-scale">
+      <div></div>
+      <div class="gantt-weeks">
+        <span>S1</span><span>S2</span><span>S3</span><span>S4</span><span>S5</span><span>S6</span>
+        <span>S7</span><span>S8</span><span>S9</span><span>S10</span><span>S11</span><span>S12</span>
+      </div>
+    </div>
+    <div class="gantt-row">
+      <div class="gantt-lab">L0 · Cadrage</div>
+      <div class="gantt-track"><div class="gantt-bar bar-scope" style="left:0;width:6%">L0</div></div>
+    </div>
+    <div class="gantt-row">
+      <div class="gantt-lab">L1 · Service &amp; accès ES</div>
+      <div class="gantt-track"><div class="gantt-bar bar-crit" style="left:6%;width:15%">L1</div></div>
+    </div>
+    <div class="gantt-row">
+      <div class="gantt-lab">L2 · Keycloak &amp; Cerbos</div>
+      <div class="gantt-track"><div class="gantt-bar bar-crit" style="left:21%;width:11%">L2</div></div>
+    </div>
+    <div class="gantt-row">
+      <div class="gantt-lab">L3 · API d'agrégation</div>
+      <div class="gantt-track"><div class="gantt-bar bar-crit" style="left:32%;width:20%">L3 &nbsp;→ M2</div></div>
+    </div>
+    <div class="gantt-row">
+      <div class="gantt-lab">L4 · <code>stats-core</code> <span style="color:var(--accent-dark)">‖</span></div>
+      <div class="gantt-track"><div class="gantt-bar bar-core" style="left:6%;width:30%">L4 (en parallèle)</div></div>
+    </div>
+    <div class="gantt-row">
+      <div class="gantt-lab">L5 · Échafaudage</div>
+      <div class="gantt-track"><div class="gantt-bar bar-ui" style="left:36%;width:11%">L5</div></div>
+    </div>
+    <div class="gantt-row">
+      <div class="gantt-lab">L6 · Écrans (4 vagues)</div>
+      <div class="gantt-track"><div class="gantt-bar bar-ui" style="left:52%;width:38%">V1 · V2 · V3 · V4</div></div>
+    </div>
+    <div class="gantt-row">
+      <div class="gantt-lab">L7 · Bascule</div>
+      <div class="gantt-track"><div class="gantt-bar bar-prod" style="left:90%;width:10%">L7</div></div>
+    </div>
+  </div>
+  <p style="font-size:12.5px;color:var(--text-3)">Échelle indicative sur 12 semaines calendaires.
+  Avec un seul développeur, les phases A et B se déroulent en séquence et l'ensemble s'étale
+  sur 14 à 18 semaines.</p>
+
+  <h3>Jalons</h3>
+  <div class="ms">
+    <div class="ms-item">
+      <div class="ms-t">M1 — Canal serveur sécurisé <span class="ms-when">fin L2</span></div>
+      <div class="ms-d">Un service backend authentifié par Keycloak et autorisé par Cerbos lit
+      les cinq index Elasticsearch. Le navigateur n'a plus de raison technique d'y accéder.</div>
+    </div>
+    <div class="ms-item key">
+      <div class="ms-t">M2 — <strong>PoC sécurisé et déployable</strong> <span class="ms-when">fin L3 · jalon décisif</span></div>
+      <div class="ms-d">Le front actuel consomme l'API authentifiée. <code>VITE_AUTH_TOKEN</code>,
+      <code>api/elasticsearch.js</code> et le proxy <code>/api/es</code> sont supprimés ; le masquage
+      RGPD s'applique. <strong>4 des 5 dettes bloquantes sont levées, sans avoir réécrit une
+      seule ligne d'interface.</strong> C'est le premier livrable défendable devant un client
+      ou un audit.</div>
+    </div>
+    <div class="ms-item">
+      <div class="ms-t">M3 — Cœur métier typé et testé <span class="ms-when">fin L4</span></div>
+      <div class="ms-d"><code>stats-core</code> est publiée, couverte par Vitest, à parité prouvée
+      avec le PoC. La cinquième dette bloquante est levée et la non-régression devient
+      outillée pour tout ce qui suit.</div>
+    </div>
+    <div class="ms-item">
+      <div class="ms-t">M4 — Parité fonctionnelle de la nouvelle application <span class="ms-when">fin L6</span></div>
+      <div class="ms-d">Les quatre vagues d'écrans sont livrées, chacune ayant atteint la parité
+      avant la suivante. L'application est alignée sur le standard front CYIM.</div>
+    </div>
+    <div class="ms-item final">
+      <div class="ms-t">M5 — Production &amp; retrait du PoC <span class="ms-when">fin L7</span></div>
+      <div class="ms-d">Recette signée, RGPD attesté, utilisateurs basculés, PoC décommissionné.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 6. CHARGES ============ -->
+<section id="charges">
+  <h2><span class="num">06</span> Charges &amp; répartition</h2>
+
+  <div class="tbl-scroll">
+  <table>
+    <thead><tr><th>Lot</th><th>Profil</th><th>Charge min</th><th>Charge max</th><th>Chemin critique</th><th>Dettes levées</th></tr></thead>
+    <tbody>
+      <tr><td><strong>L0</strong> Cadrage</td><td>PM + lead front + dev backend</td><td class="num-cell">1</td><td class="num-cell">2</td><td>Oui</td><td>—</td></tr>
+      <tr><td><strong>L1</strong> Service &amp; accès ES</td><td>Dev backend</td><td class="num-cell">3</td><td class="num-cell">6</td><td><strong>Oui</strong></td><td class="mono-list">D1p · D5 · D10</td></tr>
+      <tr><td><strong>L2</strong> Keycloak &amp; Cerbos</td><td>Dev backend + ops</td><td class="num-cell">2</td><td class="num-cell">4</td><td><strong>Oui</strong></td><td class="mono-list">D2 · D4</td></tr>
+      <tr><td><strong>L3</strong> API d'agrégation</td><td>Dev backend</td><td class="num-cell">5</td><td class="num-cell">9</td><td><strong>Oui</strong></td><td class="mono-list">D1 · D3 · D6 · D7 · D8 · D9 · D11 · D13</td></tr>
+      <tr><td><strong>L4</strong> <code>stats-core</code></td><td>Dev front / full-stack</td><td class="num-cell">8</td><td class="num-cell">12</td><td>Non (‖ phase A)</td><td class="mono-list">D14 · D15p · D19 · D20 · D21</td></tr>
+      <tr><td><strong>L5</strong> Échafaudage</td><td>Dev front</td><td class="num-cell">3</td><td class="num-cell">5</td><td>Oui</td><td class="mono-list">D16</td></tr>
+      <tr><td><strong>L6</strong> Écrans (4 vagues)</td><td>Dev front</td><td class="num-cell">15</td><td class="num-cell">25</td><td>Oui</td><td class="mono-list">D15 · D17 · D18 · D22</td></tr>
+      <tr><td><strong>L7</strong> Durcissement &amp; bascule</td><td>Dev + ops + PM</td><td class="num-cell">4</td><td class="num-cell">8</td><td>Oui</td><td class="mono-list">D3 · D6 · D12</td></tr>
+    </tbody>
+    <tfoot>
+      <tr><td colspan="2">Total</td><td class="num-cell">41</td><td class="num-cell">71</td><td colspan="2">22 dettes traitées</td></tr>
+    </tfoot>
+  </table>
+  </div>
+
+  <div class="grid g3" style="margin-top:20px">
+    <div class="card">
+      <h4 style="margin-top:0">Répartition par nature</h4>
+      <ul style="font-size:13.5px;margin-bottom:0">
+        <li><strong>Backend &amp; sécurité</strong> — 10 à 19 j·h (24–27 %)</li>
+        <li><strong>Cœur métier</strong> — 8 à 12 j·h (17–20 %)</li>
+        <li><strong>Interface</strong> — 18 à 30 j·h (42–44 %)</li>
+        <li><strong>Cadrage &amp; bascule</strong> — 5 à 10 j·h (12–14 %)</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4 style="margin-top:0">Ce qui n'est pas dans l'enveloppe</h4>
+      <ul style="font-size:13.5px;margin-bottom:0">
+        <li>Correctif <strong>amont Flink</strong> (résolution QR déterministe, mapping typé, <code>enum</code> de sens de passage) — chantier distinct</li>
+        <li>Migration ou retrait de <code>xlsx-stats</code>, qui lit les mêmes index</li>
+        <li>Nouvelles fonctionnalités : le périmètre est <strong>iso-fonctionnel</strong></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4 style="margin-top:0">Levier de compression</h4>
+      <p style="font-size:13.5px;margin-bottom:0">Les lots L4 et L6 sont massivement
+      <strong>délégables à Claude Code</strong> : portage mécanique, tests, réécriture guidée
+      par le mapping existant. Le facteur limitant n'est pas la production de code mais la
+      <strong>validation de l'exactitude</strong> (porte G1) et l'<strong>intégration</strong>
+      (porte G3), qui restent humaines.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 7. RISQUES ============ -->
+<section id="risques">
+  <h2><span class="num">07</span> Registre des risques</h2>
+
+  <div class="tbl-scroll">
+  <table>
+    <thead><tr><th>#</th><th>Risque</th><th>Sév.</th><th>Lot</th><th>Parade</th></tr></thead>
+    <tbody>
+      <tr>
+        <td class="num-cell"><strong>R1</strong></td>
+        <td><strong>Perte de parité des chiffres.</strong> Un dénominateur ou une jointure
+        modifiée sans qu'on le voie : le dashboard affiche des chiffres faux, crédibles, et
+        c'est le client qui le découvre.</td>
+        <td><span class="b b-red">Élevée</span></td>
+        <td class="num-cell">L3 · L4 · L6</td>
+        <td>Le <strong>PoC est l'oracle</strong> : jeux de données réels capturés en L0, suite
+        Vitest de non-régression, et revalidation humaine des chiffres à chaque vague livrée.
+        Rien n'est « fait » tant qu'il ne reproduit pas les sorties du PoC.</td>
+      </tr>
+      <tr>
+        <td class="num-cell"><strong>R2</strong></td>
+        <td><strong>Disponibilité du développement backend.</strong> Les lots L1 à L3 sont sur
+        le chemin critique et exigent des compétences et des accès (Cerbos, CI, recette) que
+        le PM n'a pas.</td>
+        <td><span class="b b-red">Élevée</span></td>
+        <td class="num-cell">L1 · L2 · L3</td>
+        <td>Sécuriser la ressource <strong>avant</strong> le lancement. Claude Code peut écrire
+        le resolver, mais un humain doit relire la sécurité, intégrer et déployer (porte G3).
+        À défaut, démarrer par L4 — sans valeur en production mais sans dépendance.</td>
+      </tr>
+      <tr>
+        <td class="num-cell"><strong>R3</strong></td>
+        <td><strong>Accès techniques non ouverts.</strong> Registre npm privé
+        <code>@platform/*</code>, politiques Cerbos, client Keycloak, environnement de recette.</td>
+        <td><span class="b b-orange">Moyenne</span></td>
+        <td class="num-cell">L2 · L5</td>
+        <td>Faire de l'ouverture des accès un <strong>critère de sortie de L0</strong>. Un accès
+        manquant bloque un lot entier, sans possibilité de contournement.</td>
+      </tr>
+      <tr>
+        <td class="num-cell"><strong>R4</strong></td>
+        <td><strong>Instabilité du contrat d'API.</strong> Deux fronts successifs consomment
+        l'API (le PoC après M2, puis la nouvelle application). Un changement cassant impose
+        deux corrections.</td>
+        <td><span class="b b-orange">Moyenne</span></td>
+        <td class="num-cell">L3</td>
+        <td>Figer le schéma en L0, le faire relire par un développeur backend avant
+        implémentation, et raisonner en additions rétrocompatibles.</td>
+      </tr>
+      <tr>
+        <td class="num-cell"><strong>R5</strong></td>
+        <td><strong>Le défaut amont Flink persiste.</strong> La ré-association QR est un
+        contournement ; l'audience en salle reste <strong>irrécupérable</strong> car en
+        <code>INNER JOIN</code> — les lignes manquantes ne sont pas dans l'index.</td>
+        <td><span class="b b-orange">Moyenne</span></td>
+        <td class="num-cell">hors périmètre</td>
+        <td>Centraliser le contournement côté serveur en L3 (il profite alors à tous les
+        consommateurs), et ouvrir un chantier distinct sur le job Flink et le resolver
+        <code>registrationByBadgeQRCode</code>.</td>
+      </tr>
+      <tr>
+        <td class="num-cell"><strong>R6</strong></td>
+        <td><strong>Dérive de périmètre à la réécriture.</strong> « Puisqu'on refait l'écran,
+        autant ajouter… » — L6 est le lot le plus long, donc le plus exposé.</td>
+        <td><span class="b b-orange">Moyenne</span></td>
+        <td class="num-cell">L6</td>
+        <td>Périmètre <strong>iso-fonctionnel</strong> assumé : la parité est le critère de
+        sortie, pas l'amélioration. Les demandes nouvelles sont consignées pour un lot
+        ultérieur.</td>
+      </tr>
+      <tr>
+        <td class="num-cell"><strong>R7</strong></td>
+        <td><strong>Le PoC reste en service plus longtemps</strong> que prévu, en JavaScript
+        sans tests, et continue d'évoluer en parallèle — créant une divergence avec
+        <code>stats-core</code>.</td>
+        <td><span class="b b-orange">Moyenne</span></td>
+        <td class="num-cell">A · B · C</td>
+        <td><strong>Geler les évolutions fonctionnelles du PoC</strong> à partir de M2 :
+        corrections uniquement, toute nouveauté part sur la nouvelle base.</td>
+      </tr>
+      <tr>
+        <td class="num-cell"><strong>R8</strong></td>
+        <td><strong>Divergence de charge Elasticsearch.</strong> Les agrégations serveur
+        déplacent la charge du navigateur vers le cluster de production, jusqu'ici épargné par
+        ce type de requêtes.</td>
+        <td><span class="b b-grey">Faible</span></td>
+        <td class="num-cell">L3 · L7</td>
+        <td>Mesurer le coût des agrégations en recette, plafonner la cardinalité, et mettre en
+        cache les agrégats les plus lourds. <code>xlsx-stats</code> fait déjà des agrégations sur
+        ces index — le précédent existe.</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<!-- ============ 8. GOUVERNANCE ============ -->
+<section id="gouvernance">
+  <h2><span class="num">08</span> Gouvernance &amp; portes de validation</h2>
+
+  <p>La production de code est largement délégable ; la <strong>validation</strong> ne l'est
+  pas. Trois portes structurent le chantier — elles reprennent celles déjà retenues dans
+  <a href="README.md">le dossier d'exécution</a>.</p>
+
+  <div class="tbl-scroll">
+  <table>
+    <thead><tr><th>Porte</th><th>Ce qu'elle vérifie</th><th>Qui</th><th>Lots</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>G1</strong><br><span class="b b-green">Exactitude</span></td>
+        <td>Les sorties reproduisent celles du PoC — mêmes entrées, mêmes chiffres. Filet
+        anti-régression non négociable.</td>
+        <td>PM / développeur métier</td>
+        <td class="num-cell">L3 · L4 · L6 · L7</td>
+      </tr>
+      <tr>
+        <td><strong>G2</strong><br><span class="b b-blue">Décisions</span></td>
+        <td>Arbitrages structurants : hôte du service, périmètre d'API, choix d'ergonomie,
+        accès aux bibliothèques privées. Claude propose, l'humain tranche.</td>
+        <td>PM + lead front</td>
+        <td class="num-cell">L0 · L5 · L6</td>
+      </tr>
+      <tr>
+        <td><strong>G3</strong><br><span class="b b-purple">Backend / infra</span></td>
+        <td>Sécurité, Cerbos, CI/CD, déploiement, production. Claude écrit ; un humain avec les
+        accès relit, intègre et déploie.</td>
+        <td>Développeur backend / ops</td>
+        <td class="num-cell">L1 · L2 · L3 · L5 · L7</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="callout key">
+    <span class="tag">Règle d'or</span>
+    <p><strong>Aucun lot n'avance tant que sa porte n'est pas franchie.</strong> La parité avec
+    le PoC (G1) est le juge de paix : tant qu'un calcul ou un écran ne reproduit pas à
+    l'identique les sorties actuelles sur données réelles, il n'est pas « fait ». C'est
+    précisément ce qui rend une délégation massive à Claude Code <strong>sûre</strong> — le PoC
+    est l'oracle de non-régression.</p>
+  </div>
+</section>
+
+<!-- ============ 9. DECISIONS ============ -->
+<section id="decisions">
+  <h2><span class="num">09</span> Décisions structurantes — une tranchée, trois à trancher</h2>
+
+  <div class="callout key">
+    <span class="tag">Contrainte d'architecture — arrêtée</span>
+    <p><strong>Aucune greffe sur un microservice existant.</strong> Les statistiques ne sont
+    ajoutées ni à <code>registration-badges</code>, ni à <code>xlsx-stats</code>, ni à aucun autre
+    service en place : elles vivent dans un <strong>microservice dédié <code>stats</code></strong>.
+    Cette contrainte s'applique à l'ensemble du plan et prime sur les considérations de coût
+    d'exploitation.</p>
+  </div>
+
+  <div class="dec is-settled">
+    <div class="dec-q">1 · Où héberger le service de statistiques ? <span class="b b-green">Tranchée</span></div>
+    <p style="font-size:13.5px"><strong>Réponse : un nouveau microservice <code>stats</code>.</strong>
+    Les deux greffes envisageables sont écartées par la contrainte ci-dessus — et l'étaient déjà
+    sur le fond : <code>xlsx-stats</code> tourne sur une pile ancienne (Apollo Federation 0.23,
+    apollo-server-express 2, graphql 15), et <code>registration-badges</code> a pour
+    responsabilité la génération de badges, pas la production de statistiques.</p>
+    <div class="dec-opts">
+      <div class="dec-opt reco">
+        <div class="oh">Nouveau microservice <code>stats</code> <span class="b b-green">retenu</span></div>
+        Pile actuelle (Node 20, TypeScript, Apollo Server 4, Federation v2). Frontière de
+        responsabilité nette, périmètre propre, testable et déployable isolément, aucun risque
+        de régression sur un service en production.
+      </div>
+      <div class="dec-opt rejected">
+        <div class="oh">Greffe sur un service existant <span class="b b-red">écartée</span></div>
+        Aurait économisé un service à exploiter, mais chargerait un service dont la
+        responsabilité est autre et exposerait la production à une régression pour une
+        fonction annexe.
+      </div>
+    </div>
+    <div class="exit"><b>Conséquences à porter</b> — un service supplémentaire à exploiter :
+    image Docker, pipeline CI, déploiement, supervision et alerting. Ce coût est intégré au
+    lot <b>L1</b> (3–6 j·h) et à la charge d'exploitation récurrente. En contrepartie, le
+    service <code>stats</code> devient le <b>point d'accès unique aux données de statistiques
+    de congrès</b> pour tout futur consommateur.
+    <br><br>
+    <b>Ce que cela ne règle pas</b> — l'adossement de <code>xlsx-stats</code> à ce nouveau
+    service est une <em>perspective</em>, pas un engagement de ce plan, et le chantier serait
+    plus large que le seul Elasticsearch : sur ~40 accès données de son générateur de rapports,
+    <b>3 seulement passent par le gateway</b> (nom du congrès, stand) — le reste lit
+    <b>Elasticsearch (30), MongoDB (6) et SQL Server SI-views (3) en direct</b>, court-circuitant
+    <code>registration</code>, <code>contacts</code> et <code>event-microservice</code>. Son
+    schéma fédéré est par ailleurs un <b>bouchon</b> (<code>type Query { xlsx: String }</code>) :
+    il ne contribue rien au graphe, sa véritable interface étant du REST servant des fichiers
+    MinIO pré-générés. Le réaligner est un chantier distinct, à chiffrer séparément.</div>
+  </div>
+
+  <div class="dec">
+    <div class="dec-q">2 · L'API expose-t-elle uniquement des agrégats, ou aussi les données brutes ?</div>
+    <p style="font-size:13.5px">Les exports nominatifs (présence par session, parcours
+    individuel, scans à plat) ont besoin de lignes détaillées, pas d'agrégats. C'est une
+    fonction très utilisée du dashboard.</p>
+    <div class="dec-opts">
+      <div class="dec-opt reco">
+        <div class="oh">Agrégats + accès brut paginé sous permission dédiée <span class="b b-green">recommandé</span></div>
+        Les écrans consomment des agrégats ; les exports nominatifs passent par un point
+        d'entrée paginé, protégé par une permission distincte et soumis au masquage RGPD.
+        Conserve toutes les fonctions actuelles.
+      </div>
+      <div class="dec-opt">
+        <div class="oh">Agrégats seulement</div>
+        Plus simple et plus sûr, mais <strong>fait perdre les exports nominatifs</strong> —
+        c'est une régression fonctionnelle à assumer devant les utilisateurs.
+      </div>
+    </div>
+  </div>
+
+  <div class="dec">
+    <div class="dec-q">3 · Quelle politique de masquage RGPD ?</div>
+    <p style="font-size:13.5px">Le microservice <code>xlsx-stats</code>, dont ce dashboard reprend
+    le périmètre, remplaçait par <code>***</code> les délégués sans consentement. Le PoC ne
+    masque rien.</p>
+    <div class="dec-opts">
+      <div class="dec-opt reco">
+        <div class="oh">Masquage serveur par défaut, dérogation par permission <span class="b b-green">recommandé</span></div>
+        Le service masque systématiquement les délégués sans consentement. Une permission
+        Cerbos dédiée lève le masquage pour les profils qui en ont le droit et le besoin.
+        Comportement sûr par défaut.
+      </div>
+      <div class="dec-opt">
+        <div class="oh">Masquage selon le rôle uniquement</div>
+        Plus souple, mais l'oubli d'un rôle dans la politique expose des données — l'erreur
+        se fait du mauvais côté.
+      </div>
+    </div>
+  </div>
+
+  <div class="dec">
+    <div class="dec-q">4 · Que devient le PoC après le jalon M2 ?</div>
+    <div class="dec-opts">
+      <div class="dec-opt reco">
+        <div class="oh">Maintenu en service, branché sur l'API, <strong>fonctionnellement gelé</strong> <span class="b b-green">recommandé</span></div>
+        Les utilisateurs gardent leur outil pendant la reconstruction. Corrections
+        uniquement : toute nouveauté part sur la nouvelle base, ce qui évite la divergence
+        avec <code>stats-core</code> (risque R7).
+      </div>
+      <div class="dec-opt">
+        <div class="oh">Gelé et remplacé seulement à M4</div>
+        Une seule bascule, mais les utilisateurs restent plusieurs mois sur un outil non
+        sécurisé — cela annule tout le bénéfice du séquencement retenu.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 10. DEMARRAGE ============ -->
+<section id="demarrage">
+  <h2><span class="num">10</span> Démarrage recommandé</h2>
+
+  <div class="grid g2">
+    <div class="card">
+      <h4 style="margin-top:0">Semaine 1 — L0, puis en parallèle</h4>
+      <ol style="font-size:13.5px;margin-bottom:0">
+        <li>Trancher les <strong>quatre décisions</strong> du §09 (une réunion suffit)</li>
+        <li>Ouvrir les accès : registre npm privé, Cerbos, environnement de recette, client Keycloak</li>
+        <li>Capturer l'<strong>oracle de non-régression</strong> depuis le PoC — le dump JSON de l'export Markdown contient déjà 100 % des données source pour deux congrès de taille différente</li>
+        <li>Lancer <strong>L1</strong> (backend, chemin critique) et <strong>L4</strong> (<code>stats-core</code>, sans risque) en parallèle</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h4 style="margin-top:0">Le premier objectif à viser : M2</h4>
+      <p style="font-size:13.5px">Concentrer l'attention sur <strong>L1 → L2 → L3</strong>,
+      soit 10 à 19 j·h. À l'arrivée :</p>
+      <ul style="font-size:13.5px;margin-bottom:0">
+        <li>Elasticsearch n'est plus atteignable depuis un navigateur</li>
+        <li>Plus aucun token dans un bundle</li>
+        <li>Permissions Cerbos par événement</li>
+        <li>Masquage RGPD effectif</li>
+        <li>Le dashboard est <strong>déployable et défendable</strong></li>
+      </ul>
+      <p style="font-size:13.5px;margin:12px 0 0"><strong>Sans avoir réécrit une ligne
+      d'interface.</strong></p>
+    </div>
+  </div>
+
+  <div class="callout key" style="margin-top:22px">
+    <span class="tag">Si les ressources sont contraintes</span>
+    <p>Livrer <strong>uniquement la phase A</strong> est une position stable et défendable :
+    le dashboard devient sûr, conforme et exploitable, l'interface reste celle d'aujourd'hui.
+    Les phases B, C et D deviennent alors un chantier de qualité et de dette, arbitrable
+    séparément — et non plus un préalable à la mise en service.</p>
+  </div>
+</section>
+
+<hr class="sep">
+
+<footer>
+  <p><strong>Plan de migration technique — statistics</strong> · 31 juillet 2026 ·
+  S. Méaudre (CYIM), assisté de Claude Code.</p>
+  <p style="margin-top:8px">Documents liés :
+  <a href="../docs/README.md">documentation technique du PoC</a> ·
+  <a href="../docs/09-dette-technique.md">inventaire de dette (D1–D22)</a> ·
+  <a href="../perennisation-mapping.md">mapping vers <code>@platform/*</code> et chiffrage</a> ·
+  <a href="README.md">dossier d'exécution par phase</a>.</p>
+  <p style="margin-top:8px">Les charges sont des ordres de grandeur destinés à l'arbitrage,
+  pas un devis. Elles doivent être affinées en atelier technique avec les équipes backend et
+  front. Les identifiants <code>D1</code>–<code>D22</code> renvoient à l'inventaire de dette.</p>
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,1641 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Documentation technique — statistics (PoC)</title>
+<style>
+:root{
+  --primary:#1e4e66; --primary-dark:#173b4d; --primary-light:#2a6a8a;
+  --accent:#30dd92; --accent-dark:#1b9b63;
+  --purple:#6f45ff; --warning:#ffa600; --danger:#e53935;
+  --bg:#eef1f5; --card:#ffffff; --card-alt:#f7f9fb;
+  --text:#33393f; --text-2:#5c666f; --text-3:#8b959e;
+  --border:#dde3e9; --border-strong:#c3ccd5;
+  --radius:12px;
+  --shadow:0 1px 2px rgba(16,32,45,.06),0 4px 14px rgba(16,32,45,.07);
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  --sidebar:296px;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#12171c; --card:#1a2128; --card-alt:#212a32;
+    --text:#e4e9ee; --text-2:#a9b4be; --text-3:#78848e;
+    --border:#2c363f; --border-strong:#3d4a55;
+    --primary:#4f8fad; --primary-light:#71aec9;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 14px rgba(0,0,0,.35);
+  }
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:"Poppins","Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+  background:var(--bg);color:var(--text);line-height:1.62;font-size:15px;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ---------- COVER ---------- */
+.cover{
+  background:linear-gradient(135deg,#173b4d 0%,#1e4e66 45%,#2a6a8a 100%);
+  color:#fff;padding:58px 0 50px;position:relative;overflow:hidden;
+}
+.cover::after{
+  content:"";position:absolute;right:-120px;top:-140px;width:420px;height:420px;
+  border-radius:50%;background:radial-gradient(circle,rgba(48,221,146,.22),transparent 68%);
+}
+.cover-inner{max-width:1500px;margin:0 auto;padding:0 34px;position:relative;z-index:1}
+.eyebrow{
+  display:inline-block;font-size:11px;font-weight:600;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--accent);
+  border:1px solid rgba(48,221,146,.42);border-radius:999px;padding:5px 14px;margin-bottom:20px;
+}
+.cover h1{font-size:36px;line-height:1.16;font-weight:600;letter-spacing:-.6px;max-width:24ch}
+.cover .lede{font-size:16.5px;color:rgba(255,255,255,.86);margin-top:15px;max-width:82ch}
+.cover-meta{display:flex;flex-wrap:wrap;gap:0 40px;margin-top:30px;padding-top:20px;
+  border-top:1px solid rgba(255,255,255,.18)}
+.cover-meta div{font-size:13px}
+.cover-meta dt{color:rgba(255,255,255,.6);font-size:10.5px;letter-spacing:.1em;
+  text-transform:uppercase;margin-bottom:3px}
+.cover-meta dd{color:#fff;font-weight:500}
+
+/* ---------- LAYOUT ---------- */
+.shell{max-width:1500px;margin:0 auto;padding:0 34px;display:grid;
+  grid-template-columns:var(--sidebar) minmax(0,1fr);gap:44px;align-items:start}
+@media(max-width:1080px){.shell{grid-template-columns:1fr;gap:0}}
+
+/* ---------- SIDEBAR ---------- */
+aside{position:sticky;top:0;max-height:100vh;overflow-y:auto;padding:30px 0 60px;
+  scrollbar-width:thin}
+@media(max-width:1080px){
+  aside{position:static;max-height:none;border-bottom:1px solid var(--border);margin-bottom:28px}
+}
+.toc-h{font-size:10.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--text-3);margin-bottom:12px;padding-bottom:9px;border-bottom:1px solid var(--border)}
+aside ul{list-style:none}
+.nav-ch{margin-bottom:3px}
+.nav-ch>a{display:flex;gap:9px;align-items:baseline;padding:6px 10px;border-radius:7px;
+  font-size:13.5px;font-weight:600;color:var(--text-2);text-decoration:none;line-height:1.35}
+.nav-ch>a:hover{background:var(--card);color:var(--text)}
+.nav-num{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--accent-dark);
+  flex:0 0 auto}
+@media (prefers-color-scheme:dark){.nav-num{color:var(--accent)}}
+.nav-ch ul{margin:1px 0 8px 30px;border-left:1px solid var(--border);padding-left:0}
+.nav-ch ul li a{display:block;padding:3.5px 10px;font-size:12.5px;color:var(--text-3);
+  text-decoration:none;border-left:2px solid transparent;margin-left:-1px;line-height:1.4}
+.nav-ch ul li a:hover{color:var(--primary-light);border-left-color:var(--primary-light)}
+
+/* ---------- CONTENT ---------- */
+main{padding:34px 0 90px;min-width:0}
+.chapter{margin-bottom:64px;scroll-margin-top:14px}
+.chapter-head{display:flex;gap:16px;align-items:center;margin-bottom:26px;
+  padding-bottom:18px;border-bottom:2px solid var(--border)}
+.chapter-num{font-family:var(--mono);font-size:13px;font-weight:700;color:#fff;
+  background:var(--primary);padding:5px 11px;border-radius:6px;flex:0 0 auto}
+.chapter h1{font-size:27px;font-weight:600;letter-spacing:-.5px;line-height:1.22}
+
+h2{font-size:20px;font-weight:600;letter-spacing:-.3px;margin:38px 0 14px;scroll-margin-top:14px}
+h3{font-size:16.5px;font-weight:600;margin:28px 0 10px;letter-spacing:-.15px;scroll-margin-top:14px}
+h4{font-size:14.5px;font-weight:600;margin:22px 0 8px;color:var(--text-2)}
+h2 .anchor,h3 .anchor,h4 .anchor{
+  font-size:.62em;font-weight:400;color:var(--text-3);text-decoration:none;
+  margin-left:9px;opacity:0;transition:opacity .12s;
+}
+h2:hover .anchor,h3:hover .anchor,h4:hover .anchor{opacity:1}
+
+p{margin-bottom:14px;color:var(--text-2);max-width:92ch}
+p strong,li strong,td strong{color:var(--text);font-weight:600}
+a{color:var(--primary-light);text-decoration:none;border-bottom:1px solid transparent}
+a:hover{border-bottom-color:currentColor}
+code{font-family:var(--mono);font-size:.87em;background:var(--card-alt);
+  border:1px solid var(--border);border-radius:4px;padding:1px 5px;color:var(--text);
+  word-break:break-word}
+pre{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:16px 18px;margin:18px 0;overflow-x:auto;position:relative}
+pre code{background:none;border:none;padding:0;font-size:12.5px;line-height:1.55;
+  white-space:pre;color:var(--text-2)}
+pre[data-lang]::before{
+  content:attr(data-lang);position:absolute;top:0;right:0;
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--text-3);background:var(--card-alt);border-left:1px solid var(--border);
+  border-bottom:1px solid var(--border);border-radius:0 var(--radius) 0 6px;padding:3px 9px;
+}
+ul,ol{margin:0 0 16px 22px;color:var(--text-2);max-width:92ch}
+li{margin-bottom:6px}
+li::marker{color:var(--text-3)}
+blockquote{border-left:3px solid var(--primary-light);background:var(--card-alt);
+  border-radius:0 8px 8px 0;padding:15px 20px;margin:18px 0;max-width:96ch}
+blockquote>*:last-child{margin-bottom:0}
+blockquote p{color:var(--text-2)}
+blockquote .tbl-scroll{margin:12px 0}
+
+.tbl-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:18px 0;
+  border:1px solid var(--border);border-radius:var(--radius);background:var(--card);
+  box-shadow:var(--shadow)}
+table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:520px}
+th{background:var(--card-alt);text-align:left;padding:11px 14px;font-weight:600;font-size:11px;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);
+  border-bottom:1px solid var(--border-strong);vertical-align:bottom}
+td{padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:top;color:var(--text-2)}
+tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:var(--card-alt)}
+td code,th code{white-space:nowrap}
+
+hr.sep{border:none;border-top:1px solid var(--border);margin:34px 0}
+
+footer{border-top:1px solid var(--border);padding:22px 0 0;font-size:12.5px;color:var(--text-3)}
+footer p{color:var(--text-3);font-size:12.5px;max-width:none}
+
+.top{position:fixed;right:22px;bottom:22px;width:42px;height:42px;border-radius:50%;
+  background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 3px 12px rgba(0,0,0,.24);text-decoration:none;font-size:17px;z-index:20}
+.top:hover{background:var(--primary-light);border-bottom:none}
+
+@media print{
+  body{background:#fff;font-size:10pt}
+  .cover{background:#1e4e66 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  aside,.top{display:none}
+  .shell{display:block;max-width:none;padding:0 12mm}
+  main{padding:14pt 0 0}
+  .chapter{break-before:page;margin-bottom:26pt}
+  #ch00{break-before:avoid}
+  .chapter-head,h2,h3{break-after:avoid}
+  pre,.tbl-scroll,blockquote,li{break-inside:avoid}
+  .tbl-scroll{overflow:visible;box-shadow:none}
+  table{min-width:0}
+  pre{box-shadow:none}
+  .anchor{display:none}
+  a{color:inherit;border:none}
+}
+</style>
+</head>
+<body>
+
+<header class="cover">
+  <div class="cover-inner">
+    <span class="eyebrow">Documentation technique</span>
+    <h1>Statistics — dashboard statistiques congrès</h1>
+    <p class="lede">Référence technique du PoC dans son <strong>état actuel</strong> : architecture,
+    sources de données, modèle de calcul, dictionnaire des indicateurs, exploitation et dette.
+    Elle décrit ce qui <em>est</em> — les écarts au standard CYIM sont documentés tels quels et
+    tracés dans le chapitre&nbsp;09.</p>
+    <dl class="cover-meta">
+      <div><dt>Périmètre</dt><dd>~23 000 lignes · 74 fichiers <code>src/</code></dd></div>
+      <div><dt>Stack</dt><dd>Vue 3 · Vite 6 · Chart.js 4 · vue-i18n</dd></div>
+      <div><dt>Sources</dt><dd>Apollo Gateway + 5 index Elasticsearch</dd></div>
+      <div><dt>Généré le</dt><dd>2026-07-31</dd></div>
+      <div><dt>Auteur</dt><dd>S. Méaudre — CYIM</dd></div>
+    </dl>
+  </div>
+</header>
+
+<div class="shell">
+  <aside>
+    <div class="toc-h">Sommaire</div>
+    <ul>
+      <li class="nav-ch">
+        <a href="#ch00"><span class="nav-num">00</span>Présentation</a>
+        <ul><li><a href="#ch00-les-trois-documents-du-repo-qui-sert-à-quoi">Les trois documents du repo — qui sert à quoi</a></li><li><a href="#ch00-sommaire">Sommaire</a></li><li><a href="#ch00-résumé-en-dix-lignes">Résumé en dix lignes</a></li></ul>
+      </li>
+      <li class="nav-ch">
+        <a href="#ch01"><span class="nav-num">01</span>Architecture &amp; runtime</a>
+        <ul><li><a href="#ch01-11-positionnement">1.1 Positionnement</a></li><li><a href="#ch01-12-les-cinq-couches">1.2 Les cinq couches</a></li><li><a href="#ch01-13-flux-de-données">1.3 Flux de données</a></li><li><a href="#ch01-14-bootstrap-ce-qui-sexécute-au-démarrage">1.4 Bootstrap — ce qui s'exécute au démarrage</a></li><li><a href="#ch01-15-cycle-de-vie-dun-chargement">1.5 Cycle de vie d'un chargement</a></li><li><a href="#ch01-16-routage">1.6 Routage</a></li><li><a href="#ch01-17-dépendances">1.7 Dépendances</a></li><li><a href="#ch01-18-alias-de-module">1.8 Alias de module</a></li></ul>
+      </li>
+      <li class="nav-ch">
+        <a href="#ch02"><span class="nav-num">02</span>Sources de données</a>
+        <ul><li><a href="#ch02-21-graphql-srcapigraphqljs">2.1 GraphQL — src/api/graphql.js</a></li><li><a href="#ch02-22-elasticsearch-srcapielasticsearchjs">2.2 Elasticsearch — src/api/elasticsearch.js</a></li><li><a href="#ch02-23-provenance-amont-ce-qui-remplit-les-index">2.3 Provenance amont — ce qui remplit les index</a></li><li><a href="#ch02-24-table-de-traçabilité-indicateur-source">2.4 Table de traçabilité : indicateur → source</a></li></ul>
+      </li>
+      <li class="nav-ch">
+        <a href="#ch03"><span class="nav-num">03</span>Modèle de calcul</a>
+        <ul><li><a href="#ch03-31-computestatsjs-statistiques-dinscription">3.1 computeStats.js — statistiques d'inscription</a></li><li><a href="#ch03-32-computescanstatsjs-scans-sur-site">3.2 computeScanStats.js — scans sur site</a></li><li><a href="#ch03-33-jointures">3.3 Jointures</a></li><li><a href="#ch03-34-ré-association-qr">3.4 Ré-association QR</a></li><li><a href="#ch03-35-participationjs-le-kpi-total-participants">3.5 participation.js — le KPI « Total participants »</a></li><li><a href="#ch03-36-computelivestatsjs-computereplaystatsjs">3.6 computeLiveStats.js / computeReplayStats.js</a></li><li><a href="#ch03-37-assistants-de-domaine">3.7 Assistants de domaine</a></li></ul>
+      </li>
+      <li class="nav-ch">
+        <a href="#ch04"><span class="nav-num">04</span>État &amp; filtres</a>
+        <ul><li><a href="#ch04-41-le-patron-du-lift-où-vit-létat">4.1 Le patron du « lift » — où vit l'état</a></li><li><a href="#ch04-42-filtre-type-de-badge">4.2 Filtre type de badge</a></li><li><a href="#ch04-43-filtre-plage-de-dates">4.3 Filtre plage de dates</a></li><li><a href="#ch04-44-filtrage-croisé-local-à-un-onglet">4.4 Filtrage croisé (local à un onglet)</a></li><li><a href="#ch04-45-rafraîchissement-automatique">4.5 Rafraîchissement automatique</a></li><li><a href="#ch04-46-bus-de-diagnostics">4.6 Bus de diagnostics</a></li></ul>
+      </li>
+      <li class="nav-ch">
+        <a href="#ch05"><span class="nav-num">05</span>Interface</a>
+        <ul><li><a href="#ch05-51-structure-de-la-page">5.1 Structure de la page</a></li><li><a href="#ch05-52-navigation-hiérarchique">5.2 Navigation hiérarchique</a></li><li><a href="#ch05-53-les-onglets">5.3 Les onglets</a></li><li><a href="#ch05-54-graphiques">5.4 Graphiques</a></li><li><a href="#ch05-55-conventions-de-mise-en-page">5.5 Conventions de mise en page</a></li><li><a href="#ch05-56-infobulles-daide">5.6 Infobulles d'aide</a></li><li><a href="#ch05-57-internationalisation">5.7 Internationalisation</a></li><li><a href="#ch05-58-système-de-design">5.8 Système de design</a></li><li><a href="#ch05-59-piège-vue-connu">5.9 Piège Vue connu</a></li></ul>
+      </li>
+      <li class="nav-ch">
+        <a href="#ch06"><span class="nav-num">06</span>Exports</a>
+        <ul><li><a href="#ch06-61-les-sept-familles">6.1 Les sept familles</a></li><li><a href="#ch06-62-bilan-markdown-useexportmarkdownjs-1-027-lignes">6.2 Bilan Markdown — useExportMarkdown.js (1 027 lignes)</a></li><li><a href="#ch06-63-csv-par-graphique">6.3 CSV par graphique</a></li><li><a href="#ch06-64-présence-par-session-buildsessionattendancejs-481-lignes">6.4 Présence par session — buildSessionAttendance.js (481 lignes)</a></li><li><a href="#ch06-65-scans-à-plat-buildscanexportjs-210-lignes">6.5 Scans à plat — buildScanExport.js (210 lignes)</a></li><li><a href="#ch06-66-parcours-par-personne-builddelegatejourneyjs-344-lignes">6.6 Parcours par personne — buildDelegateJourney.js (344 lignes)</a></li><li><a href="#ch06-67-export-industrie-exportxlsxjs-36-lignes">6.7 Export industrie — exportXlsx.js (36 lignes)</a></li><li><a href="#ch06-68-analyse-textuelle-generateanalysisjs-310-lignes">6.8 Analyse textuelle — generateAnalysis.js (310 lignes)</a></li><li><a href="#ch06-69-ergonomie-de-longlet-exports">6.9 Ergonomie de l'onglet Exports</a></li></ul>
+      </li>
+      <li class="nav-ch">
+        <a href="#ch07"><span class="nav-num">07</span>Dictionnaire des indicateurs</a>
+        <ul><li><a href="#ch07-71-populations-de-référence">7.1 Populations de référence</a></li><li><a href="#ch07-72-présence-physique">7.2 Présence physique</a></li><li><a href="#ch07-73-total-participants-dédoublonné">7.3 Total participants (dédoublonné)</a></li><li><a href="#ch07-74-décomposition-par-type-et-par-catégorie-vue-densemble">7.4 Décomposition par type et par catégorie (Vue d'ensemble)</a></li><li><a href="#ch07-75-scans-sur-site">7.5 Scans sur site</a></li><li><a href="#ch07-76-live">7.6 Live</a></li><li><a href="#ch07-77-replay">7.7 Replay</a></li><li><a href="#ch07-78-engagement-vue-densemble">7.8 Engagement (Vue d'ensemble)</a></li><li><a href="#ch07-79-participants-par-jour-vue-densemble">7.9 Participants par jour (Vue d'ensemble)</a></li><li><a href="#ch07-710-onboarding-application-mobile">7.10 Onboarding &amp; application mobile</a></li><li><a href="#ch07-711-type-de-badge-dun-délégué">7.11 Type de badge d'un délégué</a></li><li><a href="#ch07-712-récapitulatif-des-dénominateurs">7.12 Récapitulatif des dénominateurs</a></li></ul>
+      </li>
+      <li class="nav-ch">
+        <a href="#ch08"><span class="nav-num">08</span>Exploitation</a>
+        <ul><li><a href="#ch08-81-configuration">8.1 Configuration</a></li><li><a href="#ch08-82-commandes">8.2 Commandes</a></li><li><a href="#ch08-83-proxys-de-développement">8.3 Proxys de développement</a></li><li><a href="#ch08-84-build">8.4 Build</a></li><li><a href="#ch08-85-performances-observées">8.5 Performances observées</a></li><li><a href="#ch08-86-journalisation-et-instrumentation">8.6 Journalisation et instrumentation</a></li><li><a href="#ch08-87-fichiers-hors-périmètre">8.7 Fichiers hors périmètre</a></li></ul>
+      </li>
+      <li class="nav-ch">
+        <a href="#ch09"><span class="nav-num">09</span>Dette technique</a>
+        <ul><li><a href="#ch09-91-sécurité-conformité">9.1 Sécurité &amp; conformité</a></li><li><a href="#ch09-92-architecture-données">9.2 Architecture &amp; données</a></li><li><a href="#ch09-93-qualité-logicielle">9.3 Qualité logicielle</a></li><li><a href="#ch09-94-vue-synthétique">9.4 Vue synthétique</a></li><li><a href="#ch09-95-ce-qui-nest-pas-de-la-dette">9.5 Ce qui n'est PAS de la dette</a></li></ul>
+      </li>
+    </ul>
+  </aside>
+
+  <main>
+  <section id="ch00" class="chapter">
+    <div class="chapter-head">
+      <span class="chapter-num">00</span>
+      <h1>Documentation technique — <code>statistics</code> (PoC)</h1>
+    </div>
+<p>Documentation technique de référence du <strong>dashboard de statistiques congrès</strong>, dans son état <strong>actuel</strong> (PoC). Elle décrit ce qui <em>est</em>, pas ce qui <em>devrait être</em> : les choix non conformes au standard CYIM sont documentés tels quels et tracés dans <a href="#ch09">09 — Dette technique</a>.</p>
+<blockquote><p><strong>Version documentée</strong> : branche <code>feature/md-export-enrichment</code> · <code>package.json</code> 0.1.0 · ~23 000 lignes sur 74 fichiers <code>src/</code> <strong>Dernière mise à jour</strong> : 2026-07-31</p></blockquote>
+<hr class="sep">
+<h2 id="ch00-les-trois-documents-du-repo-qui-sert-à-quoi">Les trois documents du repo — qui sert à quoi<a class="anchor" href="#ch00-les-trois-documents-du-repo-qui-sert-à-quoi" aria-label="Lien vers cette section">#</a></h2>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Document</th><th>Public</th><th>Contenu</th></tr></thead>
+<tbody>
+<tr><td><a href="../README.md"><code>../README.md</code></a></td><td>utilisateur / nouvel arrivant</td><td>à quoi sert l'app, démarrage rapide, onglets, concepts</td></tr>
+<tr><td><strong><code>docs/</code> (ce dossier)</strong></td><td>développeur / architecte</td><td>référence technique : couches, sources, calculs, exploitation, dette</td></tr>
+<tr><td><a href="../CLAUDE.md"><code>../CLAUDE.md</code></a></td><td>agents Claude Code</td><td>instructions et conventions pour modifier le code</td></tr>
+</tbody>
+</table></div>
+<h3 id="ch00-version-html">Version HTML<a class="anchor" href="#ch00-version-html" aria-label="Lien vers cette section">#</a></h3>
+<p>Une <strong>version HTML autonome</strong> de cette documentation (sommaire latéral, thème clair/sombre, imprimable) est disponible : <strong><a href="documentation-technique.html"><code>documentation-technique.html</code></a></strong>.</p>
+<p>Elle est <strong>générée</strong> depuis les <code>.md</code> de ce dossier — qui restent la source de vérité :</p>
+<pre data-lang="bash"><code>node docs/build-html.mjs      # aucune dépendance npm</code></pre>
+<blockquote><p>Ne pas éditer le <code>.html</code> à la main : modifier les chapitres <code>.md</code> puis régénérer. Corollaire pour les titres : <strong>pas d'emoji ni de guillemets typographiques dans un titre</strong>, sinon l'ancre générée diverge de celle de l'aperçu Markdown GitHub.</p></blockquote>
+<p>Le <strong>plan de migration vers la production</strong> vit à part : <a href="../perennisation/plan-migration.html"><code>../perennisation/plan-migration.html</code></a> (séquencement en lots) et <a href="../perennisation-mapping.md"><code>../perennisation-mapping.md</code></a> (mapping vers <code>@platform/*</code> + chiffrage).</p>
+<hr class="sep">
+<h2 id="ch00-sommaire">Sommaire<a class="anchor" href="#ch00-sommaire" aria-label="Lien vers cette section">#</a></h2>
+<div class="tbl-scroll"><table>
+<thead><tr><th>#</th><th>Chapitre</th><th>Répond à</th></tr></thead>
+<tbody>
+<tr><td>01</td><td><a href="#ch01">Architecture &amp; runtime</a></td><td>Comment l'app est structurée, ce qui s'exécute et dans quel ordre</td></tr>
+<tr><td>02</td><td><a href="#ch02">Sources de données</a></td><td>D'où vient chaque chiffre : opérations GraphQL, index Elasticsearch, champs consommés</td></tr>
+<tr><td>03</td><td><a href="#ch03">Modèle de calcul</a></td><td>Comment les statistiques sont calculées, les jointures et la ré-association QR</td></tr>
+<tr><td>04</td><td><a href="#ch04">État, filtres &amp; rafraîchissement</a></td><td>Où vit l'état réactif, comment les filtres se propagent</td></tr>
+<tr><td>05</td><td><a href="#ch05">Interface</a></td><td>Navigation, onglets, graphiques, i18n, design tokens</td></tr>
+<tr><td>06</td><td><a href="#ch06">Exports</a></td><td>Les 7 familles d'exports, leurs formats et leurs règles</td></tr>
+<tr><td>07</td><td><a href="#ch07">Dictionnaire des indicateurs</a></td><td>Définition exacte, dénominateur et pièges de chaque KPI</td></tr>
+<tr><td>08</td><td><a href="#ch08">Exploitation</a></td><td>Configuration, build, déploiement, performances observées</td></tr>
+<tr><td>09</td><td><a href="#ch09">Dette technique</a></td><td>Ce qui bloque la mise en production, classé par sévérité</td></tr>
+</tbody>
+</table></div>
+<hr class="sep">
+<h2 id="ch00-résumé-en-dix-lignes">Résumé en dix lignes<a class="anchor" href="#ch00-résumé-en-dix-lignes" aria-label="Lien vers cette section">#</a></h2>
+<p><code>statistics</code> est une <strong>SPA Vue 3 autonome, en lecture seule</strong>, qui produit un tableau de bord de statistiques par congrès. Elle n'a <strong>ni backend propre, ni base de données</strong> : elle agrège deux sources existantes — le <strong>gateway Apollo GraphQL</strong> (délégués, sessions, config événement, noms de zones) et <strong>5 index Elasticsearch</strong> alimentés par Flink (scans sur site, vues live, vues replay). <strong>L'intégralité des statistiques est calculée dans le navigateur</strong> par des fonctions pures (<code>src/utils/compute*.js</code>), puis rendue par Chart.js.</p>
+<p>Le PoC assume trois écarts majeurs au standard CYIM, tous liés à sa vocation de prototype : <strong>JavaScript</strong> au lieu de TypeScript, <strong>aucun framework UI</strong> (<code>@platform/common-ui</code> absent, CSS maison), et surtout un <strong>accès Elasticsearch direct depuis le navigateur</strong> avec un <strong>token Bearer stocké dans <code>.env</code></strong> — sans Keycloak ni Cerbos. Ces trois points sont le cœur du chantier de pérennisation.</p>
+  </section>
+
+  <section id="ch01" class="chapter">
+    <div class="chapter-head">
+      <span class="chapter-num">01</span>
+      <h1>Architecture &amp; runtime</h1>
+    </div>
+<h2 id="ch01-11-positionnement">1.1 Positionnement<a class="anchor" href="#ch01-11-positionnement" aria-label="Lien vers cette section">#</a></h2>
+<p><code>statistics</code> est une <strong>application front autonome</strong>, hors du monorepo applicatif <code>congress/microservices/</code>. Elle se branche en <strong>lecture seule</strong> sur l'infrastructure de production existante et n'écrit <strong>jamais</strong> : aucune mutation GraphQL, aucun <code>_update</code> Elasticsearch, aucun événement Kafka produit.</p>
+<p>Conséquences directes de ce positionnement :</p>
+<ul>
+<li><strong>Aucun déploiement backend n'est requis</strong> pour la faire fonctionner — c'est ce qui a permis de la livrer vite.</li>
+<li><strong>Aucune donnée n'est persistée</strong> : chaque chargement de page refait l'intégralité des requêtes. Il n'y a ni cache serveur, ni cache navigateur applicatif (seul le cache HTTP standard s'applique).</li>
+<li><strong>Le navigateur porte toute la charge de calcul.</strong> Sur un congrès de 15 000 délégués et 100 000 scans, c'est le poste de travail de l'utilisateur qui agrège.</li>
+</ul>
+<p>Le PoC recouvre fonctionnellement le microservice <code>congress/microservices/xlsx-stats</code> sur le périmètre des scans sur site (audience par session, check-in d'entrée, accès aux zones) : les deux lisent <strong>les mêmes index Elasticsearch</strong>.</p>
+<h2 id="ch01-12-les-cinq-couches">1.2 Les cinq couches<a class="anchor" href="#ch01-12-les-cinq-couches" aria-label="Lien vers cette section">#</a></h2>
+<pre><code>┌──────────────────────────────────────────────────────────────────────┐
+│  5. PRÉSENTATION            views/ · components/tabs/ · components/charts/
+│     Vue 3 SFC, Chart.js, CSS maison
+├──────────────────────────────────────────────────────────────────────┤
+│  4. ÉTAT RÉACTIF            composables/
+│     useStatistics · useLive · useReplay · useRoomScans
+│     useBadgeTypeFilter · useDateRangeFilter · useFilteredStats · useDiagnostics
+├──────────────────────────────────────────────────────────────────────┤
+│  3. CALCUL (pur, sans Vue)  utils/
+│     computeStats · computeScanStats · computeLiveStats · computeReplayStats
+│     viewerJoin · participation · build*Export · generateAnalysis
+├──────────────────────────────────────────────────────────────────────┤
+│  2. ACCÈS DONNÉES           api/
+│     graphql.js (gqlFetch + 5 opérations)   ·   elasticsearch.js (5 index)
+├──────────────────────────────────────────────────────────────────────┤
+│  1. TRANSVERSE              i18n/ · constants.js · utils/formatters · utils/debug
+└──────────────────────────────────────────────────────────────────────┘</code></pre>
+<p>La règle de dépendance est respectée de haut en bas : <strong>la couche 3 (calcul) n'importe jamais Vue</strong>, ce qui la rend directement portable et testable — c'est la propriété qui rend l'extraction d'une bibliothèque <code>stats-core</code> réaliste (cf. plan de migration, lot L4).</p>
+<p>Deux exceptions à cette pureté, à connaître :</p>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Fichier</th><th>Écart</th><th>Raison</th></tr></thead>
+<tbody>
+<tr><td><code>utils/viewerJoin.js</code></td><td>importe <code>useDiagnostics</code> et <code>i18n</code></td><td>émet un avertissement UI quand la couverture Keycloak est basse</td></tr>
+<tr><td><code>utils/generateAnalysis.js</code>, <code>composables/useExportMarkdown.js</code></td><td>utilisent <code>i18n.global.t</code></td><td>l'analyse textuelle exportée suit la langue active</td></tr>
+</tbody>
+</table></div>
+<h2 id="ch01-13-flux-de-données">1.3 Flux de données<a class="anchor" href="#ch01-13-flux-de-données" aria-label="Lien vers cette section">#</a></h2>
+<pre><code>   NAVIGATEUR
+   ┌─────────────────────────────────────────────────────────────────────────┐
+   │  StatisticsView.vue  ─ propriétaire de TOUT l'état réactif partagé      │
+   │                                                                         │
+   │   useStatistics ──┐                                                     │
+   │   useLive ────────┤                                                     │
+   │   useReplay ──────┼──► pageStats / pageDelegates ──► onglets (props)   │
+   │   useRoomScans ───┤                                                     │
+   │   badgeFilter ────┤                                                     │
+   │   dateFilter ─────┘                                                     │
+   └───────┬──────────────────────────────────────────┬──────────────────────┘
+           │ GraphQL POST (Bearer .env)               │ HTTP POST /_search
+           │ dev : proxy Vite /api/graphql            │ dev : proxy Vite /api/es
+           ▼                                          ▼
+   ┌──────────────────────┐              ┌──────────────────────────────────┐
+   │   Apollo Gateway     │              │   Elasticsearch (5 index)        │
+   │   (fédération)       │              │   sans authentification          │
+   └──────────┬───────────┘              └────────────────▲─────────────────┘
+              │                                           │  sink
+   registration · contacts ·                     ┌────────┴────────┐   Kafka
+   event-microservice · location                 │   Flink SQL     │◄── cyim.webhooks
+              │                                  └─────────────────┘    (app de scan)
+              ▼                                                          SI-views (live/VOD)
+        MongoDB (prod)</code></pre>
+<p>Point structurant : <strong>les deux sources sont indépendantes et jointes côté navigateur.</strong> La jointure ES ↔ délégué n'existe nulle part côté serveur ; elle est refaite à chaque chargement (cf. <a href="#ch03-33-jointures">03 — Modèle de calcul</a>).</p>
+<h2 id="ch01-14-bootstrap-ce-qui-sexécute-au-démarrage">1.4 Bootstrap — ce qui s'exécute au démarrage<a class="anchor" href="#ch01-14-bootstrap-ce-qui-sexécute-au-démarrage" aria-label="Lien vers cette section">#</a></h2>
+<p><code>src/main.js</code> (54 lignes) fait exactement quatre choses, dans cet ordre :</p>
+<ol>
+<li><strong>Enregistrement Chart.js</strong> — <code>ArcElement</code>, <code>BarElement</code>, <code>LineElement</code>, <code>PointElement</code>, <code>CategoryScale</code>, <code>LinearScale</code>, <code>Tooltip</code>, <code>Legend</code>, <code>Filler</code> + le plugin <code>chartjs-plugin-datalabels</code>.</li>
+<li><strong>Défauts Chart.js</strong> — police <code>Poppins</code> 14 px, et surtout <code>Chart.defaults.plugins.datalabels.display = false</code> : les datalabels sont <strong>désactivés globalement</strong> et réactivés au cas par cas. Certains graphiques contournent ce défaut par des <strong>plugins Chart.js locaux</strong> qui dessinent les totaux en bout de barre.</li>
+<li><strong>Routeur</strong> — deux routes seulement (cf. §1.6).</li>
+<li><strong>Montage</strong> — <code>createApp(App).use(router).use(i18n).mount(&quot;#app&quot;)</code>.</li>
+</ol>
+<p>Il n'y a <strong>ni Pinia, ni garde de route, ni initialisation d'authentification</strong> : le token est lu directement depuis <code>import.meta.env</code> au premier appel réseau.</p>
+<h2 id="ch01-15-cycle-de-vie-dun-chargement">1.5 Cycle de vie d'un chargement<a class="anchor" href="#ch01-15-cycle-de-vie-dun-chargement" aria-label="Lien vers cette section">#</a></h2>
+<pre><code>1. Route /:eventId  →  StatisticsView monté
+2. useStatistics(eventId) : appel immédiat de load() (pas d'attente de onMounted)
+   ├─ fetchEventConfig()  ─── résolu tôt ──► eventName/eventLogo affichés
+   │                                         dans l'écran de chargement
+   └─ fetchAllDelegates() ─── pagination curseur 500/page, onProgress par page
+3. En parallèle (instanciés dans le même setup) :
+   ├─ useLive     : fetchLiveViews (ES)    + fetchEventSessions (GraphQL)  [Promise.all]
+   ├─ useReplay   : fetchReplayViews (ES)  + fetchEventSessions (GraphQL)  [Promise.all]
+   └─ useRoomScans: fetchRoomAudience + fetchCongressCheckin + fetchZoneAccess (ES)
+                    puis fetchLocationNames (GraphQL) pour les libellés de zones
+4. computeAllStats(delegates, mobileAppId, dateRange) → objet à getters LAZY
+5. Premier accès à stats.global par le template → calcul de la section « global » seulement
+6. Rendu de l'onglet actif</code></pre>
+<p>L'écran de chargement affiche <strong>une ligne par source réellement en cours</strong> (<code>loadingSources</code> dans <code>StatisticsView</code>), avec un état <code>spinner → ✓</code> : Configuration, Inscriptions, Sessions du programme, Vues live, Vues replay, Scans QR. Les sous-états <code>viewsLoading</code> (Elasticsearch) et <code>sessionsLoading</code> (GraphQL) de <code>useLive</code>/<code>useReplay</code> sont dissociés précisément pour alimenter cet affichage.</p>
+<h2 id="ch01-16-routage">1.6 Routage<a class="anchor" href="#ch01-16-routage" aria-label="Lien vers cette section">#</a></h2>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Route</th><th>Composant</th><th>Note</th></tr></thead>
+<tbody>
+<tr><td><code>/:eventId</code></td><td><code>views/StatisticsView.vue</code> (import dynamique)</td><td><code>props: true</code> ; l'<code>eventId</code> est <strong>obligatoire</strong></td></tr>
+<tr><td><code>/</code></td><td>redirection → <code>/no-event</code></td><td>route inexistante → écran d'erreur</td></tr>
+</tbody>
+</table></div>
+<p>Un unique paramètre de requête est interprété : <strong><code>?compareWith=&lt;autreEventId&gt;</code></strong>. Sa présence déclenche l'instanciation d'un <strong>second jeu complet de composables</strong> (<code>compareApi</code>, <code>compareLiveApi</code>, <code>compareReplayApi</code>, <code>compareScansApi</code>) et l'apparition des onglets comparatifs. Le second événement est chargé <strong>sans auto-refresh</strong>.</p>
+<p>Il n'y a <strong>aucune garde de route ni vérification de permission</strong> : quiconque atteint l'URL avec un token valide voit toutes les données de l'événement.</p>
+<h2 id="ch01-17-dépendances">1.7 Dépendances<a class="anchor" href="#ch01-17-dépendances" aria-label="Lien vers cette section">#</a></h2>
+<p><strong>Production</strong> (9 paquets, tous publics) :</p>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Paquet</th><th>Version</th><th>Rôle</th></tr></thead>
+<tbody>
+<tr><td><code>vue</code></td><td>^3.5.13</td><td>framework</td></tr>
+<tr><td><code>vue-router</code></td><td>^4.5.0</td><td>routage</td></tr>
+<tr><td><code>vue-i18n</code></td><td>^11.4.4</td><td>internationalisation FR/EN</td></tr>
+<tr><td><code>chart.js</code></td><td>^4.4.6</td><td>moteur de graphiques</td></tr>
+<tr><td><code>vue-chartjs</code></td><td>^5.3.2</td><td>intégration Vue</td></tr>
+<tr><td><code>chartjs-chart-geo</code></td><td>^4.3.3</td><td>cartes choroplèthes</td></tr>
+<tr><td><code>chartjs-plugin-datalabels</code></td><td>^2.2.0</td><td>étiquettes sur les graphiques</td></tr>
+<tr><td><code>topojson-client</code></td><td>^3.1.0</td><td>décodage des fonds de carte</td></tr>
+<tr><td><code>xlsx</code></td><td>^0.18.5</td><td>export XLSX multi-onglets (<strong>import dynamique</strong>)</td></tr>
+</tbody>
+</table></div>
+<p><strong>Développement</strong> : <code>vite</code> ^6.0.0, <code>@vitejs/plugin-vue</code> ^5.2.1.</p>
+<p>À noter :</p>
+<ul>
+<li><strong>Aucune dépendance <code>@platform/*</code> ni <code>@congress/*</code></strong> — le PoC n'utilise pas le registre npm privé CYIM, donc aucun composant, client ou thème maison.</li>
+<li><strong>Aucun outil de qualité</strong> : pas d'ESLint, pas de Prettier, pas de TypeScript, pas de Vitest.</li>
+<li><code>xlsx</code> est chargé en <strong>import dynamique</strong> dans <code>utils/exportXlsx.js</code> : le <em>chunk</em> n'est téléchargé qu'au premier export industrie, ce qui évite d'alourdir le <em>bundle</em> initial.</li>
+<li><code>d3-geo</code> est mentionné dans <code>CLAUDE.md</code> mais <strong>n'est pas dans <code>package.json</code></strong> — la projection Lambert des cartes France repose sur ce qui est disponible via <code>chartjs-chart-geo</code>, avec repli Mercator.</li>
+</ul>
+<h2 id="ch01-18-alias-de-module">1.8 Alias de module<a class="anchor" href="#ch01-18-alias-de-module" aria-label="Lien vers cette section">#</a></h2>
+<p><code>vite.config.js</code> définit un seul alias : <strong><code>@/</code> → <code>/src/</code></strong>. Les imports récents l'utilisent (<code>@/utils/...</code>) ; des imports relatifs historiques (<code>../../utils/...</code>) subsistent et restent valides. Aucune migration forcée n'a été faite — les deux formes cohabitent, y compris dans un même fichier (<code>StatisticsView.vue</code> importe ses composables en <code>@/</code> et ses onglets en <code>../components/</code>).</p>
+  </section>
+
+  <section id="ch02" class="chapter">
+    <div class="chapter-head">
+      <span class="chapter-num">02</span>
+      <h1>Sources de données</h1>
+    </div>
+<p>L'application n'a pas de base. Elle lit <strong>deux systèmes</strong> et <strong>rien d'autre</strong>.</p>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Source</th><th>Transport</th><th>Authentification</th><th>Ce qu'elle fournit</th></tr></thead>
+<tbody>
+<tr><td>Apollo Gateway (GraphQL)</td><td><code>POST</code> JSON</td><td><code>Authorization: Bearer &lt;VITE_AUTH_TOKEN&gt;</code></td><td>délégués, inscriptions, badges, contacts, sessions du programme, noms de zones, branding</td></tr>
+<tr><td>Elasticsearch</td><td><code>POST /{index}/_search</code></td><td><strong>aucune</strong></td><td>scans sur site, vues live, vues replay</td></tr>
+</tbody>
+</table></div>
+<hr class="sep">
+<h2 id="ch02-21-graphql-srcapigraphqljs">2.1 GraphQL — <code>src/api/graphql.js</code><a class="anchor" href="#ch02-21-graphql-srcapigraphqljs" aria-label="Lien vers cette section">#</a></h2>
+<h3 id="ch02-endpoint-et-instrumentation">Endpoint et instrumentation<a class="anchor" href="#ch02-endpoint-et-instrumentation" aria-label="Lien vers cette section">#</a></h3>
+<pre data-lang="js"><code>const GRAPHQL_URL = import.meta.env.DEV ? &quot;/api/graphql&quot; : import.meta.env.VITE_GRAPHQL_URL;
+const AUTH_TOKEN  = import.meta.env.VITE_AUTH_TOKEN;</code></pre>
+<p>En développement, les appels passent par le <strong>proxy Vite</strong> <code>/api/graphql</code> (réécrit vers l'origine de <code>VITE_GRAPHQL_URL</code>) ; en production, l'URL est appelée directement — ce qui suppose que le gateway autorise l'origine du dashboard en CORS.</p>
+<p>Toutes les requêtes traversent le <em>wrapper</em> <strong><code>gqlFetch(query, variables)</code></strong>, qui n'est pas un client GraphQL mais un <code>fetch</code> instrumenté. Il apporte quatre choses :</p>
+<ol>
+<li><strong>Nom d'opération extrait</strong> de la requête (<code>query GetSessions(...)</code> → <code>GetSessions</code>) pour identifier la requête fautive dans les logs sans dumper le corps.</li>
+<li><strong>Mesure du temps écoulé</strong> sur chaque appel, journalisée en cas d'erreur.</li>
+<li><strong>Détection de délai dépassé</strong> — HTTP <code>504</code>/<code>408</code>/<code>524</code>, message serveur contenant <code>timeout|timed out|deadline</code>, ou codes d'extension <code>GRAPHQL_TIMEOUT</code>, <code>REQUEST_TIMEOUT</code>, <code>GATEWAY_TIMEOUT</code>. Un <code>TypeError: Failed to fetch</code> survenu après 10 s est étiqueté « probable timeout ».</li>
+<li><strong>Avertissement sur requête lente</strong> au-delà de <code>SLOW_QUERY_THRESHOLD_MS</code> (5 000 ms).</li>
+</ol>
+<p>Ce dispositif existe parce que la pagination des délégués sur les gros congrès <strong>mourait silencieusement</strong> : sans nom d'opération ni durée, une page perdue était indétectable.</p>
+<h3 id="ch02-les-cinq-opérations">Les cinq opérations<a class="anchor" href="#ch02-les-cinq-opérations" aria-label="Lien vers cette section">#</a></h3>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Fonction</th><th>Opération</th><th>Pagination</th><th>Usage</th></tr></thead>
+<tbody>
+<tr><td><code>fetchAllDelegates(eventId, onProgress)</code></td><td><code>event(id).searchDelegates</code></td><td>curseur <code>pageToken</code>, <strong>500/page</strong>, tri <code>createdAt asc</code></td><td>population complète — la requête la plus lourde</td></tr>
+<tr><td><code>fetchEventConfig(eventId)</code></td><td><code>event(id).config.branding</code> <strong>+</strong> <code>getEvent(id).config.mobileApplicationId</code></td><td>—</td><td>nom, logo, identifiant de l'app mobile</td></tr>
+<tr><td><code>fetchEventSessions(eventId, onProgress)</code></td><td><code>event(id).children(eventType: [SESSION], first: 500)</code></td><td>curseur <code>pageToken</code></td><td>enrichit Live/Replay (titre, type, début, fin, durée, organisateurs)</td></tr>
+<tr><td><code>fetchLocationNames(ids)</code></td><td><code>location(id) { id name }</code></td><td><strong>batch aliasé</strong>, 50 par requête</td><td>libellés lisibles des zones scannées</td></tr>
+<tr><td><code>fetchMetrics(eventId)</code></td><td><code>event(id).metrics.registration</code></td><td>—</td><td><strong>écrite mais jamais appelée</strong> (cf. note ci-dessous)</td></tr>
+</tbody>
+</table></div>
+<p><code>fetchEventConfig</code> fait <strong>deux requêtes</strong> parce que les deux informations vivent sur des points d'entrée différents : <code>event(id)</code> (fédéré) porte le branding, <code>getEvent(id)</code> (service registration) porte <code>mobileApplicationId</code>. La seconde est enveloppée dans un <code>try/catch</code> : son échec dégrade <code>mobileAppId</code> à <code>null</code> sans casser le chargement.</p>
+<p><code>fetchLocationNames</code> est délibérément <strong>best-effort</strong> : le <code>zone_id</code> d'un scan Elasticsearch <em>est</em> un <code>location.id</code>, mais l'index ne porte que l'identifiant. Les noms sont résolus par lots de 50 avec des <strong>variables typées</strong> (<code>$id0: ID!, $id1: ID!, …</code> et des alias <code>l0:</code>, <code>l1:</code>) pour éviter toute injection. Un lot en échec est journalisé en <code>warn</code> et les identifiants bruts servent de repli — un nom de zone manquant ne fait jamais échouer le chargement des scans.</p>
+<blockquote><p><strong><code>fetchMetrics</code> est du code mort.</strong> Le backend expose déjà des agrégats prêts à l'emploi (<code>totalDelegatesCount</code>, <code>checkedInCount</code>, <code>statuses</code>, <code>categories</code>, <code>types</code>, <code>companies</code>, <code>accessDays</code>) que le PoC <strong>recalcule intégralement côté navigateur</strong>. C'est une piste d'optimisation directe pour la version de production.</p></blockquote>
+<h3 id="ch02-champs-délégué-consommés">Champs délégué consommés<a class="anchor" href="#ch02-champs-délégué-consommés" aria-label="Lien vers cette section">#</a></h3>
+<p>La constante <code>DELEGATE_FIELDS</code> (80 lignes) est la <strong>surface de données réelle</strong> du dashboard. Chaque champ y est parce qu'un indicateur en dépend :</p>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Champ</th><th>Alimente</th></tr></thead>
+<tbody>
+<tr><td><code>id</code></td><td>clé de dédoublonnage de tous les comptages de participants</td></tr>
+<tr><td><code>givenName</code>, <code>familyName</code>, <code>email</code>, <code>title</code></td><td>identité dans les tableaux et exports, civilité</td></tr>
+<tr><td><code>status</code></td><td>population de référence (<code>registered</code>), répartition par statut</td></tr>
+<tr><td><code>createdAt</code>, <code>updatedAt</code></td><td>courbes temporelles d'inscription, hebdomadaire par statut</td></tr>
+<tr><td><code>checkedInDate</code></td><td><strong>présence physique</strong> — le KPI le plus scruté</td></tr>
+<tr><td><code>gender</code>, <code>occupation</code>, <code>jobTitle</code>, <code>qualification</code>, <code>practiceModes</code>, <code>company</code></td><td>démographie, professions, sociétés</td></tr>
+<tr><td><code>categories</code></td><td>répartition par catégorie</td></tr>
+<tr><td><code>gdpr</code></td><td>présent dans le modèle, <strong>non exploité</strong> pour l'anonymisation (cf. dette)</td></tr>
+<tr><td><code>firstOnboardingConnection</code></td><td>taux d'activation de l'espace personnel</td></tr>
+<tr><td><code>primaryAddress { countryCode city zipCode country.code }</code></td><td>cartes monde/Europe, régions françaises (2 premiers caractères du code postal)</td></tr>
+<tr><td><code>registrations { id type status categories accessDays }</code></td><td>types d'inscription, jours d'accès, multi-inscriptions</td></tr>
+<tr><td><code>badges { id type deliveredAt deliveredBy storage.publicUrl qrCode.value qrCode.decodedValue }</code></td><td>badges délivrés, type de badge, <strong>ré-association QR des scans</strong></td></tr>
+<tr><td><code>contact.externalIds { value type }</code></td><td><strong>RPPS</strong> (<code>type === &quot;RPPS&quot;</code>) et <strong>identifiant Keycloak</strong> (<code>type === &quot;/kc&quot;</code>)</td></tr>
+<tr><td><code>contact.emailAddresses { value source.id source.type }</code></td><td><strong>identifiant Keycloak</strong> quand <code>source.type === &quot;ACCOUNT&quot;</code> — clé de jointure live/replay</td></tr>
+<tr><td><code>contact.memberships.items.type</code></td><td>type d'adhésion</td></tr>
+<tr><td><code>contact.apps { id lastUsed version name platform }</code></td><td>usage de l'application mobile</td></tr>
+<tr><td><code>contactId</code>, <code>externalContactId</code>, <code>externalId</code>, <code>notes</code>, <code>options</code></td><td>colonnes brutes de l'onglet Données et des exports</td></tr>
+</tbody>
+</table></div>
+<p><strong>Deux champs sont des clés de jointure critiques</strong> et méritent d'être connus :</p>
+<ul>
+<li><strong><code>contact.emailAddresses[].source.id</code></strong> quand <code>source.type === &quot;ACCOUNT&quot;</code> → identifiant du compte Keycloak. C'est la clé du rattachement des vues live/replay.</li>
+<li><strong><code>contact.externalIds[].value</code></strong> quand <code>type === &quot;/kc&quot;</code> → <strong>seconde</strong> source d'identifiant Keycloak, qui capte les délégués dont le compte n'est pas matérialisé dans <code>emailAddresses</code>. Elle réplique en mémoire la branche de repli de <code>contactByAccountId</code> du service <code>contacts</code>, sans appel réseau supplémentaire.</li>
+</ul>
+<hr class="sep">
+<h2 id="ch02-22-elasticsearch-srcapielasticsearchjs">2.2 Elasticsearch — <code>src/api/elasticsearch.js</code><a class="anchor" href="#ch02-22-elasticsearch-srcapielasticsearchjs" aria-label="Lien vers cette section">#</a></h2>
+<h3 id="ch02-accès">Accès<a class="anchor" href="#ch02-accès" aria-label="Lien vers cette section">#</a></h3>
+<pre data-lang="js"><code>const ES_BASE = import.meta.env.DEV ? &quot;/api/es&quot; : import.meta.env.VITE_ES_URL;
+const BATCH_SIZE = 2000;</code></pre>
+<p>Le client est un <code>fetch</code> brut de 99 lignes vers <code>POST /{index}/_search</code>. <strong>Aucun en-tête d'authentification n'est envoyé</strong> — le cluster n'en a pas (identique à <code>xlsx-stats/datasources/els.js</code>, qui se connecte par un simple <code>new Client({ node: process.env.ES_API })</code>).</p>
+<p>En développement, le <strong>proxy Vite <code>/api/es</code></strong> évite le CORS et garde l'IP interne hors du navigateur. <strong>En production, ce proxy n'a pas d'équivalent</strong> : c'est le point de blocage principal du passage en production (cf. <a href="#ch09">09 — Dette technique</a>).</p>
+<h3 id="ch02-pagination">Pagination<a class="anchor" href="#ch02-pagination" aria-label="Lien vers cette section">#</a></h3>
+<p><code>fetchAllHits(index, query, onProgress)</code> fait du <strong><code>search_after</code> sur <code>_id</code> décroissant</strong>, par lots de 2 000, jusqu'à obtenir un lot incomplet. Il n'y a <strong>ni Point-in-Time, ni <code>slice</code></strong> : la pagination est séquentielle, et une écriture concurrente pendant le parcours peut théoriquement décaler le curseur.</p>
+<p>Toutes les requêtes filtrent sur un unique terme :</p>
+<pre data-lang="json"><code>{ &quot;term&quot;: { &quot;congress_id.keyword&quot;: &quot;&lt;eventId&gt;&quot; } }</code></pre>
+<h3 id="ch02-les-cinq-index">Les cinq index<a class="anchor" href="#ch02-les-cinq-index" aria-label="Lien vers cette section">#</a></h3>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Constante</th><th>Index</th><th>Granularité d'un document</th><th>Alimenté par</th></tr></thead>
+<tbody>
+<tr><td><code>audience</code></td><td><code>stats_user__onsite-audience-per-session-per-user</code></td><td>1 doc par (utilisateur, session) — <strong>entrée de salle</strong></td><td>Flink <code>stats_room_scans.sql</code> ← Kafka <code>cyim.webhooks</code></td></tr>
+<tr><td><code>checkin</code></td><td><code>stats_user__onsite_congress_checkin_per_user</code></td><td>1 doc par utilisateur — <strong>portique d'entrée du site</strong></td><td>idem</td></tr>
+<tr><td><code>zone</code></td><td><code>stats_user__onsite_zone_checkin_per_user</code></td><td>1 doc par accès de zone (stand, lounge)</td><td>idem</td></tr>
+<tr><td><code>live</code></td><td><code>stats_user__live-view-duration-per-user-per-session</code></td><td>1 doc par (utilisateur, session)</td><td>Flink ← SI-views</td></tr>
+<tr><td><code>replay</code></td><td><code>stats_user__vod-view-per-user-per-session-per-origin</code></td><td>1 doc par (utilisateur, session, origine)</td><td>Flink ← SI-views</td></tr>
+</tbody>
+</table></div>
+<blockquote><p><strong>Piège de nommage</strong> : l'index <code>audience</code> utilise des <strong>tirets</strong>, <code>checkin</code> et <code>zone</code> des <strong>underscores</strong>. Ce n'est pas une coquille de la documentation, c'est l'état réel du cluster. Les noms sont codés en dur, sans alias versionné.</p></blockquote>
+<h3 id="ch02-filtrage-des-comptes-internes">Filtrage des comptes internes<a class="anchor" href="#ch02-filtrage-des-comptes-internes" aria-label="Lien vers cette section">#</a></h3>
+<p><code>fetchLiveViews</code> et <code>fetchReplayViews</code> — et <strong>elles seules</strong> — excluent les testeurs CYIM :</p>
+<pre data-lang="json"><code>&quot;must_not&quot;: [{ &quot;wildcard&quot;: { &quot;user_email.keyword&quot;: &quot;*@cyim.com&quot; } }]</code></pre>
+<p>Les trois index de scans <strong>n'appliquent pas ce filtre</strong>. Un scan effectué par un compte interne compte donc dans les statistiques de présence sur site. À garder en tête lors des comparaisons entre canaux.</p>
+<h3 id="ch02-champs-elasticsearch-consommés">Champs Elasticsearch consommés<a class="anchor" href="#ch02-champs-elasticsearch-consommés" aria-label="Lien vers cette section">#</a></h3>
+<p>Les trois index de scans exposent des schémas différents pour la même information : la normalisation (<code>utils/computeScanStats.js</code>) les ramène à un modèle unique.</p>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Champ normalisé</th><th><code>audience</code></th><th><code>checkin</code></th><th><code>zone</code></th></tr></thead>
+<tbody>
+<tr><td><code>delegateId</code></td><td><code>user_id</code> ∥ <code>user_identity_id</code></td><td><code>delegate_id</code> ∥ <code>delegate_identity_id</code></td><td><code>delegate_id</code> ∥ <code>delegate_identity_id</code></td></tr>
+<tr><td><code>badgeType</code></td><td><code>badge_type</code></td><td><code>registration_type</code></td><td><code>registration_type</code></td></tr>
+<tr><td><code>badgeId</code></td><td><code>badge_id</code></td><td><code>badge_id</code></td><td><code>badge_id</code></td></tr>
+<tr><td>identité</td><td><code>user_fullName</code> ∥ <code>user_firstName</code> + <code>user_lastName</code>, <code>user_email</code></td><td>idem</td><td>idem</td></tr>
+<tr><td>session</td><td><code>session_id</code>, <code>session_title</code>, <code>session_type</code>, <code>session_start</code></td><td>—</td><td>—</td></tr>
+<tr><td>lieu</td><td><code>room_id</code>, <code>room_name</code></td><td>—</td><td><code>zone_id</code> (= <code>location.id</code>)</td></tr>
+<tr><td>organisation</td><td><code>industry_name</code></td><td>—</td><td>—</td></tr>
+<tr><td>autres</td><td><code>direction</code>, <code>room_entry_approval</code>, <code>timestamp</code>, <code>raw_qr_code</code></td><td>idem</td><td>idem</td></tr>
+</tbody>
+</table></div>
+<p>Malgré la différence de nom (<code>user_id</code> vs <code>delegate_id</code>), <strong>le contenu est identique</strong> : le job Flink écrit dans les trois cas <code>badge.registrationByBadgeQRCode['delegate']['id']</code>, soit le <code>delegate.id</code> MongoDB. Aucune traduction n'est nécessaire.</p>
+<p>Pour les index live et replay, la normalisation est nettement plus défensive parce que le mapping n'est pas stabilisé. L'horodatage est cherché dans <strong>onze champs candidats</strong> :</p>
+<pre><code>timestamp → @timestamp → view_timestamp → viewing_time → view_start → start_time
+→ starttime → start → event_time → created_at → date  [→ session_start, live uniquement]</code></pre>
+<p>Même logique pour la durée (<code>view_duration</code> ∥ <code>duration</code> ∥ <code>live_duration</code> / <code>vod_duration</code>), l'origine (<code>origin</code> ∥ <code>platform</code> ∥ <code>source</code> ∥ <code>device</code>) et la fin de session (six candidats). Cette cascade de replis est une <strong>dette assumée</strong> : elle devrait disparaître au profit d'un mapping typé côté Flink.</p>
+<p>Champs spécifiques :</p>
+<ul>
+<li><strong>Live</strong> : <code>channel_id</code>, <code>channel_name</code> (libellé de chaîne de diffusion, repli « Chaîne N » trié par volume).</li>
+<li><strong>Replay</strong> : <code>media_id</code>, <code>presentation_id</code>, <code>presentation_title</code> (granularité VOD).</li>
+</ul>
+<h3 id="ch02-priorité-du-type-de-session">Priorité du type de session<a class="anchor" href="#ch02-priorité-du-type-de-session" aria-label="Lien vers cette section">#</a></h3>
+<p>Le <code>sessionType</code> est toujours résolu dans cet ordre :</p>
+<pre><code>s.session_type  →  s.sessionType  →  session GraphQL .type</code></pre>
+<p>Le champ <strong>Elasticsearch <code>session_type</code></strong> est prioritaire car il vient de <code>events.category</code> côté SI-views — la même source que l'export <code>xlsx-stats</code>. Le <code>type</code> du nœud événement GraphQL n'est que le discriminant générique (« SESSION »), trop large pour être exploitable ; il n'est gardé qu'en dernier recours. <strong>Cette priorité a déjà été inversée par erreur deux fois</strong> (une fois sur les indicateurs, une fois sur le filtre des exports) : ne pas y toucher.</p>
+<hr class="sep">
+<h2 id="ch02-23-provenance-amont-ce-qui-remplit-les-index">2.3 Provenance amont — ce qui remplit les index<a class="anchor" href="#ch02-23-provenance-amont-ce-qui-remplit-les-index" aria-label="Lien vers cette section">#</a></h2>
+<p>Les trois index de scans sont alimentés par <strong>un seul job Flink</strong> (<code>stats_room_scans.sql</code>) consommant <strong>un seul topic Kafka</strong> (<code>cyim.webhooks</code>, produit par l'application mobile de scan). Ce job résout le QR scanné en délégué via le resolver GraphQL <code>event(id).registrationByBadgeQRCode(qrCode)</code>.</p>
+<p>Cette résolution amont a une conséquence directe et importante sur les données :</p>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Index</th><th>Type de jointure Flink</th><th>Comportement quand la résolution échoue</th></tr></thead>
+<tbody>
+<tr><td><code>checkin</code>, <code>zone</code></td><td><code>LEFT JOIN</code></td><td>la ligne est écrite avec <code>delegate_id = '-'</code> → <strong>récupérable côté client</strong></td></tr>
+<tr><td><code>audience</code></td><td><code>INNER JOIN</code></td><td>la ligne est <strong>absente de l'index</strong> → <strong>définitivement perdue</strong></td></tr>
+</tbody>
+</table></div>
+<p>C'est la raison d'être du mécanisme de <strong>ré-association QR</strong> décrit dans <a href="#ch03-34-ré-association-qr">03 — Modèle de calcul</a>.</p>
+<hr class="sep">
+<h2 id="ch02-24-table-de-traçabilité-indicateur-source">2.4 Table de traçabilité : indicateur → source<a class="anchor" href="#ch02-24-table-de-traçabilité-indicateur-source" aria-label="Lien vers cette section">#</a></h2>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Famille d'indicateurs</th><th>Source</th></tr></thead>
+<tbody>
+<tr><td>Inscriptions, statuts, types, catégories, jours d'accès</td><td>GraphQL <code>searchDelegates</code></td></tr>
+<tr><td>Démographie, géographie, professions</td><td>GraphQL <code>searchDelegates</code> (<code>primaryAddress</code>, <code>occupation</code>…)</td></tr>
+<tr><td>Check-in physique, badges délivrés</td><td>GraphQL <code>searchDelegates</code> (<code>checkedInDate</code>, <code>badges.deliveredAt</code>)</td></tr>
+<tr><td>Onboarding, application mobile</td><td>GraphQL <code>searchDelegates</code> (<code>firstOnboardingConnection</code>, <code>contact.apps</code>) + <code>config.mobileApplicationId</code></td></tr>
+<tr><td>Audience en salle, entrée du site, accès aux zones</td><td>Elasticsearch (<code>audience</code>, <code>checkin</code>, <code>zone</code>)</td></tr>
+<tr><td>Vues live, chaînes de diffusion</td><td>Elasticsearch (<code>live</code>) + sessions GraphQL</td></tr>
+<tr><td>Vues replay / VOD</td><td>Elasticsearch (<code>replay</code>) + sessions GraphQL</td></tr>
+<tr><td>Titres, types, horaires et organisateurs de session</td><td>GraphQL <code>children(SESSION)</code>, complété par les champs ES</td></tr>
+<tr><td>Libellés de zones</td><td>GraphQL <code>location(id).name</code></td></tr>
+<tr><td>« Total participants » dédoublonné</td><td><strong>croisement</strong> GraphQL × Elasticsearch (live + replay)</td></tr>
+</tbody>
+</table></div>
+  </section>
+
+  <section id="ch03" class="chapter">
+    <div class="chapter-head">
+      <span class="chapter-num">03</span>
+      <h1>Modèle de calcul</h1>
+    </div>
+<p>Toute la couche de calcul vit dans <code>src/utils/</code> et <strong>n'importe pas Vue</strong>. Ce sont des fonctions pures : mêmes entrées → mêmes sorties, aucun état, aucun effet de bord (à deux exceptions près, cf. <a href="#ch01-12-les-cinq-couches">01 — Architecture §1.2</a>).</p>
+<p>C'est la partie du PoC qui porte la valeur métier, et <strong>aucune ligne n'est couverte par un test.</strong></p>
+<hr class="sep">
+<h2 id="ch03-31-computestatsjs-statistiques-dinscription">3.1 <code>computeStats.js</code> — statistiques d'inscription<a class="anchor" href="#ch03-31-computestatsjs-statistiques-dinscription" aria-label="Lien vers cette section">#</a></h2>
+<h3 id="ch03-signature-et-évaluation-paresseuse">Signature et évaluation paresseuse<a class="anchor" href="#ch03-signature-et-évaluation-paresseuse" aria-label="Lien vers cette section">#</a></h3>
+<pre data-lang="js"><code>computeAllStats(delegates, mobileAppId = null, dateRange = null)</code></pre>
+<p>La fonction ne calcule <strong>rien</strong> à l'appel. Elle retourne un objet dont les <strong>huit sections sont des accesseurs (<code>get</code>)</strong> mémoïsés par fermeture :</p>
+<pre data-lang="js"><code>get global()       { if (!_global) _global = computeGlobal(delegates, mobileAppId, inRange); return _global; }
+get demographics() { … }   get registrations() { … }   get temporal() { … }
+get checkinFlow()  { … }   get badges() { … }          get onboarding() { … }   get mobileApp() { … }</code></pre>
+<p><strong>Pourquoi</strong> : avant ce découpage, <code>computeAllStats</code> était une fonction monolithique de ~450 lignes qui calculait les huit sections en un passage. Chaque clic de filtre croisé recalculait <em>tout</em>, y compris les blocs que l'onglet courant n'affiche pas (l'onglet Démographie recalculait le temporel et les badges pour rien). Un onglet consomme typiquement <strong>2 à 3 sections sur 8</strong> : le gain est direct sur les événements de plus de 5 000 délégués.</p>
+<p><strong>Limite</strong> : la mémoïsation est <strong>par instance</strong>. Un nouveau filtre croisé produit un nouvel objet stats, donc un recalcul complet des sections consultées. Il n'y a pas de mémoïsation inter-clics.</p>
+<h3 id="ch03-contenu-des-huit-sections">Contenu des huit sections<a class="anchor" href="#ch03-contenu-des-huit-sections" aria-label="Lien vers cette section">#</a></h3>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Section</th><th>Fonction</th><th>Contenu principal</th></tr></thead>
+<tbody>
+<tr><td><code>global</code></td><td><code>computeGlobal(delegates, mobileAppId, inRange)</code></td><td>totaux, <code>registeredCount</code>, <code>pendingCount</code>, <code>checkedInCount</code>, badges délivrés, taux</td></tr>
+<tr><td><code>demographics</code></td><td><code>computeDemographics(delegates)</code></td><td>pays, <code>uniqueCountries</code>, continents, genre, professions, qualifications, civilités, sociétés</td></tr>
+<tr><td><code>registrations</code></td><td><code>computeRegistrations(delegates)</code></td><td>statuts, statut par type, types, catégories, jours d'accès, multi-inscriptions</td></tr>
+<tr><td><code>temporal</code></td><td><code>computeTemporal(delegates)</code></td><td>courbes d'inscription par jour, cumul, jour de semaine, hebdomadaire par type et par statut</td></tr>
+<tr><td><code>checkinFlow</code></td><td><code>computeCheckinFlow(delegates, inRange)</code></td><td>flux de check-in par jour, créneaux de 15 min, pic</td></tr>
+<tr><td><code>badges</code></td><td><code>computeBadges(delegates)</code></td><td>badges délivrés par jour/créneau, appareil de délivrance, check-in par type</td></tr>
+<tr><td><code>onboarding</code></td><td><code>computeOnboarding(delegates)</code></td><td>premières connexions à l'espace personnel</td></tr>
+<tr><td><code>mobileApp</code></td><td><code>computeMobileApp(delegates, mobileAppId)</code></td><td>usage de l'application mobile</td></tr>
+</tbody>
+</table></div>
+<p>Les sections sont <strong>strictement indépendantes</strong> — aucune ne lit le résultat d'une autre. Là où un scalaire est nécessaire dans deux sections (<code>totalBadgesDelivered</code> par exemple), il est recalculé localement : une boucle O(n) supplémentaire est négligeable face au coût d'un bloc entier, et cela garantit qu'aucun accesseur ne déclenche en cascade le calcul d'un autre.</p>
+<h3 id="ch03-portée-du-paramètre-daterange">Portée du paramètre <code>dateRange</code><a class="anchor" href="#ch03-portée-du-paramètre-daterange" aria-label="Lien vers cette section">#</a></h3>
+<p><code>dateRange</code> est converti une fois en prédicat par <code>makeInRange()</code> (<code>utils/dateRange.js</code>) puis injecté dans <strong>deux sections seulement</strong> : <code>computeGlobal</code> (pour <code>checkedInCount</code>) et <code>computeCheckinFlow</code>.</p>
+<p>Les sections <code>registrations</code> (<code>createdAt</code>), <code>badges</code> (<code>deliveredAt</code>), <code>onboarding</code>, <code>demographics</code> et <code>temporal</code> <strong>ignorent le filtre date</strong>. C'est un choix délibéré, détaillé dans <a href="#ch04-43-filtre-plage-de-dates">04 — État &amp; filtres §4.3</a>.</p>
+<h3 id="ch03-convention-de-valeur-manquante">Convention de valeur manquante<a class="anchor" href="#ch03-convention-de-valeur-manquante" aria-label="Lien vers cette section">#</a></h3>
+<p><code>groupBy()</code> remplace une clé nulle par la chaîne littérale <strong><code>&quot;Non renseigne&quot;</code></strong> (sans accent, telle qu'écrite dans le code). Les catégories dérivées sont produites en <strong>français canonique</strong> (<code>&quot;Hommes&quot;</code>, <code>&quot;Femmes&quot;</code>, <code>&quot;Autre&quot;</code>, <code>&quot;Tous les jours&quot;</code>), puis traduites <strong>à l'affichage</strong> par <code>i18n/labels.js</code>. La couche calcul reste ainsi indépendante de la locale — mais cela impose aux filtres croisés de comparer sur la valeur <em>localisée</em> ou de conserver la valeur brute comme étiquette (cf. <a href="#ch05">05 — Interface</a>).</p>
+<hr class="sep">
+<h2 id="ch03-32-computescanstatsjs-scans-sur-site">3.2 <code>computeScanStats.js</code> — scans sur site<a class="anchor" href="#ch03-32-computescanstatsjs-scans-sur-site" aria-label="Lien vers cette section">#</a></h2>
+<p><code>computeAllScanStats({ audience, checkin, zone }, { dateRange, badgeTypes, qrLookup })</code> exécute un pipeline en <strong>quatre étapes, dans cet ordre précis</strong> :</p>
+<pre><code>1. NORMALISATION      normalizeAudience / normalizeCheckin / normalizeZone
+                      → schéma unifié, _source ES conservé dans scan.raw
+2. RÉ-ASSOCIATION QR  recoverDelegateIds(scans, qrLookup)     ← AVANT le filtrage
+3. ENRICHISSEMENT     enrichFromLookup(scans, qrLookup)
+4. FILTRAGE           par timestamp (dateRange) puis par badgeType</code></pre>
+<p><strong>L'ordre n'est pas négociable.</strong> La ré-association doit précéder le filtrage : un scan dont le type de badge est récupéré à l'étape 2 doit pouvoir être retenu par le filtre badge de l'étape 4. Inverser les deux ferait disparaître les scans récupérés dès qu'un filtre badge est actif.</p>
+<p>Le <code>_source</code> Elasticsearch brut est conservé sur chaque scan (<code>scan.raw</code>) pour alimenter la modale d'inspection <code>ScanDetailModal</code>.</p>
+<h3 id="ch03-sortie">Sortie<a class="anchor" href="#ch03-sortie" aria-label="Lien vers cette section">#</a></h3>
+<pre><code>{
+  global:   { totalAudienceScans, totalCheckinScans, totalZoneScans, totalScans,
+              uniqueAudienceDelegates, uniqueCheckinDelegates, uniqueZoneDelegates,
+              uniqueDelegatesAll, audienceUniqueDelegateSessions,
+              distinctSessions, distinctRooms, distinctZones,
+              recoveredScans: { audience, checkin, zone, total },
+              unmatchedScans: { checkin, zone, total } },
+  audience: { scans, topSessions, topRooms, byHour, byDirection, byBadgeType,
+              sessionsPerDelegate, sessionTypes },
+  checkin:  { scans, byHour, byDirection, byBadgeType },
+  zone:     { scans, topZones, byHour, byDirection },
+  combined: { byHour, uniqueDelegatesByDay, uniqueDelegatesByDayByBadgeType,
+              uniqueDelegatesByDayAudience / …Checkin / …Zone },
+  all:      [...tous les scans]
+}</code></pre>
+<h3 id="ch03-deux-heuristiques-fragiles">Deux heuristiques fragiles<a class="anchor" href="#ch03-deux-heuristiques-fragiles" aria-label="Lien vers cette section">#</a></h3>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Heuristique</th><th>Implémentation</th><th>Fragilité</th></tr></thead>
+<tbody>
+<tr><td><strong>Millisecondes vs secondes</strong></td><td><code>toEpochMs(ts)</code> (<code>parisTime.js</code>) — bascule sur le seuil <code>&lt; 10¹²</code></td><td>casse si Flink change la forme de l'horodatage. Devrait être un type <code>date</code> côté mapping ES</td></tr>
+<tr><td><strong>Sens de passage</strong></td><td><code>normalizeDirection()</code> — <code>in</code>/<code>entr*</code> → <code>in</code>, <code>out</code>/<code>sort*</code> → <code>out</code>, sinon <code>unknown</code></td><td>mapping par sous-chaîne, sensible à tout nouveau libellé. Devrait être un <code>enum IN|OUT|UNKNOWN</code> côté Flink</td></tr>
+</tbody>
+</table></div>
+<h3 id="ch03-écarter-le-faux-délégué--">Écarter le faux délégué <code>'-'</code><a class="anchor" href="#ch03-écarter-le-faux-délégué--" aria-label="Lien vers cette section">#</a></h3>
+<p><code>isRealDelegateId(id)</code> retourne <code>false</code> pour <code>null</code> <strong>et pour la chaîne <code>'-'</code></strong>. Sans ce garde, tous les scans non résolus par Flink fusionneraient en <strong>un seul faux délégué unique</strong> — gonflant artificiellement les délégués distincts. Ce garde est appliqué dans tous les comptages de délégués uniques.</p>
+<hr class="sep">
+<h2 id="ch03-33-jointures">3.3 Jointures<a class="anchor" href="#ch03-33-jointures" aria-label="Lien vers cette section">#</a></h2>
+<h3 id="ch03-viewerjoinjs-elasticsearch-délégué"><code>viewerJoin.js</code> — Elasticsearch ↔ délégué<a class="anchor" href="#ch03-viewerjoinjs-elasticsearch-délégué" aria-label="Lien vers cette section">#</a></h3>
+<p>Le <code>user_id</code> des index live et replay est un <strong>identifiant Keycloak</strong>, pas un <code>delegate.id</code>. La jointure côté navigateur reconstitue le lien via <strong>deux sources</strong>, exactement comme la requête <code>contactByAccountId</code> du service <code>contacts</code> :</p>
+<div class="tbl-scroll"><table>
+<thead><tr><th>#</th><th>Chemin</th><th>Condition</th></tr></thead>
+<tbody>
+<tr><td>1</td><td><code>contact.emailAddresses[].source.id</code></td><td><code>source.type === &quot;ACCOUNT&quot;</code></td></tr>
+<tr><td>2</td><td><code>contact.externalIds[].value</code></td><td><code>type === &quot;/kc&quot;</code></td></tr>
+</tbody>
+</table></div>
+<p>La source 2 est indispensable : elle capte les délégués dont le compte Keycloak <strong>n'est pas matérialisé</strong> dans <code>emailAddresses</code>. Sans elle, la couverture de jointure chute et des inscrits légitimes apparaissent comme « non reconnus ».</p>
+<p>Un contact peut avoir <strong>plusieurs</strong> adresses e-mail, chacune liée à un compte Keycloak distinct : <code>getKeycloakIds(delegate)</code> collecte <strong>tous</strong> les identifiants et le délégué est indexé sous chacun d'eux. En cas de collision (deux délégués partageant un compte — anomalie de données), c'est le <strong>premier écrit qui gagne</strong>.</p>
+<p><code>buildDelegateLookup(delegates)</code> produit une <code>Map&lt;keycloakId, { checkedIn, delegate }&gt;</code>. Chaque hit Elasticsearch tombe alors dans l'une de trois catégories :</p>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Catégorie</th><th>Sens</th><th>Traitement dans les KPI</th></tr></thead>
+<tbody>
+<tr><td><code>checkedIn</code></td><td>rapproché <strong>et</strong> physiquement présent</td><td>compté dans la présence physique</td></tr>
+<tr><td><code>noCheckin</code></td><td>rapproché, <strong>sans</strong> check-in valide</td><td>alimente « sans présence physique »</td></tr>
+<tr><td><code>unknown</code></td><td>aucun rapprochement</td><td><strong>exclu</strong> des KPI (spectateur anonyme ou identifiant inattendu)</td></tr>
+</tbody>
+</table></div>
+<p><strong>Diagnostics</strong> — deux seuils à 50 %, avec des destinations volontairement différentes :</p>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Symptôme</th><th>Détection</th><th>Destination</th><th>Pourquoi</th></tr></thead>
+<tbody>
+<tr><td>couverture Keycloak &lt; 50 % <strong>côté délégués</strong></td><td><code>buildDelegateLookup</code></td><td><strong>bandeau UI</strong> (<code>pushDiagnostic</code>) + console</td><td>actionnable : l'administrateur peut alerter l'équipe technique</td></tr>
+<tr><td>taux de rapprochement &lt; 50 % <strong>côté hits ES</strong></td><td><code>getRemoteOnlyDelegateIds</code></td><td><strong>console uniquement</strong></td><td>symptôme d'un changement du pipeline Flink, l'administrateur n'y peut rien</td></tr>
+</tbody>
+</table></div>
+<p>Les avertissements sont dédupliqués par empreinte (<code>_warnedFingerprints</code>, au niveau du module) pour ne pas être répétés à chaque recalcul d'un <code>computed</code> sur le même jeu de données. Aucun avertissement n'est émis sous 50 enregistrements (<code>MIN_DATASET_SIZE</code>), pour éviter le bruit sur l'état initial vide.</p>
+<p><code>viewerJoin.js</code> est aussi le <strong>domicile canonique</strong> de trois assistants réutilisés partout — ils y ont été dédupliqués depuis quatre fichiers :</p>
+<ul>
+<li><code>hasValidCheckin(d)</code> — <code>checkedInDate</code> doit être <strong>parsable par <code>Date.parse</code></strong>. Une chaîne vide ou fantaisiste est traitée comme <em>non présent</em> ; la simple véracité de la valeur ne suffit pas.</li>
+<li><code>getRpps(d)</code> — RPPS lu dans <code>contact.externalIds</code> (<code>type</code> = <code>RPPS</code>, insensible à la casse).</li>
+<li><code>getKeycloakId(d)</code> / <code>getKeycloakIds(d)</code>.</li>
+</ul>
+<h3 id="ch03-scans-délégué">Scans ↔ délégué<a class="anchor" href="#ch03-scans-délégué" aria-label="Lien vers cette section">#</a></h3>
+<p>Les trois index de scans portent directement le <strong><code>delegate.id</code> MongoDB</strong> : aucune traduction n'est nécessaire. La jointure sert uniquement à <strong>enrichir</strong> (nom, e-mail, type de badge) et à <strong>récupérer</strong> les lignes orphelines — cf. §3.4.</p>
+<hr class="sep">
+<h2 id="ch03-34-ré-association-qr">3.4 Ré-association QR<a class="anchor" href="#ch03-34-ré-association-qr" aria-label="Lien vers cette section">#</a></h2>
+<h3 id="ch03-le-problème">Le problème<a class="anchor" href="#ch03-le-problème" aria-label="Lien vers cette section">#</a></h3>
+<p>Côté Flink (<code>stats_room_scans.sql</code>), le QR scanné est résolu en délégué via le resolver <code>event(id).registrationByBadgeQRCode(qrCode)</code>. Ce resolver (<code>registration-badges/server/schemas/index.ts</code>) applique <code>decodeURI(qrCode)</code>, parse le résultat en chaîne de requête, puis :</p>
+<ul>
+<li>si un paramètre <code>d</code> (delegateId) est présent → rapprochement sur <code>{ delegateId, eventId }</code> ;</li>
+<li>sinon → rapprochement sur le champ <strong>littéral</strong> <code>{ eventId, qrCode }</code>.</li>
+</ul>
+<p>Les badges réellement <strong>générés et finalisés</strong> (avec <code>retrievalCode</code> et <code>storage</code> en base) sont rapprochés. Les badges non générés, périmés, ou créés <em>après</em> le scan (n'ayant qu'un <code>qrCode</code>) retombent en échec.</p>
+<p><strong>Confirmé en production</strong> par comparaison de deux instantanés GraphQL du même délégué : le badge existe bien dans <code>delegate.badges[]</code>, mais <code>registration.badge</code> est résolu <strong>de façon intermittente</strong> (<code>null</code> puis objet). Ce n'est donc <strong>pas</strong> une divergence de valeur — la donnée est correcte, c'est le <em>timing</em> de la recherche ponctuelle de Flink qui échoue. La conséquence diffère selon le type de jointure SQL :</p>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Index</th><th>Jointure</th><th>Conséquence</th></tr></thead>
+<tbody>
+<tr><td><code>checkin</code>, <code>zone</code></td><td><code>LEFT JOIN</code></td><td><code>delegate_id = '-'</code> → <strong>récupérable</strong></td></tr>
+<tr><td><code>audience</code></td><td><code>INNER JOIN</code></td><td>ligne <strong>absente de l'index</strong> → <strong>irrécupérable</strong></td></tr>
+</tbody>
+</table></div>
+<h3 id="ch03-la-solution-sans-aucun-appel-réseau">La solution — sans aucun appel réseau<a class="anchor" href="#ch03-la-solution-sans-aucun-appel-réseau" aria-label="Lien vers cette section">#</a></h3>
+<p>Puisque le badge et son QR sont <strong>déjà chargés</strong> dans la population de délégués, le rattachement se refait côté navigateur.</p>
+<p><strong><code>buildQrDelegateLookup(delegates)</code></strong> construit une <code>Map</code> indexée de deux façons :</p>
+<ul>
+<li><strong>par QR</strong> — pour chaque badge, <code>qrCode.value</code> <em>et</em> <code>qrCode.decodedValue</code>, chacun sous plusieurs clés normalisées ;</li>
+<li><strong>par <code>delegate.id</code></strong> — pour enrichir les scans déjà rapprochés.</li>
+</ul>
+<p>La normalisation (<code>qrKeys</code>) génère <strong>deux clés candidates</strong>, de la plus spécifique à la plus tolérante :</p>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Clé</th><th>Transformation</th><th>Tolère</th></tr></thead>
+<tbody>
+<tr><td>souple</td><td><code>trim()</code> + minuscules</td><td>espaces en bordure, casse</td></tr>
+<tr><td>stricte</td><td>minuscules + suppression de tout caractère non alphanumérique</td><td>espaces internes, préfixe ponctué (<code>&quot;ER &quot;</code>), casse</td></tr>
+</tbody>
+</table></div>
+<p>La charge utile en base32 reste discriminante, donc aucune collision en pratique. <strong>Les mêmes clés sont utilisées des deux côtés</strong> (indexation des badges <em>et</em> recherche du scan), ce qui garantit la cohérence.</p>
+<p>Le lookup est construit dans <code>StatisticsView</code> sur la population <strong>complète</strong> — délibérément <strong>pas</strong> filtrée par type de badge : la récupération d'un scan ne doit pas dépendre de l'état d'un filtre d'affichage.</p>
+<p><strong>Deux passes</strong> ensuite :</p>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Passe</th><th>Cible</th><th>Action</th></tr></thead>
+<tbody>
+<tr><td><code>recoverDelegateIds()</code></td><td>scans à <code>delegateId</code> = <code>'-'</code> ou <code>null</code></td><td>rapproche via <code>raw_qr_code</code>, pose <code>scan.recovered = true</code></td></tr>
+<tr><td><code>enrichFromLookup()</code></td><td>scans à <code>delegateId</code> réel</td><td>complète <code>fullName</code>, <code>email</code>, <code>badgeType</code>, <code>badgeId</code> <strong>si l'ES les laisse vides</strong></td></tr>
+</tbody>
+</table></div>
+<p><strong>Le piège du placeholder <code>'-'</code></strong> : les lignes non rapprochées par Flink écrivent le caractère littéral <code>'-'</code> (et non une chaîne vide) dans <code>user_email</code>, <code>user_fullName</code>, etc. — conséquence du <code>CASE WHEN … ELSE '-'</code> du SQL. <code>isBlankField(v)</code> traite donc <code>''</code>, <code>'-'</code> et <code>'—'</code> comme vides. Sans cela, l'enrichissement de l'e-mail ne se déclenchait <strong>jamais</strong>.</p>
+<p>L'enrichissement est <strong>non destructif</strong> : une vraie valeur Elasticsearch n'est jamais écrasée. Chaque champ enrichi porte un drapeau (<code>fullNameEnriched</code>, <code>emailEnriched</code>, <code>badgeTypeEnriched</code>, <code>badgeIdEnriched</code>) qui alimente le surlignage vert des cellules dans l'onglet Scans QR. Le <code>fullName</code> reconstitué prend la forme <strong><code>givenName familyName (delegateId)</code></strong> — la même que celle écrite par Flink pour les lignes rapprochées, par souci de cohérence des tableaux et des exports.</p>
+<h3 id="ch03-portée-et-transparence">Portée et transparence<a class="anchor" href="#ch03-portée-et-transparence" aria-label="Lien vers cette section">#</a></h3>
+<p>Les scans récupérés comptent <strong>normalement partout</strong> : délégués uniques par jour, engagement, top sessions, cartes géographiques, tous les exports, export Markdown et dump JSON. Les compteurs <code>global.recoveredScans</code> et <code>global.unmatchedScans</code> sont affichés dans l'onglet Scans QR (« X ré-associés · Y restants non associés »), avec un filtre par QR et une modale d'inspection ligne par ligne.</p>
+<p><strong>Limites résiduelles</strong> : l'audience en salle reste irrécupérable (<code>INNER JOIN</code>), et si le scanner émet un QR réellement différent de <code>value</code> et <code>decodedValue</code>, le scan reste orphelin.</p>
+<hr class="sep">
+<h2 id="ch03-35-participationjs-le-kpi-total-participants">3.5 <code>participation.js</code> — le KPI « Total participants »<a class="anchor" href="#ch03-35-participationjs-le-kpi-total-participants" aria-label="Lien vers cette section">#</a></h2>
+<p><code>computeParticipation(delegates, liveItems, replayItems, { datasetLabel, dateRange })</code> produit la <strong>photo dédoublonnée</strong> de qui a réellement participé. La règle : un délégué compte <strong>une seule fois</strong>, et la présence physique <strong>absorbe</strong> toute consommation à distance.</p>
+<pre><code>total = checkedIn + liveOnly + both + replayOnly</code></pre>
+<p>La présence physique est ensuite décomposée en <strong>quatre sous-groupes disjoints</strong> dont la somme vaut exactement <code>checkedIn</code> :</p>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Sous-groupe</th><th>Définition</th></tr></thead>
+<tbody>
+<tr><td><code>checkedInOnly</code></td><td>présent, aucune consommation à distance</td></tr>
+<tr><td><code>checkedInLive</code></td><td>présent + live <strong>seul</strong> (pas de replay)</td></tr>
+<tr><td><code>checkedInReplay</code></td><td>présent + replay <strong>seul</strong> (pas de live)</td></tr>
+<tr><td><code>checkedInLiveReplay</code></td><td>présent + live <strong>et</strong> replay</td></tr>
+</tbody>
+</table></div>
+<p>Les participants à distance (jamais présents physiquement) se répartissent en <code>liveOnly</code>, <code>both</code> et <code>replayOnly</code>.</p>
+<p>La fonction retourne les <code>Set&lt;delegate.id&gt;</code> de chaque composante <strong>et</strong> un objet <code>counts</code>. Quand <code>dateRange</code> est fourni, le check-in physique est filtré sur <code>checkedInDate</code> ; les items live et replay sont, eux, <strong>déjà filtrés en amont</strong> par leurs <code>compute*</code> respectifs.</p>
+<p>C'est la <strong>source unique</strong> de l'onglet Vue d'ensemble et de la section « Total participants » de l'export Markdown — aucune duplication de cette logique ailleurs.</p>
+<hr class="sep">
+<h2 id="ch03-36-computelivestatsjs-computereplaystatsjs">3.6 <code>computeLiveStats.js</code> / <code>computeReplayStats.js</code><a class="anchor" href="#ch03-36-computelivestatsjs-computereplaystatsjs" aria-label="Lien vers cette section">#</a></h2>
+<p>Même forme : <code>compute*Stats(hits, sessionMap, dateRange)</code> normalise les hits Elasticsearch, les enrichit via la <code>sessionMap</code> GraphQL (titre, type, début, fin, durée), filtre par date, puis agrège.</p>
+<p><strong>La différence essentielle est la date de référence</strong> :</p>
+<div class="tbl-scroll"><table>
+<thead><tr><th></th><th>Champ de filtrage et de regroupement</th><th>Sens</th></tr></thead>
+<tbody>
+<tr><td><strong>Live</strong></td><td><code>sessionEnd</code> (repli <code>sessionStart</code>, puis <code>timestamp</code>)</td><td><strong>date de diffusion</strong></td></tr>
+<tr><td><strong>Replay</strong></td><td><code>timestamp</code></td><td><strong>date de visionnage</strong>, potentiellement très éloignée de la session</td></tr>
+</tbody>
+</table></div>
+<p>Pour le replay, il n'y a <strong>délibérément aucun repli sur <code>session_start</code></strong> : cela reviendrait à regrouper par date de session au lieu de date de consultation, ce qui viderait l'indicateur de son sens.</p>
+<p>Le repli du live sur <code>sessionEnd</code> s'explique par l'absence d'horodatage de visionnage fiable dans l'index live. C'est aussi pourquoi le filtre date global est <strong>inactif par défaut</strong> : sans cela, une session sans <code>sessionEnd</code>, <code>sessionStart</code> ni <code>timestamp</code> serait exclue et le live tomberait à zéro.</p>
+<p>Le libellé de chaîne de diffusion vient de <code>channel_name</code> (exposé par l'index), avec un repli <code>Chaîne N</code> trié par volume décroissant.</p>
+<hr class="sep">
+<h2 id="ch03-37-assistants-de-domaine">3.7 Assistants de domaine<a class="anchor" href="#ch03-37-assistants-de-domaine" aria-label="Lien vers cette section">#</a></h2>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Fichier</th><th>Rôle</th></tr></thead>
+<tbody>
+<tr><td><code>parisTime.js</code></td><td><code>parisDateParts(iso)</code> (UTC → Paris, CET/CEST géré) · <code>parisDay</code> · <code>parisDateTime</code> · <strong><code>toEpochMs(ts)</code></strong> (source unique de l'heuristique ms/secondes) · <strong><code>wallClock(ts)</code></strong> (heure murale sans conversion, pour les <code>TIMESTAMP</code> naïfs sans <code>Z</code> de SI-views) · <code>sessionDateShort(start)</code> (préfixe « JJ/MM »)</td></tr>
+<tr><td><code>dateRange.js</code></td><td><code>makeInRange(dateRange)</code> → prédicat <code>(date) =&gt; bool</code> partagé par les inscriptions et les sources ES</td></tr>
+<tr><td><code>countries.js</code></td><td>code pays → continent, drapeau (~250 pays)</td></tr>
+<tr><td><code>frenchRegions.js</code></td><td>deux premiers caractères du code postal → région INSEE + libellé</td></tr>
+<tr><td><code>typeColors.js</code></td><td>palette déterministe par type d'inscription (hachage du libellé, 12 couleurs)</td></tr>
+<tr><td><code>heatColor.js</code></td><td>échelle de chaleur partagée des cartes (gris → vert → orange → rouge)</td></tr>
+<tr><td><code>burndown.js</code></td><td>courbes de décroissance des restants à check-in (pas de 15 ou 30 min)</td></tr>
+<tr><td><code>checkinByType.js</code></td><td>barre empilée check-in/restants par type de badge</td></tr>
+<tr><td><code>physicalReplay.js</code></td><td>entonnoir « présent physiquement <strong>puis</strong> revu en replay » (séries journalière et cumulée)</td></tr>
+<tr><td><code>buildCheckedInDelegates.js</code></td><td>liste des présents confirmés pour l'export</td></tr>
+<tr><td><code>formatters.js</code></td><td><code>fmt(n)</code>, <code>pct(a, b)</code>, <code>shortName(name, maxLen)</code>, <code>formatDurationHMS(sec)</code> — <strong>auparavant redéfinis 15 fois</strong> dans les onglets</td></tr>
+<tr><td><code>debug.js</code></td><td><code>debug.log</code> / <code>debug.table</code>, neutralisés en production via <code>import.meta.env.DEV</code></td></tr>
+</tbody>
+</table></div>
+<p><strong>Toutes ces mises en forme temporelles passent par l'heure de Paris.</strong> Tout regroupement par jour ou par heure (check-in, <code>deliveredAt</code>, live, replay, scans) utilise <code>parisDateParts</code>, ce qui évite les décalages UTC sur les événements de fin de journée et gère automatiquement le passage à l'heure d'été.</p>
+  </section>
+
+  <section id="ch04" class="chapter">
+    <div class="chapter-head">
+      <span class="chapter-num">04</span>
+      <h1>État, filtres &amp; rafraîchissement</h1>
+    </div>
+<h2 id="ch04-41-le-patron-du-lift-où-vit-létat">4.1 Le patron du « lift » — où vit l'état<a class="anchor" href="#ch04-41-le-patron-du-lift-où-vit-létat" aria-label="Lien vers cette section">#</a></h2>
+<p>Il n'y a <strong>pas de bibliothèque de gestion d'état</strong> : ni Pinia, ni Vuex. L'état réactif vit dans des composables à base de <code>ref</code> / <code>computed</code> / <code>readonly</code>.</p>
+<p>La règle structurante du PoC : <strong>tout composable porteur d'un <code>setInterval</code> ou d'un appel réseau est instancié une seule fois, dans <code>StatisticsView.vue</code></strong>, puis propagé aux onglets par <code>props</code>.</p>
+<pre><code>StatisticsView.vue (propriétaire unique)
+├── statsApi        = useStatistics(eventId)
+├── liveApi         = useLive(eventId, { getDateRange })
+├── replayApi       = useReplay(eventId, { getDateRange })
+├── scansApi        = useRoomScans(eventId, { getDateRange, getBadgeTypes, getQrLookup })
+├── dateFilter      = useDateRangeFilter(() =&gt; delegates)
+├── badgeFilter     = useBadgeTypeFilter(() =&gt; delegates, () =&gt; compareDelegates)
+└── si ?compareWith= :  compareApi · compareLiveApi · compareReplayApi · compareScansApi</code></pre>
+<p><strong>Pourquoi</strong> — trois problèmes concrets que le composant autonome provoquait :</p>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Problème</th><th>Symptôme</th></tr></thead>
+<tbody>
+<tr><td>appels réseau dupliqués</td><td>l'onglet Scans et l'onglet Exports fetchaient chacun les mêmes trois index</td></tr>
+<tr><td>minuteries fantômes</td><td>un <code>setInterval</code> créé au montage d'un onglet survivait au rechargement à chaud de Vite</td></tr>
+<tr><td>données absentes de l'export</td><td>l'export Markdown ne pouvait pas inclure les scans si l'onglet Scans n'avait jamais été ouvert</td></tr>
+</tbody>
+</table></div>
+<p>Le lift résout les trois : une seule instance, disponible immédiatement pour tous les consommateurs, et <strong>chaque composable nettoie sa minuterie</strong> par <code>onUnmounted(stopTimer)</code>. Il n'y a <strong>aucun cache au niveau du module</strong>.</p>
+<h3 id="ch04-inventaire">Inventaire<a class="anchor" href="#ch04-inventaire" aria-label="Lien vers cette section">#</a></h3>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Composable</th><th>Charge</th><th>Expose</th></tr></thead>
+<tbody>
+<tr><td><code>useStatistics(eventId, {autoRefresh})</code></td><td>délégués (GraphQL, curseur) + config</td><td><code>loading</code>, <strong><code>configLoading</code></strong>, <code>refreshing</code>, <code>error</code>, <code>progress</code>, <code>stats</code>, <code>eventName</code>, <code>eventLogo</code>, <code>eventConfig</code>, <code>delegates</code>, <code>mobileAppId</code>, <code>nextRefreshAt</code>, <code>autoRefreshEnabled</code>, <code>setAutoRefresh</code>, <code>reload</code></td></tr>
+<tr><td><code>useLive(eventId, {getDateRange})</code></td><td>vues live (ES) + sessions (GraphQL) en <code>Promise.all</code></td><td><code>stats</code>, <strong><code>viewsLoading</code></strong> / <strong><code>sessionsLoading</code></strong> dissociés, <code>reload</code>, …</td></tr>
+<tr><td><code>useReplay(eventId, {getDateRange})</code></td><td>idem pour la VOD</td><td>idem</td></tr>
+<tr><td><code>useRoomScans(eventId, {getDateRange, getBadgeTypes, getQrLookup})</code></td><td>3 index de scans en <code>Promise.all</code> + noms de zones</td><td><code>audience</code>, <code>checkin</code>, <code>zone</code>, <code>zoneNames</code>, <code>stats</code>, <code>progress</code> (par index)</td></tr>
+<tr><td><code>useBadgeTypeFilter(getDelegates, getCompareDelegates)</code></td><td>—</td><td><code>selected</code> (<code>Set</code>), <code>allBadgeTypes</code>, <code>filteredDelegates</code>, <code>filteredCompareDelegates</code>, <code>toggle</code>, <code>clear</code>, <code>setSelection</code></td></tr>
+<tr><td><code>useDateRangeFilter(getDelegates)</code></td><td>—</td><td><code>startYMD</code>, <code>endYMD</code>, <code>range</code>, <code>isDefault</code>, <code>reset</code></td></tr>
+<tr><td><code>useFilteredStats(getDelegates, getMobileAppId, getDateRange)</code></td><td>—</td><td><code>filteredDelegates</code> + stats recalculées (filtre croisé <strong>local à un onglet</strong>)</td></tr>
+<tr><td><code>useDiagnostics</code></td><td>—</td><td><code>pushDiagnostic</code>, <code>dismissDiagnostic</code> (bus d'avertissements)</td></tr>
+<tr><td><code>useExportMarkdown</code></td><td>—</td><td>génération du bilan Markdown + dump JSON</td></tr>
+</tbody>
+</table></div>
+<p><code>configLoading</code> est dissocié de <code>loading</code> pour une raison d'ergonomie précise : la configuration de l'événement est une requête légère, elle est donc exposée <strong>dès son arrivée</strong> sans attendre la pagination des délégués — l'écran de chargement peut ainsi afficher le titre et le logo de l'événement en quelques centaines de millisecondes.</p>
+<p><code>useRoomScans</code> maintient un <strong>cache des noms de zones à travers les rafraîchissements</strong> : seuls les <code>zone_id</code> encore inconnus sont résolus. La résolution est hors du chemin critique — son échec est journalisé sans faire échouer le chargement des scans.</p>
+<hr class="sep">
+<h2 id="ch04-42-filtre-type-de-badge">4.2 Filtre type de badge<a class="anchor" href="#ch04-42-filtre-type-de-badge" aria-label="Lien vers cette section">#</a></h2>
+<p>Multi-sélection sur la <strong>population de délégués</strong>. Le type de badge d'un délégué est déterminé par <code>delegateBadgeType(d)</code> : <strong>premier badge en base</strong>, à défaut <strong>première inscription</strong>.</p>
+<p>Propagation : les onglets d'inscription reçoivent <code>pageDelegates</code> / <code>pageCompareDelegates</code> (déjà filtrés) ; les scans sont filtrés sur leur champ <code>badge_type</code> ; Live et Replay filtrent leur population de jointure.</p>
+<p>Le composant <code>&lt;BadgeTypeFilter&gt;</code> ne porte <strong>que l'interface</strong> — l'état vit dans le composable, ce qui garantit la persistance d'un onglet à l'autre.</p>
+<hr class="sep">
+<h2 id="ch04-43-filtre-plage-de-dates">4.3 Filtre plage de dates<a class="anchor" href="#ch04-43-filtre-plage-de-dates" aria-label="Lien vers cette section">#</a></h2>
+<p>C'est le mécanisme le plus subtil du PoC, et celui qu'il faut comprendre avant de le modifier.</p>
+<h3 id="ch04-portée-volontairement-restreinte">Portée volontairement restreinte<a class="anchor" href="#ch04-portée-volontairement-restreinte" aria-label="Lien vers cette section">#</a></h3>
+<p>Le filtre s'applique <strong>uniquement aux statistiques datées par une activité de présence ou de consultation</strong> :</p>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Appliqué à</th><th>Champ de référence</th></tr></thead>
+<tbody>
+<tr><td>check-in physique</td><td><code>checkedInDate</code></td></tr>
+<tr><td>vues live</td><td><code>sessionEnd</code> (date de diffusion)</td></tr>
+<tr><td>vues replay</td><td><code>timestamp</code> (date de visionnage)</td></tr>
+<tr><td>scans QR (salle, zone, entrée)</td><td><code>timestamp</code></td></tr>
+</tbody>
+</table></div>
+<p><strong>Non appliqué</strong> aux inscriptions (<code>createdAt</code>), aux badges délivrés (<code>deliveredAt</code>), à l'onboarding, à la démographie, ni aux répartitions par type ou catégorie.</p>
+<p>Le raisonnement : restreindre une plage de dates répond à la question « que s'est-il passé pendant ces journées ? ». Le nombre d'inscrits ou la répartition géographique d'un congrès ne sont pas des événements datés dans cette fenêtre — les filtrer produirait des chiffres trompeurs.</p>
+<h3 id="ch04-le-mécanisme-de-neutralisation-par-défaut">Le mécanisme de neutralisation par défaut<a class="anchor" href="#ch04-le-mécanisme-de-neutralisation-par-défaut" aria-label="Lien vers cette section">#</a></h3>
+<p>Les bornes par défaut sont <strong>début = inscription la plus ancienne</strong> (le <code>createdAt</code> minimum sur les deux événements en mode comparaison) et <strong>fin = aujourd'hui</strong>. Mais tant que l'utilisateur n'a modifié <strong>aucune</strong> borne, <code>isDefault</code> vaut <code>true</code> et :</p>
+<pre data-lang="js"><code>const effectiveDateRange = computed(() =&gt; (isDateDefault.value ? null : dateRange.value));</code></pre>
+<p>→ <strong><code>null</code> est transmis, donc aucun filtrage n'a lieu.</strong></p>
+<p><strong>Pourquoi ce garde est indispensable</strong> : les items Elasticsearch n'ont pas toujours un horodatage de visionnage fiable. Le regroupement retombe alors sur <code>session_start</code> ou <code>session_end</code>, qui peut tomber <strong>hors</strong> de la plage par défaut. Sans neutralisation, ouvrir le dashboard afficherait un Live à zéro — un faux négatif spectaculaire. Le filtre ne s'active donc <strong>qu'après une action explicite</strong> de l'utilisateur.</p>
+<p>Ce garde est un <strong>contournement d'un défaut de qualité de données amont</strong>, pas un choix d'ergonomie. Il disparaîtra quand le mapping Elasticsearch exposera un horodatage de vue typé et systématique.</p>
+<h3 id="ch04-propagation">Propagation<a class="anchor" href="#ch04-propagation" aria-label="Lien vers cette section">#</a></h3>
+<pre data-lang="js"><code>pageStats = computeAllStats(pageDelegates, mobileAppId, effectiveDateRange)
+// + :date-range=&quot;effectiveDateRange&quot; passé aux onglets
+// + getDateRange: () =&gt; effectiveDateRange.value passé aux composables ES</code></pre>
+<h3 id="ch04-angle-mort-connu">Angle mort connu<a class="anchor" href="#ch04-angle-mort-connu" aria-label="Lien vers cette section">#</a></h3>
+<p>Les cartes choroplèthes de l'onglet Badges (<code>RegionalMaps</code>) sont <strong>filtrées par type de badge mais pas par date</strong> : elles consomment la liste brute de délégués et non les stats calculées. Les KPI et graphiques passant par <code>useFilteredStats</code> le sont, eux, correctement.</p>
+<hr class="sep">
+<h2 id="ch04-44-filtrage-croisé-local-à-un-onglet">4.4 Filtrage croisé (local à un onglet)<a class="anchor" href="#ch04-44-filtrage-croisé-local-à-un-onglet" aria-label="Lien vers cette section">#</a></h2>
+<p>Indépendamment des deux filtres globaux, chaque onglet peut utiliser <code>useFilteredStats(getDelegates, getMobileAppId, getDateRange)</code>. Cliquer sur un segment de graphique filtre les délégués et <strong>recalcule les sections consultées</strong> dans cet onglet. Les graphiques acceptent une prop <code>activeLabel</code> pour estomper les segments non sélectionnés.</p>
+<p>Deux propriétés à connaître :</p>
+<ul>
+<li><strong>L'état est propre à l'onglet et perdu au changement d'onglet</strong> : le <code>v-if</code> détruit et recrée le composant. C'est assumé — les filtres globaux, eux, persistent.</li>
+<li><strong>Un libellé traduit doit être comparé sur sa valeur localisée.</strong> Quand une catégorie est produite en français canonique par <code>computeStats</code> puis traduite à l'affichage, le prédicat de filtre doit comparer la valeur <strong>localisée</strong> — ou conserver la valeur brute comme étiquette et comparer le brut. C'est le cas dans <code>DemographicsTab</code> (continents, genre), <code>BadgesTab</code> (appareil) et <code>TemporalTab</code> (jours de semaine). Oublier ce point produit un filtre qui ne renvoie rien en anglais.</li>
+</ul>
+<hr class="sep">
+<h2 id="ch04-45-rafraîchissement-automatique">4.5 Rafraîchissement automatique<a class="anchor" href="#ch04-45-rafraîchissement-automatique" aria-label="Lien vers cette section">#</a></h2>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Paramètre</th><th>Valeur</th><th>Constante</th></tr></thead>
+<tbody>
+<tr><td>intervalle</td><td>10 minutes</td><td><code>AUTO_REFRESH_MS</code></td></tr>
+<tr><td>tic du compte à rebours</td><td>10 secondes</td><td><code>COUNTDOWN_TICK_MS</code></td></tr>
+</tbody>
+</table></div>
+<p><strong>Le rafraîchissement automatique est désactivé par défaut</strong> et pilotable à l'exécution par un interrupteur dans la barre latérale (<code>setAutoRefresh(true/false)</code>). L'événement de comparaison est toujours chargé <strong>sans</strong> rafraîchissement automatique.</p>
+<p>Les quatre sources partagent la même cadence, par souci de prévisibilité pour l'utilisateur. Le rafraîchissement manuel affiche une confirmation ; pendant l'opération, une barre de progression apparaît <strong>au-dessus</strong> du contenu sans le remplacer (<code>refreshing</code> distinct de <code>loading</code>).</p>
+<p>Chaque composable nettoie sa minuterie par <code>onUnmounted(clearInterval)</code>. Il n'y a ni cache au niveau du module, ni minuterie survivante après démontage.</p>
+<p><strong>Limite</strong> : le rafraîchissement recharge <strong>tout</strong> — aucun mécanisme différentiel ou incrémental. Sur un gros congrès, c'est plusieurs secondes de requêtes toutes les 10 minutes.</p>
+<hr class="sep">
+<h2 id="ch04-46-bus-de-diagnostics">4.6 Bus de diagnostics<a class="anchor" href="#ch04-46-bus-de-diagnostics" aria-label="Lien vers cette section">#</a></h2>
+<p><code>useDiagnostics</code> expose <code>pushDiagnostic</code> / <code>dismissDiagnostic</code>. <code>&lt;DiagnosticsBanner&gt;</code>, monté globalement dans <code>App.vue</code>, affiche des notifications fixes en haut à droite.</p>
+<p>Le principe de sélection : <strong>on n'affiche à l'utilisateur que les anomalies sur lesquelles il peut agir.</strong></p>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Cas</th><th>Message</th><th>Persistance</th></tr></thead>
+<tbody>
+<tr><td>couverture Keycloak &lt; 50 % côté délégués</td><td>invite à prévenir l'équipe technique — la jointure live/replay va manquer du monde et le KPI « sans présence physique » devient silencieusement faux</td><td><strong>persistant</strong> (pas d'auto-effacement)</td></tr>
+<tr><td>échec de <code>fetchEventSessions</code></td><td>titres, types et durées de session manquants — notification distincte pour Live et pour Replay</td><td>standard</td></tr>
+</tbody>
+</table></div>
+<p>Le faible taux de rapprochement <strong>côté Elasticsearch</strong> reste en <code>console.warn</code> : c'est un problème du pipeline Flink, l'administrateur n'y peut rien.</p>
+<p>Une <strong>empreinte partagée</strong> entre <code>console.warn</code> et <code>pushDiagnostic</code> évite la duplication quand un <code>computed</code> se recalcule sur le même jeu de données.</p>
+  </section>
+
+  <section id="ch05" class="chapter">
+    <div class="chapter-head">
+      <span class="chapter-num">05</span>
+      <h1>Interface</h1>
+    </div>
+<h2 id="ch05-51-structure-de-la-page">5.1 Structure de la page<a class="anchor" href="#ch05-51-structure-de-la-page" aria-label="Lien vers cette section">#</a></h2>
+<p><code>views/StatisticsView.vue</code> (1 080 lignes) est le seul écran de l'application. Il porte quatre zones :</p>
+<pre><code>┌────────────────────────────────────────────────────────────────────────┐
+│ TOPBAR   logo + nom de l'event + « N inscrits »   [FR|EN] [🛢 données] │
+├────────────┬───────────────────────────────────────────────────────────┤
+│  SIDEBAR   │  TOOLBAR DE FILTRES GLOBAUX (plage de dates · badges)     │
+│  nav       ├───────────────────────────────────────────────────────────┤
+│  hiérar-   │                                                           │
+│  chique    │  CONTENU DE L'ONGLET ACTIF                                │
+│            │  (cartes .kpi-card / .chart-card, grilles .charts-row)     │
+│  ─────     │                                                           │
+│  Export MD │                                                           │
+│  Rafraîchir│                                                           │
+│  ⟳ auto    │                                                           │
+└────────────┴───────────────────────────────────────────────────────────┘</code></pre>
+<p>Le bouton <strong>« base de données »</strong> (icône cylindre, à droite du sélecteur de langue) ouvre la modale <code>DataSourcesInfo</code> — « Données utilisées — détail technique » — qui liste les modèles GraphQL interrogés et les cinq index Elasticsearch. Elle <strong>importe la constante <code>INDEX</code></strong> de <code>api/elasticsearch.js</code> pour rester automatiquement synchronisée avec le code.</p>
+<p><code>document.title</code> est mis à jour selon l'événement affiché (et l'événement comparé le cas échéant).</p>
+<h2 id="ch05-52-navigation-hiérarchique">5.2 Navigation hiérarchique<a class="anchor" href="#ch05-52-navigation-hiérarchique" aria-label="Lien vers cette section">#</a></h2>
+<pre><code>Vue d'ensemble                    (feuille)
+Démographie                       (feuille)
+Registration                      (GROUPE — en-tête non cliquable)
+   ├── Inscriptions
+   ├── Dynamique
+   ├── Badges &amp; Check-in
+   ├── Données
+   └── Comparatif                 (conditionnel : ?compareWith=)
+Live                              (feuille, OU groupe Single/Comparatif si ?compareWith=)
+Replay                            (idem)
+Scans QR                          (feuille)
+Exports                           (feuille)</code></pre>
+<p>Le nœud « Registration » est un simple regroupement visuel : son en-tête replie/déplie les enfants mais ne navigue pas. Les sous-onglets comparatifs n'existent qu'en présence de <code>?compareWith=</code>.</p>
+<h2 id="ch05-53-les-onglets">5.3 Les onglets<a class="anchor" href="#ch05-53-les-onglets" aria-label="Lien vers cette section">#</a></h2>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Onglet</th><th>Fichier</th><th>Lignes</th><th>Contenu</th></tr></thead>
+<tbody>
+<tr><td>Vue d'ensemble</td><td><code>OverviewTab.vue</code></td><td>1 725</td><td>KPI, décomposition « Total participants », filtre <strong>modalité</strong> en barre de page, participants par jour (histogramme groupé), cartes monde + Europe, engagement (sessions uniques par délégué), type de session + sessions</td></tr>
+<tr><td>Démographie</td><td><code>DemographicsTab.vue</code></td><td>247</td><td>pays, continents, genre, professions, qualifications, sociétés</td></tr>
+<tr><td>Inscriptions</td><td><code>RegistrationsTab.vue</code></td><td>228</td><td>types, catégories, jours d'accès, décomposition physique/distanciel/absent</td></tr>
+<tr><td>Dynamique</td><td><code>TemporalTab.vue</code></td><td>269</td><td>courbes d'inscription, cumul, jour de semaine, hebdomadaire</td></tr>
+<tr><td>Badges &amp; Check-in</td><td><code>BadgesTab.vue</code></td><td>1 114</td><td>progression, flux horaire, appareils, cartes monde + France</td></tr>
+<tr><td>Données</td><td><code>DataTab.vue</code></td><td>562</td><td>table brute triable des délégués</td></tr>
+<tr><td>Live / Replay</td><td><code>ViewersTab.vue</code></td><td>1 422</td><td><strong>génériques</strong>, paramétrés par <code>kind: 'live' | 'replay'</code></td></tr>
+<tr><td>Comparatifs Live/Replay</td><td><code>ViewersComparisonTab.vue</code></td><td>572</td><td><strong>génériques</strong>, A vs B</td></tr>
+<tr><td>Scans QR</td><td><code>ScansTab.vue</code></td><td>706</td><td>volumétrie salle/entrée/zone, cartes géo, flux horaire, détail des scans</td></tr>
+<tr><td>Comparatif</td><td><code>ComparisonTab.vue</code></td><td>1 157</td><td>grille A ∣ Δ ∣ B, mix des présents, deltas</td></tr>
+<tr><td>Exports</td><td><code>ExportsTab.vue</code></td><td>1 407</td><td>interface de génération (cf. <a href="#ch06">06 — Exports</a>)</td></tr>
+<tr><td><em>(inutilisé)</em></td><td><code>DayOfTab.vue</code></td><td>239</td><td><strong>code mort, non référencé</strong></td></tr>
+</tbody>
+</table></div>
+<h3 id="ch05-la-généricisation-livereplay">La généricisation Live/Replay<a class="anchor" href="#ch05-la-généricisation-livereplay" aria-label="Lien vers cette section">#</a></h3>
+<p>Quatre fichiers historiques (<code>LiveTab</code>, <code>ReplayTab</code>, <code>LiveComparisonTab</code>, <code>ReplayComparisonTab</code>, ~1 940 lignes au total) ont été remplacés par <strong>deux</strong> composants paramétrés par <code>kind</code>. Les variations passent par :</p>
+<ul>
+<li>un dictionnaire <code>LABELS[kind]</code> (libellés, nom de l'index ES, couleur de la série journalière) ;</li>
+<li>des <code>v-if=&quot;kind === 'live'&quot;</code> pour les blocs propres au live : créneaux de 30 minutes, camembert cliquable par type de session, colonnes « Type » et « Début session » dans le détail ;</li>
+<li>côté replay uniquement : la colonne « Origine » en pastille, la courbe « nouveaux délégués », le cumul des délégués distincts et l'entonnoir « présents physiques ayant revu en replay ».</li>
+</ul>
+<p>Les deux gros onglets restants — <code>OverviewTab</code> (1 725 l.) et <code>ExportsTab</code> (1 407 l.) — sont les candidats les plus évidents à un découpage.</p>
+<h2 id="ch05-54-graphiques">5.4 Graphiques<a class="anchor" href="#ch05-54-graphiques" aria-label="Lien vers cette section">#</a></h2>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Composant</th><th>Particularité</th></tr></thead>
+<tbody>
+<tr><td><code>DoughnutChart.vue</code></td><td>anneau + légende avec pourcentage et valeur absolue</td></tr>
+<tr><td><code>HBarChart.vue</code></td><td>espacement garanti par <code>categoryPercentage</code> / <code>barPercentage</code> + <code>maxBarThickness</code> ; <code>layout.padding.right</code> pour ne pas rogner l'étiquette en bout de barre</td></tr>
+<tr><td><code>LineChart.vue</code></td><td>courbes simples et cumulées</td></tr>
+<tr><td><code>StackedBarChart.vue</code></td><td><code>@select</code>, <code>activeLabel</code>, <code>showTotal</code></td></tr>
+<tr><td><code>ChoroplethMap.vue</code></td><td><strong><code>scope: world | europe</code></strong>, <code>outline</code> de cadrage Europe, <code>showLegend</code> (échelle dégradée)</td></tr>
+<tr><td><code>FrenchRegionMap.vue</code></td><td>régions INSEE, projection Lambert avec repli Mercator</td></tr>
+<tr><td><code>RegionalMaps.vue</code></td><td>composite monde + France + DOM (<code>showScaleLegend</code>)</td></tr>
+<tr><td><code>KpiCompareGrid.vue</code></td><td>grille KPI 3 colonnes A ∣ Δ ∣ B, partagée par <code>ComparisonTab</code> et <code>ViewersComparisonTab</code></td></tr>
+</tbody>
+</table></div>
+<p><strong>Contournement du défaut global des datalabels</strong> : <code>main.js</code> désactive <code>datalabels.display</code> pour toute l'application. Trois graphiques ont besoin d'un total en bout de barre (appareils de BadgesTab, progression par type, totaux de <code>StackedBarChart</code>) et l'obtiennent via des <strong>plugins Chart.js locaux</strong> qui dessinent directement sur le canevas.</p>
+<h2 id="ch05-55-conventions-de-mise-en-page">5.5 Conventions de mise en page<a class="anchor" href="#ch05-55-conventions-de-mise-en-page" aria-label="Lien vers cette section">#</a></h2>
+<p>Définies dans <code>StatisticsView.vue</code> :</p>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Classe</th><th>Grille</th></tr></thead>
+<tbody>
+<tr><td><code>.charts-row</code></td><td>2 colonnes <code>1fr 1fr</code></td></tr>
+<tr><td><code>.charts-row.cols-3</code></td><td>3 colonnes <code>1fr 1fr 1fr</code></td></tr>
+<tr><td><code>.charts-row.cols-1-2</code></td><td><code>1fr 2fr</code> avec <code>align-items: stretch</code></td></tr>
+</tbody>
+</table></div>
+<p><code>.cols-1-2</code> sert au couple récurrent <strong>« type de session » (⅓) + « sessions » (⅔)</strong> présent dans Scans QR, Live, Replay et Vue d'ensemble.</p>
+<h3 id="ch05-listes-de-sessions-à-hauteur-alignée">Listes de sessions à hauteur alignée<a class="anchor" href="#ch05-listes-de-sessions-à-hauteur-alignée" aria-label="Lien vers cette section">#</a></h3>
+<p>Le mécanisme mérite d'être expliqué, car il est contre-intuitif :</p>
+<pre><code>.session-list-card          flex colonne
+  └── .session-scroll-host  flex: 1 ; min-height: 220px
+        └── .session-scroll  position: absolute ; inset: 0 ; overflow: auto</code></pre>
+<p>L'élément en position absolue <strong>ne gonfle pas</strong> la rangée. C'est donc la <strong>carte de gauche (type de session) qui fixe la hauteur</strong> de la rangée, et la liste de sessions défile à l'intérieur. Pour un bloc non appairé sur toute la largeur, <code>.session-scroll-capped</code> (hauteur maximale + défilement) fait l'affaire.</p>
+<p>Conséquence produit : <strong>il n'y a plus de plafond « top N »</strong> — toutes les sessions sont listées, triées par ordre décroissant. Toutes les rangées se replient en une colonne sur mobile.</p>
+<p>Les libellés de sessions sont préfixés de leur date au format <code>JJ/MM : </code> via <code>sessionDateShort(start)</code>, qui gère aussi bien un instant UTC (converti en heure de Paris) qu'une heure murale naïve (lue telle quelle).</p>
+<h2 id="ch05-56-infobulles-daide">5.6 Infobulles d'aide<a class="anchor" href="#ch05-56-infobulles-daide" aria-label="Lien vers cette section">#</a></h2>
+<p><code>InfoTooltip.vue</code> (106 lignes) est un petit bouton « i » rond avec une bulle en CSS pur (ouverture au survol et au focus). La bulle est rendue en <strong><code>v-html</code></strong> : du HTML léger (<code>&lt;code&gt;</code>, <code>&lt;strong&gt;</code>) est autorisé, et <code>aria-label</code> reçoit le texte brut.</p>
+<p><strong>Convention de nommage</strong> : la clé d'aide est la clé du titre suffixée <code>Hint</code>. Par exemple <code>temporal.charts.cumulCurve</code> → <code>temporal.charts.cumulCurveHint</code>.</p>
+<p>Les infobulles sont présentes sur Vue d'ensemble, Démographie, Inscriptions, Dynamique, Badges, Scans, Live/Replay, les comparatifs, et sur les colonnes ambiguës de <code>DataTab</code> (bloc dédié <code>data.columnsHint.{rpps,membershipType,externalContactId,externalId}</code>, rendu dans le <code>&lt;th&gt;</code> avec <code>@click.stop</code> pour ne pas déclencher le tri). Elles sont <strong>absentes de l'onglet Exports</strong>, où les descriptions sont déjà visibles.</p>
+<p>Les textes sont rédigés <strong>du point de vue métier</strong> : dénominateur de chaque taux, nature de la jointure, sens du champ backend.</p>
+<h2 id="ch05-57-internationalisation">5.7 Internationalisation<a class="anchor" href="#ch05-57-internationalisation" aria-label="Lien vers cette section">#</a></h2>
+<p>Bilingue <strong>FR/EN</strong> via <strong>vue-i18n</strong> en API Composition (<code>legacy: false</code>).</p>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Fichier</th><th>Rôle</th><th>Lignes</th></tr></thead>
+<tbody>
+<tr><td><code>i18n/index.js</code></td><td><code>createI18n</code> + <code>setLocale(locale)</code> (persistance + <code>&lt;html lang&gt;</code>)</td><td>44</td></tr>
+<tr><td><code>i18n/locales/fr.js</code></td><td>messages français — <strong>langue source et <code>fallbackLocale</code></strong></td><td>1 357</td></tr>
+<tr><td><code>i18n/locales/en.js</code></td><td>messages anglais</td><td>1 343</td></tr>
+<tr><td><code>i18n/labels.js</code></td><td>traduit les <strong>catégories dérivées</strong> produites en français canonique par la couche calcul</td><td>49</td></tr>
+<tr><td><code>components/LanguageToggle.vue</code></td><td>bouton segmenté FR ∣ EN</td><td>51</td></tr>
+</tbody>
+</table></div>
+<p>La langue est persistée dans <code>localStorage</code> (clé <code>stats-lang</code>) et reflétée sur <code>&lt;html lang&gt;</code>. Le français étant <code>fallbackLocale</code>, <strong>une clé anglaise manquante retombe sur le libellé français</strong> — jamais sur la clé technique.</p>
+<p><code>labels.js</code> porte les traductions à l'affichage des valeurs canoniques françaises (<code>genderLabel</code>, <code>continentLabel</code>, <code>notSpecified</code>, <code>isNotSpecified</code>, <code>allDaysLabel</code>, <code>weekdayNames</code>), ce qui permet à <code>computeStats</code> de rester indépendant de la locale.</p>
+<h3 id="ch05-règles-à-respecter">Règles à respecter<a class="anchor" href="#ch05-règles-à-respecter" aria-label="Lien vers cette section">#</a></h3>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Règle</th><th>Raison</th></tr></thead>
+<tbody>
+<tr><td>tout libellé affiché passe par <code>t(&quot;…&quot;)</code> — y compris les <code>label:</code> de jeux de données Chart.js et les en-têtes CSV</td><td>pas de texte en dur</td></tr>
+<tr><td>les options Chart.js contenant des titres d'axes traduits doivent être en <code>computed(() =&gt; ({…}))</code></td><td>sinon elles ne se rafraîchissent pas au changement de langue (les <code>tooltip.callbacks</code> sont évalués paresseusement, donc tolérants)</td></tr>
+<tr><td>hors composant (<code>generateAnalysis.js</code>, <code>useExportMarkdown.js</code>, <code>viewerJoin.js</code>, <code>useLive</code>/<code>useReplay</code>) : importer <code>{ i18n }</code> et utiliser <code>i18n.global.t</code></td><td>l'export Markdown suit la langue active au moment de la génération</td></tr>
+<tr><td><strong>ne jamais nommer une variable d'itération <code>t</code></strong> (<code>v-for=&quot;t in …&quot;</code>, <code>.map(t =&gt; …)</code>)</td><td>elle masque la fonction de traduction — utiliser <code>rt</code>, <code>bt</code>, <code>st</code>, <code>row</code></td></tr>
+<tr><td>pluriels : forme vue-i18n <code>&quot;x | y&quot;</code> + <code>t(key, count, { … })</code></td><td></td></tr>
+<tr><td>dates et nombres : <code>toLocaleString(locale.value === &quot;en&quot; ? &quot;en-GB&quot; : &quot;fr-FR&quot;, …)</code></td><td></td></tr>
+</tbody>
+</table></div>
+<h3 id="ch05-non-traduit-assumé">Non traduit — assumé<a class="anchor" href="#ch05-non-traduit-assumé" aria-label="Lien vers cette section">#</a></h3>
+<p>Les <strong>valeurs de données</strong> venant du backend (types et catégories d'inscription, statuts, <code>sessionType</code>), les <strong>noms de pays</strong> (<code>COUNTRY_NAMES</code>, ~250 entrées), les <strong>en-têtes de colonnes des CSV</strong> de présence par session et de parcours (<code>ATTENDANCE_HEADERS</code>, <code>JOURNEY_HEADERS</code>, les marqueurs <code>YES</code>/<code>NO</code>, la colonne « Nature »), et <code>DayOfTab.vue</code> (code mort).</p>
+<h2 id="ch05-58-système-de-design">5.8 Système de design<a class="anchor" href="#ch05-58-système-de-design" aria-label="Lien vers cette section">#</a></h2>
+<p>Il n'y a <strong>aucune bibliothèque de composants</strong>. Toute la mise en forme repose sur du CSS portée (<code>scoped</code>) et des classes partagées : <code>.kpi-card</code>, <code>.chart-card</code>, <code>.data-table</code>.</p>
+<p>Les jetons de design CYIM sont centralisés dans <code>App.vue</code> (<code>:root</code>) :</p>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Variable</th><th>Valeur</th><th>Usage</th></tr></thead>
+<tbody>
+<tr><td><code>--primary</code></td><td><code>#1e4e66</code></td><td>bleu CYIM</td></tr>
+<tr><td><code>--primary-light</code></td><td><code>#2a6a8a</code></td><td></td></tr>
+<tr><td><code>--accent</code></td><td><code>#30dd92</code></td><td>vert d'accentuation (boutons d'action)</td></tr>
+<tr><td><code>--accent-hover</code></td><td><code>#28c580</code></td><td></td></tr>
+<tr><td><code>--purple</code></td><td><code>#6f45ff</code></td><td></td></tr>
+<tr><td><code>--brand</code></td><td><code>#c9c934</code></td><td></td></tr>
+<tr><td><code>--warning</code> / <code>--danger</code></td><td><code>#ffa600</code> / <code>#e53935</code></td><td></td></tr>
+<tr><td><code>--bg</code> / <code>--card</code></td><td><code>#f5f6fa</code> / <code>#ffffff</code></td><td></td></tr>
+<tr><td><code>--text</code> / <code>--text-secondary</code> / <code>--text-muted</code></td><td><code>#414141</code> / <code>#646464</code> / <code>#9ca3af</code></td><td></td></tr>
+<tr><td><code>--border</code></td><td><code>#e5e7eb</code></td><td></td></tr>
+<tr><td><code>--shadow</code>, <code>--radius</code></td><td>ombre à 3 couches, <code>12px</code></td><td></td></tr>
+</tbody>
+</table></div>
+<p>Police <strong>Poppins</strong>, appliquée aussi aux défauts Chart.js. La palette par type d'inscription (<code>typeColors.js</code>) est propagée à Vue d'ensemble, Inscriptions, Comparatif et Badges ; l'échelle de chaleur (<code>heatColor.js</code>) aux cartes.</p>
+<p>C'est précisément cette couche que la version de production remplacera par <code>@platform/theme-core</code> + <code>@platform/theme-ui</code> + <code>@platform/common-ui</code>.</p>
+<h2 id="ch05-59-piège-vue-connu">5.9 Piège Vue connu<a class="anchor" href="#ch05-59-piège-vue-connu" aria-label="Lien vers cette section">#</a></h2>
+<p><strong>Ne jamais mettre un <code>v-if</code> sur l'élément racine d'un composant.</strong> Vue 3 a un défaut de mise à jour quand l'unique racine du template alterne entre un commentaire vide et un vrai élément. Le <code>v-if</code> doit être porté par le parent :</p>
+<pre data-lang="vue"><code>&lt;!-- ✗ dans Foo.vue --&gt;  &lt;template&gt;&lt;div v-if=&quot;ok&quot;&gt;…&lt;/div&gt;&lt;/template&gt;
+&lt;!-- ✓ chez le parent --&gt;  &lt;Foo v-if=&quot;ok&quot; /&gt;</code></pre>
+  </section>
+
+  <section id="ch06" class="chapter">
+    <div class="chapter-head">
+      <span class="chapter-num">06</span>
+      <h1>Exports</h1>
+    </div>
+<p>L'export est une fonction produit majeure, pas un accessoire : la demande initiale était de permettre à la direction de produire des bilans, comparaisons, e-mails clients et supports de présentation <strong>sans qu'un humain relise un PDF</strong>.</p>
+<p>Tous les exports sont <strong>générés dans le navigateur</strong>, sans appel serveur.</p>
+<h2 id="ch06-61-les-sept-familles">6.1 Les sept familles<a class="anchor" href="#ch06-61-les-sept-familles" aria-label="Lien vers cette section">#</a></h2>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Famille</th><th>Déclencheur</th><th>Format</th><th>Fichiers produits</th></tr></thead>
+<tbody>
+<tr><td><strong>Bilan Markdown + dump JSON</strong></td><td>bouton de la barre latérale</td><td><code>.md</code> + <code>.json</code></td><td>2 fichiers, téléchargés <strong>ensemble</strong></td></tr>
+<tr><td><strong>CSV par graphique</strong></td><td>bouton <code>CsvButton</code> sur chaque carte</td><td><code>.csv</code></td><td>1 par graphique</td></tr>
+<tr><td><strong>Présence par session</strong></td><td>onglet Exports</td><td><code>.csv</code></td><td>1 par session — combiné <strong>+ 3 variantes mono-source</strong></td></tr>
+<tr><td><strong>Scans de session / de zone</strong></td><td>onglet Exports</td><td><code>.csv</code></td><td>export à plat, 1 ligne = 1 scan</td></tr>
+<tr><td><strong>Parcours par personne</strong></td><td>onglet Exports (saisie d'un e-mail)</td><td><code>.csv</code></td><td>1 par personne</td></tr>
+<tr><td><strong>Délégués check-in</strong></td><td>onglet Exports</td><td><code>.csv</code></td><td>liste des présents confirmés</td></tr>
+<tr><td><strong>Export industrie</strong></td><td>onglet Exports (accordéon par organisation)</td><td><code>.xlsx</code></td><td>1 fichier par organisation, 3 onglets</td></tr>
+</tbody>
+</table></div>
+<blockquote><p><strong>Retiré du périmètre</strong> : les exports <strong>PDF</strong> (<code>useExportPdf.js</code>) et <strong>PPTX</strong> (<code>useExportPptx.js</code>) ont été supprimés, ainsi que leurs utilitaires (<code>exportSpec.js</code> qui parcourait le DOM, <code>renderChartHD.js</code>) et les dépendances <code>jspdf</code>, <code>pptxgenjs</code>, <code>html2canvas</code>.</p></blockquote>
+<p>Tous les boutons d'export affichent un indicateur d'activité et sont désactivés pendant la génération.</p>
+<hr class="sep">
+<h2 id="ch06-62-bilan-markdown-useexportmarkdownjs-1-027-lignes">6.2 Bilan Markdown — <code>useExportMarkdown.js</code> (1 027 lignes)<a class="anchor" href="#ch06-62-bilan-markdown-useexportmarkdownjs-1-027-lignes" aria-label="Lien vers cette section">#</a></h2>
+<h3 id="ch06-pourquoi-du-markdown">Pourquoi du Markdown<a class="anchor" href="#ch06-pourquoi-du-markdown" aria-label="Lien vers cette section">#</a></h3>
+<p>Le fichier est destiné à être <strong>donné en entrée à un modèle de langage</strong> (Claude, ChatGPT, Gemini). Les LLM ont été massivement entraînés sur du Markdown (README, documentations) et en extraient la structure — titres, tableaux, listes — sans pré-traitement. Un PDF perd la structure ; un CSV perd la sémantique.</p>
+<h3 id="ch06-structure-du-document">Structure du document<a class="anchor" href="#ch06-structure-du-document" aria-label="Lien vers cette section">#</a></h3>
+<p>Le corps par événement est factorisé dans <strong><code>renderEventBody()</code></strong>, rejoué à l'identique pour l'événement principal <strong>et</strong> pour l'annexe de comparaison.</p>
+<div class="tbl-scroll"><table>
+<thead><tr><th>#</th><th>Section</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Métadonnées (événement, identifiant, filtre badge actif)</td></tr>
+<tr><td>2</td><td>Chiffres clés globaux</td></tr>
+<tr><td>3</td><td><strong>Total participants (vue dédoublonnée)</strong> — le KPI central du bilan</td></tr>
+<tr><td>4</td><td>Démographie <strong>exhaustive</strong> — tous les pays (aucun plafond), continents, régions françaises, genre, professions, qualifications, civilités, sociétés</td></tr>
+<tr><td>5</td><td>Inscriptions — statuts, statut par type, types et catégories avec décomposition physique/distanciel/absent, jours d'accès, multi-inscriptions</td></tr>
+<tr><td>6</td><td>Temporel — analyses, jours de pointe, jour de semaine, hebdomadaire par type et par statut</td></tr>
+<tr><td>7</td><td>Flux de check-in — pic, par jour, créneaux de 15 minutes</td></tr>
+<tr><td>8</td><td>Badges — check-in par type, mix des types des présents confirmés, appareils, pic, par jour, créneaux</td></tr>
+<tr><td>9</td><td>Onboarding + application mobile</td></tr>
+<tr><td>10</td><td>Live — KPI, top sessions, origines, engagement, par jour, par jour et par chaîne, créneaux de 30 min</td></tr>
+<tr><td>11</td><td>Replay — idem + nouveaux délégués par jour, cumul, vues par jour</td></tr>
+<tr><td>12</td><td>Scans QR — volumétrie, top sessions/salles/zones, délégués uniques par jour ventilés par source, scans de zone par jour, flux horaire, sens de passage, par type de badge</td></tr>
+<tr><td>13</td><td>Comparaison côte à côte avec Δ si <code>?compareWith=</code></td></tr>
+<tr><td>14</td><td>Analyse textuelle (<code>generateAnalysis.js</code>)</td></tr>
+<tr><td>15</td><td>Pied de page avec <strong>suggestions de prompts</strong> (résumé, communiqué, comparaison, transparents…)</td></tr>
+<tr><td>16</td><td><strong>Annexe — données complètes de l'événement comparé</strong> (<code>renderEventBody()</code> rejoué)</td></tr>
+</tbody>
+</table></div>
+<p>Point important : l'export lit <strong>directement les objets de statistiques</strong>. Il ne parcourt pas le DOM — c'était l'approche des anciens exports PDF/PPTX, et sa suppression a considérablement simplifié le code.</p>
+<h3 id="ch06-le-dump-json-associé">Le dump JSON associé<a class="anchor" href="#ch06-le-dump-json-associé" aria-label="Lien vers cette section">#</a></h3>
+<p><code>buildDataDump()</code> produit un second fichier contenant <strong>100 % des données source</strong> :</p>
+<pre><code>{ meta,
+  event:   { delegates (bruts), stats (sections matérialisées), live, replay, scans },
+  compare: { … si ?compareWith= } }</code></pre>
+<p>Un <code>jsonReplacer</code> de sécurité convertit les <code>Set</code> en tableaux et les <code>Map</code> en objets. Les sections de statistiques sont <strong>matérialisées</strong> (les accesseurs paresseux sont forcés) avant sérialisation.</p>
+<p><strong>Noms de fichiers</strong> : <code>bilan-{eventName}-{date}.md</code> et <code>donnees-{eventName}-{date}.json</code>.</p>
+<hr class="sep">
+<h2 id="ch06-63-csv-par-graphique">6.3 CSV par graphique<a class="anchor" href="#ch06-63-csv-par-graphique" aria-label="Lien vers cette section">#</a></h2>
+<p><code>CsvButton.vue</code> (65 lignes) + <code>utils/exportCsv.js</code> (26 lignes). Convention <strong>locale française</strong> :</p>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Paramètre</th><th>Valeur</th></tr></thead>
+<tbody>
+<tr><td>séparateur</td><td><code>;</code></td></tr>
+<tr><td>fin de ligne</td><td><code>\r\n</code></td></tr>
+<tr><td>encodage</td><td>UTF-8 avec <strong>BOM</strong> (<code>﻿</code>) — indispensable pour qu'Excel reconnaisse les accents</td></tr>
+<tr><td>échappement</td><td>valeur entourée de <code>&quot;</code> si elle contient <code>;</code>, <code>&quot;</code> ou un saut de ligne ; les <code>&quot;</code> internes sont doublés</td></tr>
+</tbody>
+</table></div>
+<p><code>CsvButton</code> accepte une prop <code>primary</code> pour mettre en avant l'export recommandé d'une carte.</p>
+<hr class="sep">
+<h2 id="ch06-64-présence-par-session-buildsessionattendancejs-481-lignes">6.4 Présence par session — <code>buildSessionAttendance.js</code> (481 lignes)<a class="anchor" href="#ch06-64-présence-par-session-buildsessionattendancejs-481-lignes" aria-label="Lien vers cette section">#</a></h2>
+<p>Croise les scans d'audience, les vues live et les vues replay pour produire <strong>une ligne par personne et par session</strong>.</p>
+<p>Colonnes : identité, <code>Profession</code>, <code>Fonction</code>, <code>Spécialité</code>, <code>Mode d'exercice</code>, <code>RPPS</code>, <code>Présent physique</code>, <code>Vu en live</code>, <code>Vu en replay</code>, durées. Les indicateurs booléens utilisent les marqueurs littéraux <strong><code>YES</code> / <code>NO</code></strong>.</p>
+<p>Quatre sérialiseurs coexistent :</p>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Sérialiseur</th><th>En-têtes</th><th>Note</th></tr></thead>
+<tbody>
+<tr><td>combiné</td><td><code>ATTENDANCE_HEADERS</code></td><td>les trois canaux sur la même ligne</td></tr>
+<tr><td>présentiel</td><td><code>PHYSICAL_ATTENDANCE_HEADERS</code></td><td>via <code>filterAttendanceBySource(rows, 'physical')</code></td></tr>
+<tr><td>live</td><td><code>LIVE_ATTENDANCE_HEADERS</code></td><td><code>…'live'</code></td></tr>
+<tr><td>replay</td><td><code>REPLAY_ATTENDANCE_HEADERS</code></td><td><code>…'replay'</code></td></tr>
+</tbody>
+</table></div>
+<p>Les trois exports mono-source portent une colonne <strong>« Session organisateur »</strong> (avant le titre), alimentée par <code>session.organizer</code>. Un cinquième jeu (<code>REPLAY_VIEW_HEADERS</code> + <code>buildReplayViewRows</code>) descend à la granularité de la vue VOD.</p>
+<p><code>SessionPresenceExport.vue</code> (300 lignes) est le bloc d'interface réutilisable : recherche, filtre par type de session, <strong>filtre par organisation</strong>, colonne « Organisateur ».</p>
+<p><code>delegateCoreFields(d)</code> et <code>getRpps(d)</code> y sont exportés et réutilisés par <code>buildScanExport.js</code> — une seule définition des champs d'identité pour tous les exports.</p>
+<hr class="sep">
+<h2 id="ch06-65-scans-à-plat-buildscanexportjs-210-lignes">6.5 Scans à plat — <code>buildScanExport.js</code> (210 lignes)<a class="anchor" href="#ch06-65-scans-à-plat-buildscanexportjs-210-lignes" aria-label="Lien vers cette section">#</a></h2>
+<p>Une ligne = un scan, enrichie des informations du délégué (identité, profession, RPPS, pays…) et du type de badge. Deux constructeurs :</p>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Fonction</th><th>Périmètre</th><th>Colonnes spécifiques</th></tr></thead>
+<tbody>
+<tr><td><code>buildZoneScanRows</code></td><td>scans de zone</td><td>libellé de zone résolu via <code>zoneNames</code></td></tr>
+<tr><td><code>buildSessionScanRows</code></td><td>scans de salle (audience)</td><td><strong>Début / Fin session</strong> (sessions GraphQL UTC → Paris, repli <code>wallClock</code> sur <code>session_start</code> brut) + <strong>« Session organisateur »</strong> (= <code>scan.industryName</code> ES, repli sur <code>organizers</code> GraphQL via <code>sessionOrganizerById</code>)</td></tr>
+</tbody>
+</table></div>
+<p>Les deux portent une colonne <strong><code>Rapproché</code> O/N</strong>.</p>
+<p><strong>Cohérence de l'enrichissement</strong> : ces exports lisent <code>scansApi.stats.value.{audience,zone}.scans</code>, c'est-à-dire les scans <strong>après</strong> ré-association et enrichissement. Un scan que Flink avait laissé orphelin remonte donc bien dans les exports — comme dans la présence par session et le parcours individuel.</p>
+<hr class="sep">
+<h2 id="ch06-66-parcours-par-personne-builddelegatejourneyjs-344-lignes">6.6 Parcours par personne — <code>buildDelegateJourney.js</code> (344 lignes)<a class="anchor" href="#ch06-66-parcours-par-personne-builddelegatejourneyjs-344-lignes" aria-label="Lien vers cette section">#</a></h2>
+<p>À partir d'une adresse e-mail (<code>resolveByEmail</code>), produit un CSV listant <strong>toutes les sessions interagies</strong> (salle, live, replay) <strong>et toutes les zones scannées</strong> (stands, lounges).</p>
+<p>La présence physique est <strong>dissociée</strong> entre salle et zone : deux indicateurs distincts (« Présence en salle », « Présence en zone ») plus une colonne <strong>« Nature »</strong> valant <code>Session</code> ou <code>Zone</code>. Marqueurs <code>YES</code> / <code>NO</code>.</p>
+<hr class="sep">
+<h2 id="ch06-67-export-industrie-exportxlsxjs-36-lignes">6.7 Export industrie — <code>exportXlsx.js</code> (36 lignes)<a class="anchor" href="#ch06-67-export-industrie-exportxlsxjs-36-lignes" aria-label="Lien vers cette section">#</a></h2>
+<p>Le seul export au format XLSX. L'onglet Exports présente un accordéon listant les <strong>organisations</strong> (organisateurs de session, via <code>sessionOrganizerById</code>), filtrable par nom.</p>
+<p>Pour chaque organisation, un fichier avec <strong>trois onglets — Live / Replay / On site</strong> — listant les personnes ayant consulté ses sessions par chaque canal. L'export peut être lancé pour une organisation ou pour toutes d'un coup.</p>
+<p>Les colonnes sont <strong>exactement</strong> celles des exports mono-source correspondants : réutilisation de <code>buildRowsForSession</code> + <code>filterAttendanceBySource</code>, sérialisés avec <code>LIVE_/REPLAY_/PHYSICAL_ATTENDANCE_HEADERS</code> et leurs <code>rowToCsv</code>. Aucune divergence possible entre le CSV et le XLSX.</p>
+<p><code>downloadWorkbook(filename, sheets)</code> s'occupe des contraintes Excel :</p>
+<ul>
+<li><strong>SheetJS chargé en import dynamique</strong> (~290 ko) — le <em>chunk</em> n'est téléchargé qu'au premier export XLSX ;</li>
+<li>noms d'onglets tronqués à 31 caractères, caractères <code>[ ] : * ? / \</code> remplacés ;</li>
+<li><strong>unicité garantie</strong> des noms d'onglets par suffixe numérique (Excel refuse les doublons).</li>
+</ul>
+<blockquote><p><strong>Attention à l'interprétation</strong> : les compteurs affichés dans l'accordéon sont des <strong>volumes bruts</strong> (vues, scans) et non des personnes uniques.</p></blockquote>
+<hr class="sep">
+<h2 id="ch06-68-analyse-textuelle-generateanalysisjs-310-lignes">6.8 Analyse textuelle — <code>generateAnalysis.js</code> (310 lignes)<a class="anchor" href="#ch06-68-analyse-textuelle-generateanalysisjs-310-lignes" aria-label="Lien vers cette section">#</a></h2>
+<p>Produit des points d'analyse rédigés, section par section : taux de présence, taux d'absence, mix des présents, comparatif en points de pourcentage, diversité géographique, usage de l'application mobile, délai médian entre inscription et check-in.</p>
+<p>Utilisée par l'export Markdown. Comme elle passe par <code>i18n.global.t</code>, <strong>elle suit la langue active au moment de la génération</strong>.</p>
+<hr class="sep">
+<h2 id="ch06-69-ergonomie-de-longlet-exports">6.9 Ergonomie de l'onglet Exports<a class="anchor" href="#ch06-69-ergonomie-de-longlet-exports" aria-label="Lien vers cette section">#</a></h2>
+<p>L'onglet fonctionne en <strong>accordéon</strong> : <code>openCategory</code> maintient une seule section ouverte à la fois, chaque en-tête portant un titre, une description et un chevron.</p>
+<blockquote><p>Une variante « lanceur de cartes groupées par famille » a été implémentée puis <strong>abandonnée</strong>, l'accordéon étant préféré. Le vestige de cette tentative est la prop <code>headerless</code> de <code>SessionPresenceExport</code>, désormais inutilisée.</p></blockquote>
+  </section>
+
+  <section id="ch07" class="chapter">
+    <div class="chapter-head">
+      <span class="chapter-num">07</span>
+      <h1>Dictionnaire des indicateurs</h1>
+    </div>
+<p>Définition exacte, dénominateur et pièges de chaque indicateur affiché. C'est le document à ouvrir quand deux chiffres du dashboard semblent se contredire.</p>
+<hr class="sep">
+<h2 id="ch07-71-populations-de-référence">7.1 Populations de référence<a class="anchor" href="#ch07-71-populations-de-référence" aria-label="Lien vers cette section">#</a></h2>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Population</th><th>Définition</th><th>Usage</th></tr></thead>
+<tbody>
+<tr><td><strong>Tous les délégués</strong></td><td><code>delegates.length</code></td><td>volumétrie brute uniquement</td></tr>
+<tr><td><strong>Inscrits (<code>registered</code>)</strong></td><td><code>d.status.toLowerCase() === &quot;registered&quot;</code></td><td><strong>dénominateur de la majorité des taux</strong></td></tr>
+<tr><td><strong>En attente (<code>pending</code>)</strong></td><td><code>d.status.toLowerCase() === &quot;pending&quot;</code></td><td>suivi du tunnel d'inscription</td></tr>
+<tr><td><strong>Présents physiques</strong></td><td><code>registered</code> <strong>et</strong> <code>checkedInDate</code> valide</td><td>mix des présents, décomposition participants</td></tr>
+<tr><td><strong>Restants sans badge</strong></td><td><code>registered</code> <strong>et</strong> pas de <code>checkedInDate</code></td><td>pilotage du desk d'accueil</td></tr>
+</tbody>
+</table></div>
+<p>Toutes les comparaisons de statut sont <strong>insensibles à la casse</strong>.</p>
+<blockquote><p><strong>Choix produit important</strong> : le <strong>check-in est l'indicateur de présence de référence</strong>, pas le nombre de badges délivrés. Le marquage <code>deliveredAt</code> dépend d'un geste humain à l'accueil et est structurellement sous-évalué. Un écart entre « badges délivrés » et « check-in » n'est donc pas nécessairement un défaut de données.</p></blockquote>
+<hr class="sep">
+<h2 id="ch07-72-présence-physique">7.2 Présence physique<a class="anchor" href="#ch07-72-présence-physique" aria-label="Lien vers cette section">#</a></h2>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Indicateur</th><th>Formule</th><th>Dénominateur</th></tr></thead>
+<tbody>
+<tr><td><code>checkedInCount</code></td><td>délégués avec <code>checkedInDate</code> (dans la plage si le filtre est actif)</td><td>—</td></tr>
+<tr><td><code>notCheckedInCount</code></td><td><code>total − checkedInCount</code></td><td>—</td></tr>
+<tr><td>Taux de check-in</td><td><code>checkedInCount / registeredCount</code></td><td><strong>inscrits</strong>, pas le total</td></tr>
+<tr><td>Taux de badges délivrés</td><td>badges avec <code>deliveredAt</code> / <code>registeredCount</code></td><td><strong>inscrits</strong></td></tr>
+</tbody>
+</table></div>
+<h3 id="ch07-divergence-connue-sur-la-validité-du-check-in">Divergence connue sur la validité du check-in<a class="anchor" href="#ch07-divergence-connue-sur-la-validité-du-check-in" aria-label="Lien vers cette section">#</a></h3>
+<p>Deux définitions coexistent dans le code :</p>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Emplacement</th><th>Test</th><th>Conséquence</th></tr></thead>
+<tbody>
+<tr><td><code>computeGlobal</code> (<code>global.checkedInCount</code>)</td><td><code>if (d.checkedInDate &amp;&amp; inRange(...))</code> — <strong>véracité simple</strong></td><td>une chaîne non vide mais non analysable est comptée</td></tr>
+<tr><td><code>viewerJoin.hasValidCheckin</code> (participation, Live, Replay, entonnoirs)</td><td><code>Number.isFinite(Date.parse(d.checkedInDate))</code></td><td>une chaîne fantaisiste est <strong>exclue</strong></td></tr>
+</tbody>
+</table></div>
+<p>En pratique les deux coïncident (les dates viennent de MongoDB), mais sur un jeu de données dégradé le KPI « check-in » de la Vue d'ensemble peut être <strong>légèrement supérieur</strong> à la composante physique de « Total participants ». À unifier lors du portage vers <code>stats-core</code> — c'est un cas de test de non-régression à écrire explicitement.</p>
+<hr class="sep">
+<h2 id="ch07-73-total-participants-dédoublonné">7.3 Total participants (dédoublonné)<a class="anchor" href="#ch07-73-total-participants-dédoublonné" aria-label="Lien vers cette section">#</a></h2>
+<p>L'indicateur central du bilan. Un délégué compte <strong>une seule fois</strong>, et la présence physique <strong>absorbe</strong> toute consommation à distance.</p>
+<pre><code>total = checkedIn + liveOnly + both + replayOnly</code></pre>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Composante</th><th>Définition</th></tr></thead>
+<tbody>
+<tr><td><code>checkedIn</code></td><td>présence physique valide (<code>hasValidCheckin</code>)</td></tr>
+<tr><td><code>liveOnly</code></td><td>rapproché en live, <strong>sans</strong> check-in, <strong>sans</strong> replay</td></tr>
+<tr><td><code>both</code></td><td>rapproché en live <strong>et</strong> replay, <strong>sans</strong> check-in</td></tr>
+<tr><td><code>replayOnly</code></td><td>rapproché en replay, <strong>sans</strong> check-in, <strong>sans</strong> live</td></tr>
+</tbody>
+</table></div>
+<p>La composante physique est en outre décomposée en <strong>quatre sous-groupes disjoints</strong> dont la somme vaut exactement <code>checkedIn</code> : <code>checkedInOnly</code>, <code>checkedInLive</code> (live seul), <code>checkedInReplay</code> (replay seul), <code>checkedInLiveReplay</code> (les deux).</p>
+<h3 id="ch07-les-trois-grands-modes-affichés-en-vue-densemble">Les trois grands modes affichés en Vue d'ensemble<a class="anchor" href="#ch07-les-trois-grands-modes-affichés-en-vue-densemble" aria-label="Lien vers cette section">#</a></h3>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Mode affiché</th><th>Contenu</th></tr></thead>
+<tbody>
+<tr><td><strong>Présence physique</strong></td><td><code>checkedInOnly</code> + <code>checkedInLive</code> + <code>checkedInReplay</code> + <code>checkedInLiveReplay</code></td></tr>
+<tr><td><strong>Live distanciel</strong></td><td><code>liveOnly</code> + <code>both</code></td></tr>
+<tr><td><strong>Replay distanciel</strong></td><td><code>replayOnly</code></td></tr>
+</tbody>
+</table></div>
+<p>La barre est dessinée en trois zones colorées, de longueur proportionnelle au total de chaque événement.</p>
+<blockquote><p><strong>Piège</strong> : les spectateurs Elasticsearch <strong>non rapprochés</strong> (<code>unknown</code>) sont <strong>exclus</strong> du total. Le « Total participants » est donc un <strong>plancher fiable</strong>, jamais un maximum. Si la couverture Keycloak est mauvaise, il est sous-estimé — d'où la notification de diagnostic à 50 %.</p></blockquote>
+<hr class="sep">
+<h2 id="ch07-74-décomposition-par-type-et-par-catégorie-vue-densemble">7.4 Décomposition par type et par catégorie (Vue d'ensemble)<a class="anchor" href="#ch07-74-décomposition-par-type-et-par-catégorie-vue-densemble" aria-label="Lien vers cette section">#</a></h2>
+<p>Périmètre : <strong>inscrits uniquement</strong>, segmentés en trois classes exclusives :</p>
+<pre><code>physique  /  live-replay seul  /  aucune participation</code></pre>
+<p>La somme des trois vaut exactement le nombre d'inscrits pour ce type ou cette catégorie.</p>
+<hr class="sep">
+<h2 id="ch07-75-scans-sur-site">7.5 Scans sur site<a class="anchor" href="#ch07-75-scans-sur-site" aria-label="Lien vers cette section">#</a></h2>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Indicateur</th><th>Définition</th><th>Piège</th></tr></thead>
+<tbody>
+<tr><td><code>totalAudienceScans</code></td><td>scans d'entrée de salle</td><td>volume brut, pas de personnes</td></tr>
+<tr><td><code>totalCheckinScans</code></td><td>scans au portique d'entrée du site</td><td><strong>0 est un cas réel</strong> : le flux peut être dormant côté pipeline sans que ce soit un défaut du dashboard</td></tr>
+<tr><td><code>totalZoneScans</code></td><td>accès aux zones (stands, lounges)</td><td>volume brut</td></tr>
+<tr><td><code>uniqueAudienceDelegates</code></td><td><code>delegate.id</code> distincts en salle</td><td>exclut <code>'-'</code> et <code>null</code></td></tr>
+<tr><td><code>uniqueDelegatesAll</code></td><td>distincts sur les trois sources confondues</td><td></td></tr>
+<tr><td><strong><code>audienceUniqueDelegateSessions</code></strong></td><td><strong>somme, sur toutes les sessions, des délégués distincts scannés en salle</strong></td><td>⚠ <strong>ce n'est pas</strong> un nombre de délégués uniques</td></tr>
+</tbody>
+</table></div>
+<h3 id="ch07-comprendre-audienceuniquedelegatesessions-vues-en-salle">Comprendre <code>audienceUniqueDelegateSessions</code> (« vues en salle »)<a class="anchor" href="#ch07-comprendre-audienceuniquedelegatesessions-vues-en-salle" aria-label="Lien vers cette section">#</a></h3>
+<p>C'est la mesure de l'<strong>audience réelle des conférences</strong>. Les multi-scans d'une même session par la même personne sont dédoublonnés, mais un délégué présent à N sessions <strong>compte N fois</strong>.</p>
+<pre><code>Alice : sessions A, B, C   →  3
+Bob   : session A (scanné 2×) →  1
+                              ─────
+« vues en salle »            =  4      délégués uniques en salle = 2</code></pre>
+<p>Confondre les deux est l'erreur d'interprétation la plus fréquente sur cet onglet.</p>
+<h3 id="ch07-sens-de-passage">Sens de passage<a class="anchor" href="#ch07-sens-de-passage" aria-label="Lien vers cette section">#</a></h3>
+<p><code>direction</code> est normalisé en <code>in</code> / <code>out</code> / <code>unknown</code> par correspondance de sous-chaîne (<code>in*</code>, <code>entr*</code> → <code>in</code> ; <code>out*</code>, <code>sort*</code> → <code>out</code>). Tout libellé inattendu tombe en <code>unknown</code> et reste comptabilisé dans les volumes.</p>
+<h3 id="ch07-ré-association">Ré-association<a class="anchor" href="#ch07-ré-association" aria-label="Lien vers cette section">#</a></h3>
+<p><code>recoveredScans</code> = scans dont le <code>delegate_id</code> valait <code>'-'</code> mais dont le QR a été rattaché côté navigateur ; <code>unmatchedScans</code> = scans restant réellement orphelins (badge d'un autre événement, badge de test, QR illisible). <strong>Les scans récupérés comptent normalement dans tous les indicateurs.</strong> Voir <a href="#ch03-34-ré-association-qr">03 — Modèle de calcul §3.4</a>.</p>
+<hr class="sep">
+<h2 id="ch07-76-live">7.6 Live<a class="anchor" href="#ch07-76-live" aria-label="Lien vers cette section">#</a></h2>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Indicateur</th><th>Définition</th></tr></thead>
+<tbody>
+<tr><td>Délégués uniques (live)</td><td><code>user_id</code> distincts rapprochés d'un délégué</td></tr>
+<tr><td><strong>Sans présence physique</strong></td><td>délégués <strong>rapprochés</strong> dont <code>hasValidCheckin</code> est faux — les <code>unknown</code> sont <strong>exclus</strong></td></tr>
+<tr><td>Vues totales</td><td>nombre de documents Elasticsearch retenus</td></tr>
+<tr><td>Durée moyenne par vue</td><td>somme des durées / nombre de vues</td></tr>
+<tr><td>Délégués uniques par jour</td><td>regroupement sur <strong><code>sessionEnd</code></strong> = <strong>date de diffusion</strong></td></tr>
+<tr><td>Par jour et par chaîne</td><td>libellé issu de <code>channel_name</code>, repli <code>Chaîne N</code> trié par volume</td></tr>
+<tr><td>Créneaux de 30 min</td><td>sur <code>sessionEnd</code></td></tr>
+<tr><td>Engagement</td><td>tranches <code>1 / 2-5 / 6-10 / 10+</code> sessions</td></tr>
+</tbody>
+</table></div>
+<h2 id="ch07-77-replay">7.7 Replay<a class="anchor" href="#ch07-77-replay" aria-label="Lien vers cette section">#</a></h2>
+<p>Indicateurs identiques, à une différence près et essentielle :</p>
+<div class="tbl-scroll"><table>
+<thead><tr><th></th><th>Regroupement</th></tr></thead>
+<tbody>
+<tr><td><strong>Replay</strong></td><td><strong><code>timestamp</code> du visionnage</strong> — la date à laquelle la personne a regardé la VOD, potentiellement des semaines après la session</td></tr>
+</tbody>
+</table></div>
+<p>S'y ajoutent :</p>
+<ul>
+<li><strong>Nouveaux délégués par jour</strong> (<code>newUniqueByDay</code>) — première consultation seulement ;</li>
+<li><strong>Cumul des délégués distincts</strong> ayant consulté du replay ;</li>
+<li><strong>Entonnoir « présents physiques ayant revu en replay »</strong> (<code>physicalReplay.js</code>) — série journalière (délégués uniques + vues, double axe) et série cumulée. En mode comparaison, deux courbes cumulées A vs B alignées sur J0.</li>
+</ul>
+<hr class="sep">
+<h2 id="ch07-78-engagement-vue-densemble">7.8 Engagement (Vue d'ensemble)<a class="anchor" href="#ch07-78-engagement-vue-densemble" aria-label="Lien vers cette section">#</a></h2>
+<p>Répartition des délégués par nombre de <strong>sessions UNIQUES</strong>, en prenant l'<strong>union dédoublonnée salle ∪ live ∪ replay</strong>. Une session du programme suivie par plusieurs canaux (présent en salle puis revue en replay) compte <strong>une seule fois</strong>.</p>
+<p>Tranches : <code>1 · 2-5 · 6-10 · 11-15 · 16-20 · 21-25 · 26-30 · 30+</code>. Deux exports associés : distribution et détail par délégué.</p>
+<blockquote><p>À distinguer de l'engagement affiché dans les onglets Live et Replay, qui compte les sessions <strong>de ce canal uniquement</strong> (tranches <code>1 / 2-5 / 6-10 / 10+</code>).</p></blockquote>
+<h2 id="ch07-79-participants-par-jour-vue-densemble">7.9 Participants par jour (Vue d'ensemble)<a class="anchor" href="#ch07-79-participants-par-jour-vue-densemble" aria-label="Lien vers cette section">#</a></h2>
+<p>Histogramme <strong>groupé</strong> : une barre par modalité (Présence physique · Live · Replay) et par jour, comptant les délégués <strong>distincts actifs ce jour-là</strong>. Suit le filtre « Modalité de participation » (une série décochée disparaît).</p>
+<blockquote><p><strong>Pas de dédoublonnage inter-modalité</strong> : une personne présente sur site et regardant du live le même jour apparaît dans les deux barres. C'est délibéré — l'indicateur répond à « combien de monde par canal chaque jour ? », pas à « combien de personnes ». Les libellés sont volontairement « Live » et « Replay » <strong>sans</strong> le mot « distanciel », pour ne pas être confondus avec les modes de la décomposition « Total participants ».</p></blockquote>
+<hr class="sep">
+<h2 id="ch07-710-onboarding-application-mobile">7.10 Onboarding &amp; application mobile<a class="anchor" href="#ch07-710-onboarding-application-mobile" aria-label="Lien vers cette section">#</a></h2>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Indicateur</th><th>Définition</th><th>Dénominateur</th></tr></thead>
+<tbody>
+<tr><td>Onboarding</td><td>délégués avec <code>firstOnboardingConnection</code></td><td><strong>inscrits</strong> — seuls eux ont accès à l'espace personnel</td></tr>
+<tr><td>Application mobile</td><td>délégués dont <code>contact.apps</code> contient une entrée d'identifiant <code>mobileApplicationId</code> avec <code>lastUsed</code> de <strong>moins de 3 mois</strong></td><td>inscrits</td></tr>
+</tbody>
+</table></div>
+<p>L'usage mobile est <strong>dédoublonné par <code>contactId</code></strong> (un contact avec plusieurs inscriptions ne compte qu'une fois). Le KPI est <strong>masqué</strong> si aucun <code>mobileApplicationId</code> n'est configuré sur l'événement.</p>
+<blockquote><p>Les regroupements journaliers d'onboarding et de mobile utilisent <code>toISOString()</code>, donc <strong>UTC</strong> — contrairement au reste du dashboard qui bucke en <strong>heure de Paris</strong>. Écart mineur (décalage possible d'un jour aux heures tardives), à harmoniser lors du portage.</p></blockquote>
+<hr class="sep">
+<h2 id="ch07-711-type-de-badge-dun-délégué">7.11 Type de badge d'un délégué<a class="anchor" href="#ch07-711-type-de-badge-dun-délégué" aria-label="Lien vers cette section">#</a></h2>
+<p><code>delegateBadgeType(d)</code> = <strong>premier badge en base</strong>, à défaut <strong>première inscription</strong>. C'est cette valeur que le filtre global « type de badge » utilise pour retenir ou écarter un délégué.</p>
+<p>Côté scans, le filtre s'applique au champ Elasticsearch <code>badge_type</code> (index audience) ou <code>registration_type</code> (index checkin et zone) — après la ré-association QR, qui peut avoir <strong>récupéré</strong> ce type.</p>
+<hr class="sep">
+<h2 id="ch07-712-récapitulatif-des-dénominateurs">7.12 Récapitulatif des dénominateurs<a class="anchor" href="#ch07-712-récapitulatif-des-dénominateurs" aria-label="Lien vers cette section">#</a></h2>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Taux affiché</th><th>Dénominateur</th></tr></thead>
+<tbody>
+<tr><td>Taux de check-in</td><td>inscrits</td></tr>
+<tr><td>Taux de badges délivrés</td><td>inscrits</td></tr>
+<tr><td>Taux d'onboarding</td><td>inscrits</td></tr>
+<tr><td>Usage mobile</td><td>inscrits</td></tr>
+<tr><td>Part d'un type / d'une catégorie</td><td>inscrits pour cette dimension</td></tr>
+<tr><td>« Sans présence physique » (Live/Replay)</td><td>délégués <strong>rapprochés</strong> de ce canal (jamais tous les inscrits)</td></tr>
+<tr><td>Part d'un mode de participation</td><td><code>total</code> dédoublonné (pas les inscrits)</td></tr>
+</tbody>
+</table></div>
+  </section>
+
+  <section id="ch08" class="chapter">
+    <div class="chapter-head">
+      <span class="chapter-num">08</span>
+      <h1>Exploitation</h1>
+    </div>
+<h2 id="ch08-81-configuration">8.1 Configuration<a class="anchor" href="#ch08-81-configuration" aria-label="Lien vers cette section">#</a></h2>
+<p>Trois variables d'environnement, dans un fichier <code>.env</code> à la racine (<code>.env</code> est ignoré par Git ; partir de <code>.env.example</code>).</p>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Variable</th><th>Rôle</th><th>Valeur par défaut (dans <code>vite.config.js</code>)</th></tr></thead>
+<tbody>
+<tr><td><code>VITE_GRAPHQL_URL</code></td><td>endpoint du gateway Apollo</td><td><code>http://gql.prod-k8s.groupe.zzroot.com/graphql</code></td></tr>
+<tr><td><code>VITE_AUTH_TOKEN</code></td><td><strong>token Bearer</strong> — à récupérer depuis une session <code>registration-admin</code></td><td><em>(aucune)</em></td></tr>
+<tr><td><code>VITE_ES_URL</code></td><td>racine du cluster Elasticsearch</td><td><code>http://192.168.201.176:9200</code></td></tr>
+</tbody>
+</table></div>
+<blockquote><p>⚠ <strong><code>VITE_*</code> signifie « exposé au navigateur ».</strong> Vite injecte ces valeurs <strong>dans le bundle JavaScript à la compilation</strong>. Le token n'est donc pas un secret : il est lisible par quiconque ouvre les outils de développement ou télécharge le fichier <code>.js</code>. C'est acceptable pour un usage local, <strong>jamais pour un déploiement partagé</strong>.</p></blockquote>
+<p>Le token vient d'une session utilisateur réelle : il <strong>expire</strong>. À expiration, toutes les requêtes GraphQL échouent et l'écran affiche une erreur — il faut alors récupérer un nouveau token. Il n'y a <strong>aucun mécanisme de rafraîchissement</strong>.</p>
+<h2 id="ch08-82-commandes">8.2 Commandes<a class="anchor" href="#ch08-82-commandes" aria-label="Lien vers cette section">#</a></h2>
+<pre data-lang="bash"><code>npm install
+cp .env.example .env      # puis renseigner les 3 variables
+npm run dev               # serveur de développement sur http://localhost:5174
+npm run build             # build de production dans dist/
+npm run preview           # prévisualisation du build</code></pre>
+<p>L'application s'ouvre sur <strong><code>http://localhost:5174/{eventId}</code></strong> — l'<code>eventId</code> dans l'URL est <strong>obligatoire</strong>. Pour comparer deux événements : <code>?compareWith={autreEventId}</code>.</p>
+<p>Il n'y a <strong>ni <code>lint</code>, ni <code>test</code>, ni <code>typecheck</code></strong> dans les scripts npm.</p>
+<h2 id="ch08-83-proxys-de-développement">8.3 Proxys de développement<a class="anchor" href="#ch08-83-proxys-de-développement" aria-label="Lien vers cette section">#</a></h2>
+<p><code>vite.config.js</code> définit deux proxys, actifs <strong>uniquement en développement</strong> :</p>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Chemin</th><th>Cible</th><th>Réécriture</th></tr></thead>
+<tbody>
+<tr><td><code>/api/graphql</code></td><td>origine de <code>VITE_GRAPHQL_URL</code></td><td>vers le <code>pathname</code> de cette URL</td></tr>
+<tr><td><code>/api/es</code></td><td>origine de <code>VITE_ES_URL</code></td><td>préfixe <code>/api/es</code> supprimé</td></tr>
+</tbody>
+</table></div>
+<p>Le proxy Elasticsearch existe pour deux raisons : éviter le CORS, et <strong>garder l'IP interne du cluster hors du navigateur</strong>.</p>
+<p>Le code bascule sur les URL directes en production :</p>
+<pre data-lang="js"><code>const GRAPHQL_URL = import.meta.env.DEV ? &quot;/api/graphql&quot; : import.meta.env.VITE_GRAPHQL_URL;
+const ES_BASE     = import.meta.env.DEV ? &quot;/api/es&quot;      : import.meta.env.VITE_ES_URL;</code></pre>
+<h3 id="ch08-le-trou-de-déploiement">Le trou de déploiement<a class="anchor" href="#ch08-le-trou-de-déploiement" aria-label="Lien vers cette section">#</a></h3>
+<p>En production, il n'existe <strong>aucun équivalent</strong> de ces proxys. Un déploiement fonctionnel supposerait :</p>
+<ul>
+<li>que le gateway GraphQL autorise l'origine du dashboard en CORS ;</li>
+<li>qu'un <code>/api/es</code> soit exposé côté nginx vers le cluster Elasticsearch interne — donc qu'un cluster <strong>sans authentification</strong> soit atteignable depuis une origine web.</li>
+</ul>
+<p><strong>C'est le point de blocage n° 1 du passage en production.</strong> Voir <a href="#ch09">09 — Dette technique</a> et le <a href="../perennisation/plan-migration.html">plan de migration</a>.</p>
+<h2 id="ch08-84-build">8.4 Build<a class="anchor" href="#ch08-84-build" aria-label="Lien vers cette section">#</a></h2>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Élément</th><th>État</th></tr></thead>
+<tbody>
+<tr><td>Sortie</td><td><code>dist/</code> (Vite 6, cible ES par défaut)</td></tr>
+<tr><td>Découpage</td><td><code>StatisticsView</code> en import dynamique ; <code>xlsx</code> (~290 ko) en import dynamique</td></tr>
+<tr><td>Conteneurisation</td><td><strong>absente</strong> — pas de <code>Dockerfile</code>, pas de configuration nginx</td></tr>
+<tr><td>Intégration continue</td><td><strong>absente</strong> — pas de <code>.gitlab-ci.yml</code></td></tr>
+<tr><td>Substitution des variables à l'exécution</td><td><strong>absente</strong> — les <code>VITE_*</code> sont figées à la compilation</td></tr>
+</tbody>
+</table></div>
+<p>Cette dernière ligne mérite d'être soulignée : les autres fronts CYIM (<code>registration-admin</code>) remplacent les marqueurs <code>$VITE_*</code> <strong>au démarrage du conteneur</strong> via <code>variables.prod.yml</code>, ce qui permet de promouvoir une même image d'un environnement à l'autre. Ici, <strong>chaque environnement nécessite sa propre compilation</strong>.</p>
+<h2 id="ch08-85-performances-observées">8.5 Performances observées<a class="anchor" href="#ch08-85-performances-observées" aria-label="Lien vers cette section">#</a></h2>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Poste</th><th>Ordre de grandeur</th><th>Facteur limitant</th></tr></thead>
+<tbody>
+<tr><td>Délégués (GraphQL)</td><td>500 par page, <strong>séquentiel</strong></td><td>latence du gateway × nombre de pages. 15 000 délégués = 30 requêtes en série</td></tr>
+<tr><td>Scans Elasticsearch</td><td>2 000 par lot, <code>search_after</code>, <strong>3 index en parallèle</strong></td><td>volume de scans</td></tr>
+<tr><td>Live / Replay</td><td>2 000 par lot</td><td>volume de vues</td></tr>
+<tr><td>Sessions</td><td>500 par page, séquentiel</td><td>nombre de sessions</td></tr>
+<tr><td>Noms de zones</td><td>50 par requête, lots séquentiels</td><td>nombre de zones distinctes</td></tr>
+<tr><td>Calcul</td><td>quelques centaines de ms par section, mémoïsé</td><td>taille de la population</td></tr>
+</tbody>
+</table></div>
+<p>Les quatre sources sont lancées <strong>en parallèle</strong> (les composables sont tous instanciés dans le même <code>setup</code>), mais <strong>la pagination interne de chacune est séquentielle</strong>. Le chemin critique est donc la source la plus longue — en général les délégués.</p>
+<h3 id="ch08-optimisations-déjà-en-place">Optimisations déjà en place<a class="anchor" href="#ch08-optimisations-déjà-en-place" aria-label="Lien vers cette section">#</a></h3>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Optimisation</th><th>Effet</th></tr></thead>
+<tbody>
+<tr><td>Sections de statistiques <strong>paresseuses</strong></td><td>2-3 sections calculées au lieu de 8 par filtre croisé</td></tr>
+<tr><td><code>configLoading</code> dissocié</td><td>titre et logo affichés en quelques centaines de ms</td></tr>
+<tr><td>Cache des noms de zones à travers les rafraîchissements</td><td>seuls les identifiants nouveaux sont résolus</td></tr>
+<tr><td><code>xlsx</code> en import dynamique</td><td>~290 ko hors du bundle initial</td></tr>
+<tr><td>Import dynamique de <code>StatisticsView</code></td><td>découpage de route</td></tr>
+<tr><td><code>Promise.all</code> sur les trois index de scans, et sur (ES + sessions) pour Live/Replay</td><td>parallélisme intra-source</td></tr>
+</tbody>
+</table></div>
+<h3 id="ch08-optimisations-disponibles-mais-non-faites">Optimisations disponibles mais non faites<a class="anchor" href="#ch08-optimisations-disponibles-mais-non-faites" aria-label="Lien vers cette section">#</a></h3>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Piste</th><th>Gain attendu</th></tr></thead>
+<tbody>
+<tr><td><strong>Pagination parallèle</strong> des délégués une fois <code>totalCount</code> connu</td><td>division du temps de chargement par le nombre de pages simultanées</td></tr>
+<tr><td><strong>Utiliser <code>fetchMetrics</code></strong> — déjà écrit, jamais appelé</td><td>le backend fournit <code>totalDelegatesCount</code>, <code>checkedInCount</code>, <code>statuses</code>, <code>categories</code>, <code>types</code>, <code>companies</code>, <code>accessDays</code> prêts à l'emploi, que le PoC recalcule intégralement</td></tr>
+<tr><td><strong>Agrégations Elasticsearch côté serveur</strong> (<code>size: 0</code> + <code>terms</code>, <code>date_histogram</code>, <code>cardinality</code>)</td><td>supprime le téléchargement exhaustif</td></tr>
+<tr><td>Rafraîchissement incrémental (PIT + <code>timestamp &gt; last_seen</code>, ou SSE depuis un backend écoutant <code>cyim.webhooks</code>)</td><td>supprime le rechargement complet toutes les 10 min</td></tr>
+</tbody>
+</table></div>
+<h3 id="ch08-seuils-de-rupture">Seuils de rupture<a class="anchor" href="#ch08-seuils-de-rupture" aria-label="Lien vers cette section">#</a></h3>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Seuil</th><th>Symptôme attendu</th></tr></thead>
+<tbody>
+<tr><td>&gt; 5 000 délégués</td><td>chargement initial de plusieurs dizaines de secondes</td></tr>
+<tr><td>&gt; 100 000 scans</td><td>pression mémoire navigateur, <code>computed</code> lourds, ralentissement des interactions</td></tr>
+<tr><td>tableau de scans</td><td>limité à <strong>200 lignes en dur</strong> (pas de virtualisation)</td></tr>
+</tbody>
+</table></div>
+<h2 id="ch08-86-journalisation-et-instrumentation">8.6 Journalisation et instrumentation<a class="anchor" href="#ch08-86-journalisation-et-instrumentation" aria-label="Lien vers cette section">#</a></h2>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Canal</th><th>Contenu</th></tr></thead>
+<tbody>
+<tr><td><code>console.error</code> / <code>console.warn</code> (<code>gqlFetch</code>)</td><td>erreurs réseau, HTTP, GraphQL, requêtes &gt; 5 s, avec nom d'opération et durée</td></tr>
+<tr><td><code>debug.log</code> / <code>debug.table</code></td><td>dumps de développement, <strong>neutralisés en production</strong> via <code>import.meta.env.DEV</code></td></tr>
+<tr><td><code>pushDiagnostic</code></td><td>notifications utilisateur pour les anomalies actionnables</td></tr>
+</tbody>
+</table></div>
+<p>Ce qu'il n'y a <strong>pas</strong> : aucune télémétrie, aucun envoi vers Kibana, aucune trace OpenTelemetry, aucun suivi d'erreurs. Le diagnostic d'un incident en production repose entièrement sur la console du navigateur de l'utilisateur.</p>
+<p><code>useRoomScans</code> produit des <strong>dumps complets</strong> de tous les hits Elasticsearch via <code>debug.log</code> (structure du premier hit, liste des champs, dump intégral des <code>_source</code> des trois index). Sans effet en production, mais très verbeux en développement sur un gros congrès.</p>
+<h2 id="ch08-87-fichiers-hors-périmètre">8.7 Fichiers hors périmètre<a class="anchor" href="#ch08-87-fichiers-hors-périmètre" aria-label="Lien vers cette section">#</a></h2>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Chemin</th><th>Statut</th></tr></thead>
+<tbody>
+<tr><td><code>exports/</code></td><td>artefacts générés localement (bilans, scripts ponctuels) — <strong>ignoré par Git</strong></td></tr>
+<tr><td><code>dist/</code></td><td>sortie de build — ignorée</td></tr>
+<tr><td><code>bash.exe.stackdump</code>, <code>src/bash.exe.stackdump</code></td><td>résidus Cygwin/Git Bash — ignorés, supprimables</td></tr>
+<tr><td><code>src/components/tabs/DayOfTab.vue</code></td><td><strong>code mort</strong> (239 lignes), non référencé par le routeur ni par <code>StatisticsView</code></td></tr>
+<tr><td><code>api/graphql.js</code> → <code>fetchMetrics</code></td><td><strong>code mort</strong> (24 lignes), jamais appelé</td></tr>
+</tbody>
+</table></div>
+  </section>
+
+  <section id="ch09" class="chapter">
+    <div class="chapter-head">
+      <span class="chapter-num">09</span>
+      <h1>Dette technique</h1>
+    </div>
+<p>Inventaire des écarts entre l'état actuel et un logiciel exploitable en production. Chaque entrée porte une <strong>sévérité</strong> et le <strong>lot du plan de migration</strong> qui la traite (<a href="../perennisation/plan-migration.html">plan-migration.html</a>).</p>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Sévérité</th><th>Sens</th></tr></thead>
+<tbody>
+<tr><td>🔴 <strong>Bloquant</strong></td><td>interdit la mise en production en l'état</td></tr>
+<tr><td>🟠 <strong>Majeur</strong></td><td>crée un risque d'erreur, de non-conformité ou de coût de maintenance élevé</td></tr>
+<tr><td>🟡 <strong>Mineur</strong></td><td>à corriger, sans urgence</td></tr>
+</tbody>
+</table></div>
+<hr class="sep">
+<h2 id="ch09-91-sécurité-conformité">9.1 Sécurité &amp; conformité<a class="anchor" href="#ch09-91-sécurité-conformité" aria-label="Lien vers cette section">#</a></h2>
+<h3 id="ch09-d1-elasticsearch-exposé-au-navigateur-sans-authentification">🔴 D1 — Elasticsearch exposé au navigateur, sans authentification<a class="anchor" href="#ch09-d1-elasticsearch-exposé-au-navigateur-sans-authentification" aria-label="Lien vers cette section">#</a></h3>
+<p><code>/api/es/{index}/_search</code> transfère la requête telle quelle. <strong>Aucune authentification, aucune liste blanche d'index, aucune limitation de débit.</strong> Le cluster lui-même n'a pas d'authentification (<code>new Client({ node: process.env.ES_API })</code> dans <code>xlsx-stats/datasources/els.js</code>).</p>
+<p>Conséquence : toute personne atteignant le proxy peut interroger <strong>n'importe quel index</strong> du cluster, y compris hors périmètre congrès.</p>
+<p><em>Traité par : <strong>L1</strong> (accès ES côté serveur) + <strong>L3</strong> (API d'agrégation).</em></p>
+<h3 id="ch09-d2-token-bearer-dans-le-bundle-javascript">🔴 D2 — Token Bearer dans le bundle JavaScript<a class="anchor" href="#ch09-d2-token-bearer-dans-le-bundle-javascript" aria-label="Lien vers cette section">#</a></h3>
+<p><code>VITE_AUTH_TOKEN</code> est injecté à la compilation, donc <strong>lisible dans le fichier <code>.js</code> livré</strong>. C'est un token de session utilisateur réelle, avec ses droits complets. Il expire sans mécanisme de rafraîchissement.</p>
+<p>Il n'y a <strong>ni Keycloak, ni garde de route, ni vérification de permission</strong> : quiconque a l'URL et un token voit toutes les données de l'événement.</p>
+<p><em>Traité par : <strong>L2</strong> (Keycloak + Cerbos).</em></p>
+<h3 id="ch09-d3-aucun-masquage-rgpd">🔴 D3 — Aucun masquage RGPD<a class="anchor" href="#ch09-d3-aucun-masquage-rgpd" aria-label="Lien vers cette section">#</a></h3>
+<p>Le champ <code>delegate.gdpr</code> est <strong>récupéré mais jamais utilisé</strong> pour anonymiser. Le microservice <code>xlsx-stats</code>, dont ce PoC reprend le périmètre, remplaçait par <code>***</code> les délégués sans consentement. Le dashboard affiche nom, e-mail et RPPS de tout le monde, et les exporte.</p>
+<p>Aggravant : le <strong>dump JSON</strong> de l'export Markdown contient les <strong>délégués bruts</strong>, y compris les données de contact, et se retrouve téléchargé sur des postes puis potentiellement transmis à un service de LLM tiers.</p>
+<p><em>Traité par : <strong>L3</strong> (masquage côté serveur) + <strong>L7</strong> (recette RGPD).</em></p>
+<h3 id="ch09-d4-aucun-contrôle-daccès-par-événement">🟠 D4 — Aucun contrôle d'accès par événement<a class="anchor" href="#ch09-d4-aucun-contrôle-daccès-par-événement" aria-label="Lien vers cette section">#</a></h3>
+<p>L'<code>eventId</code> de l'URL n'est jamais confronté aux droits du porteur du token. Un utilisateur habilité sur un congrès peut lire les statistiques de n'importe quel autre en changeant l'URL.</p>
+<p><em>Traité par : <strong>L2</strong>.</em></p>
+<hr class="sep">
+<h2 id="ch09-92-architecture-données">9.2 Architecture &amp; données<a class="anchor" href="#ch09-92-architecture-données" aria-label="Lien vers cette section">#</a></h2>
+<h3 id="ch09-d5-aucun-équivalent-production-du-proxy-apies">🔴 D5 — Aucun équivalent production du proxy <code>/api/es</code><a class="anchor" href="#ch09-d5-aucun-équivalent-production-du-proxy-apies" aria-label="Lien vers cette section">#</a></h3>
+<p>Le proxy est un mécanisme du serveur de développement Vite. En production, il faudrait exposer un <code>/api/es</code> côté nginx vers un cluster sans authentification — ce qui revient à publier D1.</p>
+<p><em>Traité par : <strong>L1</strong> + <strong>L3</strong> (le proxy disparaît).</em></p>
+<h3 id="ch09-d6-tout-chargé-en-mémoire-navigateur">🟠 D6 — Tout chargé en mémoire navigateur<a class="anchor" href="#ch09-d6-tout-chargé-en-mémoire-navigateur" aria-label="Lien vers cette section">#</a></h3>
+<p>Aucune agrégation serveur : le navigateur télécharge l'intégralité des délégués, scans, vues live et vues replay, puis calcule. Au-delà de ~100 000 scans, la mémoire et les <code>computed</code> deviennent le facteur limitant.</p>
+<p><em>Traité par : <strong>L3</strong> (agrégations <code>size: 0</code> + <code>terms</code> / <code>date_histogram</code> / <code>cardinality</code>) + <strong>L7</strong> (perf).</em></p>
+<h3 id="ch09-d7-agrégats-backend-existants-non-utilisés">🟠 D7 — Agrégats backend existants non utilisés<a class="anchor" href="#ch09-d7-agrégats-backend-existants-non-utilisés" aria-label="Lien vers cette section">#</a></h3>
+<p><code>fetchMetrics</code> est écrit mais <strong>jamais appelé</strong>. Le backend expose déjà <code>totalDelegatesCount</code>, <code>checkedInCount</code>, <code>statuses</code>, <code>categories</code>, <code>types</code>, <code>companies</code>, <code>accessDays</code> — que le PoC recalcule intégralement côté client.</p>
+<p><em>Traité par : <strong>L3</strong>.</em></p>
+<h3 id="ch09-d8-ré-association-qr-faite-côté-client">🟠 D8 — Ré-association QR faite côté client<a class="anchor" href="#ch09-d8-ré-association-qr-faite-côté-client" aria-label="Lien vers cette section">#</a></h3>
+<p>Le rattachement des scans orphelins est un <strong>contournement client d'un défaut du pipeline Flink</strong> (cf. <a href="#ch03-34-ré-association-qr">03 §3.4</a>). Il fonctionne, il est documenté, mais :</p>
+<ul>
+<li>il ne bénéficie <strong>pas</strong> aux autres consommateurs des mêmes index (<code>xlsx-stats</code>, exports historiques) ;</li>
+<li>l'audience en salle reste <strong>irrécupérable</strong> (<code>INNER JOIN</code> côté Flink) ;</li>
+<li>le vrai correctif est en amont — rendre la résolution <code>registrationByBadgeQRCode</code> déterministe, ou rejouer l'enrichissement.</li>
+</ul>
+<p><em>Traité par : <strong>L3</strong> (centralisation côté serveur). Le correctif amont Flink reste un chantier distinct.</em></p>
+<h3 id="ch09-d9-mapping-elasticsearch-non-stabilisé">🟠 D9 — Mapping Elasticsearch non stabilisé<a class="anchor" href="#ch09-d9-mapping-elasticsearch-non-stabilisé" aria-label="Lien vers cette section">#</a></h3>
+<p>Le code compense l'instabilité du mapping par des cascades de replis : <strong>onze champs candidats</strong> pour l'horodatage live/replay, quatre pour la durée, quatre pour l'origine, six pour la fin de session. Plus deux heuristiques fragiles :</p>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Heuristique</th><th>Risque</th></tr></thead>
+<tbody>
+<tr><td>ms vs secondes (<code>toEpochMs</code>, seuil <code>&lt; 10¹²</code>)</td><td>casse si Flink change la forme</td></tr>
+<tr><td><code>direction</code> par sous-chaîne (<code>in*</code>/<code>entr*</code>/<code>out*</code>/<code>sort*</code>)</td><td>tout nouveau libellé tombe en <code>unknown</code></td></tr>
+</tbody>
+</table></div>
+<p>Correctif de fond : champs <code>date</code> typés et <code>enum IN\|OUT\|UNKNOWN</code> côté Flink.</p>
+<p><em>Traité par : <strong>L3</strong> (normalisation côté serveur), correctif amont Flink hors périmètre.</em></p>
+<h3 id="ch09-d10-noms-dindex-codés-en-dur-et-incohérents">🟡 D10 — Noms d'index codés en dur et incohérents<a class="anchor" href="#ch09-d10-noms-dindex-codés-en-dur-et-incohérents" aria-label="Lien vers cette section">#</a></h3>
+<p><code>audience</code> utilise des <strong>tirets</strong>, <code>checkin</code> et <code>zone</code> des <strong>underscores</strong>. Aucun alias versionné : un renommage côté cluster casse le dashboard silencieusement.</p>
+<p><em>Traité par : <strong>L1</strong> (alias versionné côté serveur).</em></p>
+<h3 id="ch09-d11-pagination-elasticsearch-séquentielle-sans-pit">🟡 D11 — Pagination Elasticsearch séquentielle sans PIT<a class="anchor" href="#ch09-d11-pagination-elasticsearch-séquentielle-sans-pit" aria-label="Lien vers cette section">#</a></h3>
+<p><code>search_after</code> sur <code>_id</code> décroissant, sans Point-in-Time ni <code>slice</code>. Une écriture concurrente pendant le parcours peut théoriquement décaler le curseur.</p>
+<p><em>Traité par : <strong>L3</strong>.</em></p>
+<h3 id="ch09-d12-aucun-rafraîchissement-incrémental">🟡 D12 — Aucun rafraîchissement incrémental<a class="anchor" href="#ch09-d12-aucun-rafraîchissement-incrémental" aria-label="Lien vers cette section">#</a></h3>
+<p>Le rafraîchissement recharge tout. Pistes : PIT + <code>timestamp &gt; last_seen</code>, ou SSE depuis un backend écoutant <code>cyim.webhooks</code>.</p>
+<p><em>Traité par : <strong>L7</strong>.</em></p>
+<h3 id="ch09-d13-filtre-des-comptes-internes-incohérent">🟡 D13 — Filtre des comptes internes incohérent<a class="anchor" href="#ch09-d13-filtre-des-comptes-internes-incohérent" aria-label="Lien vers cette section">#</a></h3>
+<p><code>fetchLiveViews</code> et <code>fetchReplayViews</code> excluent <code>*@cyim.com</code> ; <strong>les trois index de scans non</strong>. Un scan par un compte interne compte dans la présence sur site.</p>
+<p><em>Traité par : <strong>L3</strong> (règle unique côté serveur).</em></p>
+<hr class="sep">
+<h2 id="ch09-93-qualité-logicielle">9.3 Qualité logicielle<a class="anchor" href="#ch09-93-qualité-logicielle" aria-label="Lien vers cette section">#</a></h2>
+<h3 id="ch09-d14-aucun-test">🔴 D14 — Aucun test<a class="anchor" href="#ch09-d14-aucun-test" aria-label="Lien vers cette section">#</a></h3>
+<p><strong>Zéro test</strong> sur ~23 000 lignes, dont ~6 500 de calcul métier critique (<code>computeStats</code>, <code>computeScanStats</code>, <code>viewerJoin</code>, <code>participation</code>, les constructeurs d'exports). Aucun filet de non-régression : une modification d'un dénominateur passe inaperçue jusqu'à ce qu'un client signale un chiffre faux.</p>
+<p>C'est la dette la plus coûteuse à long terme, et la première à traiter — <strong>avec un avantage décisif</strong> : le PoC actuel peut servir d'<strong>oracle de non-régression</strong> pour le portage (mêmes entrées → mêmes sorties).</p>
+<p><em>Traité par : <strong>L4</strong> (<code>stats-core</code> en TypeScript + Vitest, parité PoC vérifiée).</em></p>
+<h3 id="ch09-d15-javascript-sans-types">🟠 D15 — JavaScript sans types<a class="anchor" href="#ch09-d15-javascript-sans-types" aria-label="Lien vers cette section">#</a></h3>
+<p>Aucun TypeScript, alors que le standard CYIM est TS ~5.7 strict. Sur du code qui manipule des structures Elasticsearch hétérogènes et des jointures multi-clés, l'absence de types est un générateur d'erreurs silencieuses.</p>
+<p><em>Traité par : <strong>L4</strong> (calcul) + <strong>L6</strong> (interface).</em></p>
+<h3 id="ch09-d16-aucun-outil-de-qualité">🟠 D16 — Aucun outil de qualité<a class="anchor" href="#ch09-d16-aucun-outil-de-qualité" aria-label="Lien vers cette section">#</a></h3>
+<p>Pas d'ESLint, pas de Prettier, pas de vérification de types, pas d'intégration continue, pas de <code>Dockerfile</code>. Le style est maintenu « par imitation du code existant ».</p>
+<p><em>Traité par : <strong>L5</strong> (échafaudage <code>@platform/front-configs</code>).</em></p>
+<h3 id="ch09-d17-plomberie-maison-réimplémentée">🟠 D17 — Plomberie maison réimplémentée<a class="anchor" href="#ch09-d17-plomberie-maison-réimplémentée" aria-label="Lien vers cette section">#</a></h3>
+<p>Environ <strong>5 500 lignes</strong> dupliquent des bibliothèques <code>@platform/*</code> testées :</p>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Fait à la main</th><th>Bibliothèque existante</th></tr></thead>
+<tbody>
+<tr><td><code>gqlFetch</code> + pagination curseur</td><td><code>@platform/graphql-core</code> (<code>GqlClient</code>, <code>GqlConnection</code>)</td></tr>
+<tr><td>jetons CSS dans <code>App.vue</code></td><td><code>@platform/theme-core</code> + <code>theme-ui</code></td></tr>
+<tr><td><code>useDiagnostics</code> + <code>DiagnosticsBanner</code></td><td><code>@platform/common-ui</code> (<code>useSnackbar</code>)</td></tr>
+<tr><td><code>debug.js</code> (encapsulation de <code>console</code>)</td><td><code>@platform/vue-logger</code> (<code>useLogger</code>)</td></tr>
+<tr><td><code>BadgeTypeFilter</code>, <code>FilterBanner</code>, filtres date</td><td><code>@platform/filter-core</code> + <code>filter-ui</code></td></tr>
+<tr><td><code>InfoTooltip</code>, modales, boutons, tableaux</td><td><code>@platform/common-ui</code>, Quasar <code>q-table</code></td></tr>
+</tbody>
+</table></div>
+<p><em>Traité par : <strong>L6</strong>.</em></p>
+<h3 id="ch09-d18-composants-surdimensionnés">🟡 D18 — Composants surdimensionnés<a class="anchor" href="#ch09-d18-composants-surdimensionnés" aria-label="Lien vers cette section">#</a></h3>
+<p><code>OverviewTab</code> (1 725 l.), <code>ExportsTab</code> (1 407 l.), <code>ViewersTab</code> (1 422 l.), <code>ComparisonTab</code> (1 157 l.), <code>BadgesTab</code> (1 114 l.), <code>StatisticsView</code> (1 080 l.).</p>
+<p><em>Traité par : <strong>L6</strong> (découpage à la réécriture).</em></p>
+<h3 id="ch09-d19-code-mort">🟡 D19 — Code mort<a class="anchor" href="#ch09-d19-code-mort" aria-label="Lien vers cette section">#</a></h3>
+<p><code>DayOfTab.vue</code> (239 l.) non référencé ; <code>fetchMetrics</code> (24 l.) jamais appelé ; prop <code>headerless</code> de <code>SessionPresenceExport</code> vestigiale.</p>
+<p><em>Traité par : <strong>L4/L6</strong> (non porté).</em></p>
+<h3 id="ch09-d20-deux-définitions-de-la-validité-du-check-in">🟡 D20 — Deux définitions de la validité du check-in<a class="anchor" href="#ch09-d20-deux-définitions-de-la-validité-du-check-in" aria-label="Lien vers cette section">#</a></h3>
+<p><code>computeGlobal</code> teste la véracité de <code>checkedInDate</code> ; <code>hasValidCheckin</code> exige <code>Date.parse</code> fini. Sur données dégradées, le KPI de la Vue d'ensemble peut dépasser la composante physique de « Total participants ». Voir <a href="#ch07-divergence-connue-sur-la-validité-du-check-in">07 §7.2</a>.</p>
+<p><em>Traité par : <strong>L4</strong> (unification + cas de test explicite).</em></p>
+<h3 id="ch09-d21-regroupements-journaliers-en-utc-pour-onboarding-et-mobile">🟡 D21 — Regroupements journaliers en UTC pour onboarding et mobile<a class="anchor" href="#ch09-d21-regroupements-journaliers-en-utc-pour-onboarding-et-mobile" aria-label="Lien vers cette section">#</a></h3>
+<p><code>computeOnboarding</code> et <code>computeMobileApp</code> utilisent <code>toISOString()</code>, donc <strong>UTC</strong>, alors que tout le reste bucke en heure de Paris. Décalage possible d'un jour sur les activités tardives.</p>
+<p><em>Traité par : <strong>L4</strong>.</em></p>
+<h3 id="ch09-d22-pas-de-virtualisation-des-tableaux">🟡 D22 — Pas de virtualisation des tableaux<a class="anchor" href="#ch09-d22-pas-de-virtualisation-des-tableaux" aria-label="Lien vers cette section">#</a></h3>
+<p>Le détail des scans est limité à <strong>200 lignes en dur</strong>.</p>
+<p><em>Traité par : <strong>L6</strong> (<code>q-table</code> ou virtualisation).</em></p>
+<hr class="sep">
+<h2 id="ch09-94-vue-synthétique">9.4 Vue synthétique<a class="anchor" href="#ch09-94-vue-synthétique" aria-label="Lien vers cette section">#</a></h2>
+<div class="tbl-scroll"><table>
+<thead><tr><th>#</th><th>Dette</th><th>Sévérité</th><th>Lot</th></tr></thead>
+<tbody>
+<tr><td>D1</td><td>Elasticsearch exposé sans authentification</td><td>🔴</td><td>L1 · L3</td></tr>
+<tr><td>D2</td><td>Token Bearer dans le bundle</td><td>🔴</td><td>L2</td></tr>
+<tr><td>D3</td><td>Aucun masquage RGPD</td><td>🔴</td><td>L3 · L7</td></tr>
+<tr><td>D5</td><td>Pas d'équivalent production du proxy <code>/api/es</code></td><td>🔴</td><td>L1 · L3</td></tr>
+<tr><td>D14</td><td>Aucun test sur ~6 500 l. de calcul critique</td><td>🔴</td><td>L4</td></tr>
+<tr><td>D4</td><td>Aucun contrôle d'accès par événement</td><td>🟠</td><td>L2</td></tr>
+<tr><td>D6</td><td>Tout en mémoire navigateur</td><td>🟠</td><td>L3 · L7</td></tr>
+<tr><td>D7</td><td>Agrégats backend non utilisés</td><td>🟠</td><td>L3</td></tr>
+<tr><td>D8</td><td>Ré-association QR côté client</td><td>🟠</td><td>L3</td></tr>
+<tr><td>D9</td><td>Mapping Elasticsearch non stabilisé</td><td>🟠</td><td>L3</td></tr>
+<tr><td>D13</td><td>Filtre des comptes internes incohérent</td><td>🟠</td><td>L3</td></tr>
+<tr><td>D15</td><td>JavaScript sans types</td><td>🟠</td><td>L4 · L6</td></tr>
+<tr><td>D16</td><td>Aucun outil de qualité ni CI</td><td>🟠</td><td>L5</td></tr>
+<tr><td>D17</td><td>~5 500 l. de plomberie maison</td><td>🟠</td><td>L6</td></tr>
+<tr><td>D10</td><td>Noms d'index codés en dur</td><td>🟡</td><td>L1</td></tr>
+<tr><td>D11</td><td>Pagination ES sans PIT</td><td>🟡</td><td>L3</td></tr>
+<tr><td>D12</td><td>Pas de rafraîchissement incrémental</td><td>🟡</td><td>L7</td></tr>
+<tr><td>D18</td><td>Composants surdimensionnés</td><td>🟡</td><td>L6</td></tr>
+<tr><td>D19</td><td>Code mort</td><td>🟡</td><td>L4 · L6</td></tr>
+<tr><td>D20</td><td>Deux définitions du check-in valide</td><td>🟡</td><td>L4</td></tr>
+<tr><td>D21</td><td>Regroupements UTC résiduels</td><td>🟡</td><td>L4</td></tr>
+<tr><td>D22</td><td>Pas de virtualisation des tableaux</td><td>🟡</td><td>L6</td></tr>
+</tbody>
+</table></div>
+<p><strong>Cinq dettes bloquantes</strong>, dont quatre relèvent du <strong>backend et de l'authentification</strong> — ce qui justifie de traiter ce périmètre en premier.</p>
+<hr class="sep">
+<h2 id="ch09-95-ce-qui-nest-pas-de-la-dette">9.5 Ce qui n'est PAS de la dette<a class="anchor" href="#ch09-95-ce-qui-nest-pas-de-la-dette" aria-label="Lien vers cette section">#</a></h2>
+<p>À ne pas « corriger » par méprise :</p>
+<div class="tbl-scroll"><table>
+<thead><tr><th>Élément</th><th>Pourquoi c'est un choix, pas un défaut</th></tr></thead>
+<tbody>
+<tr><td><strong>Filtre date inactif par défaut</strong></td><td>garde-fou contre un horodatage ES absent qui viderait le Live. À conserver tant que D9 n'est pas réglé</td></tr>
+<tr><td><strong>Portée restreinte du filtre date</strong></td><td>filtrer les inscriptions par plage d'activité produirait des chiffres trompeurs</td></tr>
+<tr><td><strong>Priorité du champ ES <code>session_type</code></strong> sur le <code>type</code> GraphQL</td><td>déjà inversé par erreur deux fois. Le <code>type</code> du nœud événement est le discriminant générique (« SESSION »), inexploitable</td></tr>
+<tr><td><strong><code>audienceUniqueDelegateSessions</code> ≠ délégués uniques</strong></td><td>mesure volontaire de l'audience des conférences</td></tr>
+<tr><td><strong>Pas de dédoublonnage inter-modalité</strong> dans « Participants par jour »</td><td>l'indicateur répond « combien par canal », pas « combien de personnes »</td></tr>
+<tr><td><strong>Sections de statistiques paresseuses</strong></td><td>optimisation délibérée, pas une complexité gratuite</td></tr>
+<tr><td><strong><code>0</code> scan au portique d'entrée</strong></td><td>cas réel constaté : flux dormant côté pipeline, pas un défaut du dashboard</td></tr>
+<tr><td><strong>Marqueurs CSV <code>YES</code>/<code>NO</code> non traduits</strong></td><td>stabilité des fichiers consommés par des outils tiers</td></tr>
+<tr><td><strong>Composables liftés dans <code>StatisticsView</code></strong></td><td>corrige les appels dupliqués et les minuteries fantômes — patron à conserver</td></tr>
+</tbody>
+</table></div>
+  </section>
+
+    <footer>
+      <p><strong>Documentation technique — statistics (PoC)</strong> · généré le 2026-07-31
+      depuis les chapitres Markdown de <code>docs/</code>.</p>
+      <p style="margin-top:7px">Ce fichier est <strong>généré</strong> : ne pas l'éditer à la main.
+      Modifier les <code>docs/*.md</code> puis relancer <code>node docs/build-html.mjs</code>.</p>
+      <p style="margin-top:7px">Documents liés :
+      <a href="../perennisation/plan-migration.html">plan de migration technique</a> ·
+      <a href="../perennisation-mapping.md">mapping vers <code>@platform/*</code></a> ·
+      <a href="../README.md">README du projet</a>.</p>
+    </footer>
+  </main>
+</div>
+
+<a class="top" href="#" aria-label="Retour en haut">↑</a>
+</body>
+</html>
