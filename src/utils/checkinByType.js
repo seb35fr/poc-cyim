@@ -4,12 +4,18 @@
 
 import { getTypeColor } from "./typeColors.js";
 
+// Type canonique (FR, comme "Inscrit non reconnu") des viewers membres non inscrits.
+export const MEMBER_BADGE_TYPE = "Membre";
+
 // Determine le type "attendu" d'un delegate :
 //   1. 1er badge en base (peu importe deliveredAt — le badge entry est cree
 //      des la registration, on connait donc le type meme avant le check-in)
 //   2. fallback : 1ere registration
 //   3. "Inconnu"
 export function delegateBadgeType(d) {
+  // Pseudo-delegue "membre non inscrit" (cf. useViewerMembers) : pas de badge ni
+  // d'inscription — cle canonique "Membre", localisee a l'affichage.
+  if (d?.isMemberViewer) return MEMBER_BADGE_TYPE;
   if (d?.badges && d.badges.length > 0) {
     return d.badges[0].type || "Inconnu";
   }

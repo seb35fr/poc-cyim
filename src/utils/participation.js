@@ -9,6 +9,10 @@
 //
 //   total = checkedIn + liveOnly + both + replayOnly
 //
+// `delegates` = population de JOINTURE viewers : delegues + pseudo-delegues
+// "membres non inscrits" (cf. useViewerMembers) -> ces membres comptent dans
+// liveOnly / both / replayOnly et sont identifies via counts.members*.
+//
 // La jointure ES (user_id = Keycloak) <-> delegate (emailAddresses[].source.id
 // type ACCOUNT) est portee par viewerJoin.js. Source de verite unique partagee
 // par OverviewTab (decomposition visuelle + deltas) et useExportMarkdown
@@ -89,6 +93,18 @@ export function computeParticipation(delegates, liveItems, replayItems, { datase
   for (const id of liveRemote) total.add(id);
   for (const id of replayRemote) total.add(id);
 
+  // Membres NON inscrits (pseudo-delegues `isMemberViewer`, cf. useViewerMembers) :
+  // jamais checked-in -> ils tombent dans liveOnly / both / replayOnly. On expose
+  // leur part pour les identifier dans le total (sous-ensembles, pas des
+  // composantes additionnelles).
+  const memberIds = new Set();
+  for (const d of delegates || []) if (d?.isMemberViewer && d.id) memberIds.add(d.id);
+  const countMembers = (set) => {
+    let n = 0;
+    for (const id of set) if (memberIds.has(id)) n++;
+    return n;
+  };
+
   return {
     checkedIn,
     checkedInOnly,
@@ -111,6 +127,11 @@ export function computeParticipation(delegates, liveItems, replayItems, { datase
       both: both.size,
       replayOnly: replayOnly.size,
       total: total.size,
+      // Sous-ensembles "membres non inscrits" (inclus dans les compteurs ci-dessus).
+      members: countMembers(total),
+      membersLiveOnly: countMembers(liveOnly),
+      membersBoth: countMembers(both),
+      membersReplayOnly: countMembers(replayOnly),
     },
   };
 }

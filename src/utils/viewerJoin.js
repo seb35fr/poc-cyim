@@ -102,14 +102,16 @@ export function buildDelegateLookup(delegates, { datasetLabel = "" } = {}) {
   const map = new Map();
   let withKeycloakId = 0;
   let onlyViaExternalKc = 0; // rattaches via externalIds "/kc" MAIS pas via emailAddresses
-  const total = (delegates || []).length;
+  // Les pseudo-delegues "membres non inscrits" (cf. useViewerMembers) sont
+  // indexes mais exclus de la mesure de couverture (ils ont toujours un compte).
+  const total = (delegates || []).filter((d) => !d?.isMemberViewer && !d?.isViewerAlias).length;
 
   for (const d of delegates || []) {
     const emailKc = kcIdsFromEmails(d);
     const externalKc = kcIdsFromExternalIds(d);
     const kcIds = [...new Set([...emailKc, ...externalKc])];
     if (kcIds.length === 0) continue;
-    withKeycloakId++;
+    if (!d.isMemberViewer && !d.isViewerAlias) withKeycloakId++;
     if (emailKc.length === 0 && externalKc.length > 0) onlyViaExternalKc++;
     const checkedIn = hasValidCheckin(d);
     for (const kcId of kcIds) {

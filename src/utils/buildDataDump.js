@@ -44,6 +44,8 @@ export function buildDataDump(opts) {
     config = null,
     sessions = [],
     delegates = [],
+    memberDelegates = [],
+    compareMemberDelegates = [],
     stats = null,
     liveStats = null,
     replayStats = null,
@@ -73,6 +75,9 @@ export function buildDataDump(opts) {
       config,
       sessions,
       delegates,
+      // Viewers live/replay NON inscrits mais membres de l'organisateur
+      // (pseudo-delegues, cf. useViewerMembers) — comptes dans le total participants.
+      memberViewers: memberDelegates,
       stats: materializeStats(stats),
       live: liveStats,
       replay: replayStats,
@@ -86,6 +91,7 @@ export function buildDataDump(opts) {
       config: compareConfig,
       sessions: compareSessions,
       delegates: compareDelegates || [],
+      memberViewers: compareMemberDelegates,
       stats: materializeStats(compareStats),
       live: compareLiveStats,
       replay: compareReplayStats,

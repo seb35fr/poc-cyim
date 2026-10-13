@@ -109,8 +109,8 @@
             <span v-if="deltaLiveMode" class="formula-delta" :class="deltaLiveMode.cls" :title="tooltipLiveMode">{{ deltaLiveMode.arrow }} {{ deltaLiveMode.text }}</span>
           </div>
           <div class="mode-subs">
-            <div class="mode-sub"><span class="sub-swatch seg-live-only"></span><span class="sub-label">{{ t("overview.participation.liveOnly") }}</span><span class="sub-value">{{ fmt(liveOnlyRemoteCount) }}</span></div>
-            <div class="mode-sub"><span class="sub-swatch seg-both"></span><span class="sub-label">{{ t("overview.participation.liveAndReplay") }}</span><span class="sub-value">{{ fmt(bothRemoteCount) }}</span></div>
+            <div class="mode-sub"><span class="sub-swatch seg-live-only"></span><span class="sub-label">{{ t("overview.participation.liveOnly") }}<span v-if="fc.membersLiveOnly" class="sub-members">{{ t("overview.participation.ofWhichMembers", { n: fmt(fc.membersLiveOnly) }) }}</span></span><span class="sub-value">{{ fmt(liveOnlyRemoteCount) }}</span></div>
+            <div class="mode-sub"><span class="sub-swatch seg-both"></span><span class="sub-label">{{ t("overview.participation.liveAndReplay") }}<span v-if="fc.membersBoth" class="sub-members">{{ t("overview.participation.ofWhichMembers", { n: fmt(fc.membersBoth) }) }}</span></span><span class="sub-value">{{ fmt(bothRemoteCount) }}</span></div>
           </div>
         </div>
         <span class="formula-op">+</span>
@@ -122,16 +122,31 @@
             <span v-if="deltaReplayMode" class="formula-delta" :class="deltaReplayMode.cls" :title="tooltipReplayMode">{{ deltaReplayMode.arrow }} {{ deltaReplayMode.text }}</span>
           </div>
           <div class="mode-subs">
-            <div class="mode-sub"><span class="sub-swatch seg-replay-only"></span><span class="sub-label">{{ t("overview.participation.replayOnly") }}</span><span class="sub-value">{{ fmt(replayOnlyRemoteCount) }}</span></div>
+            <div class="mode-sub"><span class="sub-swatch seg-replay-only"></span><span class="sub-label">{{ t("overview.participation.replayOnly") }}<span v-if="fc.membersReplayOnly" class="sub-members">{{ t("overview.participation.ofWhichMembers", { n: fmt(fc.membersReplayOnly) }) }}</span></span><span class="sub-value">{{ fmt(replayOnlyRemoteCount) }}</span></div>
           </div>
         </div>
         <span class="formula-op">=</span>
         <div class="mode-card mode-total-card">
           <span class="mode-title">{{ t("overview.participation.total") }}</span>
           <span class="mode-total mode-total-big">{{ fmt(totalParticipants) }}</span>
+          <span v-if="fc.members" class="mode-members">{{ t("overview.participation.ofWhichMembersTotal", { n: fmt(fc.members) }) }}</span>
           <span v-if="deltaTotal" class="formula-delta" :class="deltaTotal.cls" :title="tooltipTotal">{{ deltaTotal.arrow }} {{ deltaTotal.text }}</span>
         </div>
       </div>
+
+      <!-- Viewers live/replay NON inscrits : membres de l'organisateur comptes
+           dans le total ; les autres (non membres / introuvables) restent hors total. -->
+      <p v-if="membersLoading" class="participation-note members-note">{{ t("overview.participation.membersResolving") }}</p>
+      <p v-else-if="memberCounts && (memberCounts.relinked || memberCounts.members || memberCounts.contact || memberCounts.formerMember || memberCounts.notFound)" class="participation-note members-note">
+        <span v-html="t('overview.participation.membersNote', {
+          relinked: fmt(memberCounts.relinked),
+          members: fmt(memberCounts.members),
+          former: fmt(memberCounts.formerMember),
+          contact: fmt(memberCounts.contact),
+          notFound: fmt(memberCounts.notFound),
+        })"></span>
+        <InfoTooltip :text="t('overview.participation.membersNoteHint')" />
+      </p>
 
       <!-- Barre A : 3 zones (modes) separees par un espace, chacune subdivisee
            en sous-segments. Largeur proportionnelle au total (barScaleA) dans
@@ -531,7 +546,20 @@ const props = defineProps({
   badgeFilter: { type: Object, required: true },
   // Plage de dates globale (filtre par activite) — propagee a useFilteredStats + participation.
   dateRange: { type: Object, default: null },
+  // Delegues "en plus" pour la JOINTURE viewers uniquement (participation,
+  // sessions, engagement), cf. useViewerMembers : pseudo-delegues "membres non
+  // inscrits" + alias de delegues rattaches (compte Keycloak sur un contact en doublon).
+  extraViewerDelegates: { type: Array, default: () => [] },
+  compareExtraViewerDelegates: { type: Array, default: () => [] },
+  // Compteurs de classification des viewers non rapproches (member / contact /
+  // relinked / formerMember / notFound / pending) + resolution en cours.
+  memberCounts: { type: Object, default: null },
+  membersLoading: { type: Boolean, default: false },
 });
+
+// Population de jointure viewers = delegues (badge-filtres) + alias rattaches + membres non inscrits.
+const viewerPopulation = computed(() => [...pageFilteredDelegates.value, ...props.extraViewerDelegates]);
+const viewerPopulationB = computed(() => [...pageFilteredCompareDelegates.value, ...props.compareExtraViewerDelegates]);
 
 // --- KPIs Live / Replay : instances heritees de StatisticsView (cf. props).
 const { loading: liveLoading, stats: liveStats } = props.liveApi;
@@ -564,7 +592,7 @@ const {
 // (emailAddresses[].source.id ACCOUNT).
 const participation = computed(() =>
   computeParticipation(
-    pageFilteredDelegates.value,
+    viewerPopulation.value,
     liveStats.value?.items,
     replayStats.value?.items,
     { datasetLabel: "overview-current", dateRange: props.dateRange },
@@ -614,10 +642,18 @@ function applyModeFilter(counts) {
   const both = v("both");
   const replayOnly = v("replayOnly");
   const checkedIn = checkedInOnly + checkedInLive + checkedInReplay + checkedInLiveReplay;
+  // Part "membres non inscrits" de chaque categorie distancielle (meme regle de mode).
+  const vm = (cat, key) =>
+    CATEGORY_MODES[cat].some((m) => selectedModes.value.has(m)) ? counts[key] || 0 : 0;
+  const membersLiveOnly = vm("liveOnly", "membersLiveOnly");
+  const membersBoth = vm("both", "membersBoth");
+  const membersReplayOnly = vm("replayOnly", "membersReplayOnly");
   return {
     checkedIn, checkedInOnly, checkedInLive, checkedInReplay, checkedInLiveReplay,
     liveOnly, both, replayOnly,
     total: checkedIn + liveOnly + both + replayOnly,
+    membersLiveOnly, membersBoth, membersReplayOnly,
+    members: membersLiveOnly + membersBoth + membersReplayOnly,
   };
 }
 // Counts FILTRES par mode (source unique du bloc "Total participants" : cards,
@@ -640,7 +676,7 @@ const totalParticipants = computed(() => fc.value.total);
 const participationB = computed(() =>
   hasCompare
     ? computeParticipation(
-        pageFilteredCompareDelegates.value,
+        viewerPopulationB.value,
         liveB?.stats.value?.items,
         replayB?.stats.value?.items,
         { datasetLabel: "overview-compare", dateRange: props.dateRange },
@@ -916,7 +952,7 @@ const participantsByTypeChart = computed(() => {
 // la meme session n'est compte qu'une fois (identite prefixee id:/kc:). Respecte
 // le filtre de modalite page-level (selectedModes), comme l'engagement.
 const combinedSessions = computed(() => {
-  const lookup = buildDelegateLookup(pageFilteredDelegates.value, { datasetLabel: "overview-session-types" });
+  const lookup = buildDelegateLookup(viewerPopulation.value, { datasetLabel: "overview-session-types" });
   const map = new Map(); // sessionId -> { id, title, type, delegates:Set<identity> }
   const add = (sessionId, title, type, identity, start) => {
     if (!sessionId || !identity) return;
@@ -1403,7 +1439,7 @@ const participantsByDayCsv = computed(() => {
 // délégué via buildDelegateLookup). Les viewers ES non rapprochés d'un délégué
 // apparaissent avec leur email/nom bruts.
 const engagementDetail = computed(() => {
-  const lookup = buildDelegateLookup(pageFilteredDelegates.value, { datasetLabel: "overview-engagement" });
+  const lookup = buildDelegateLookup(viewerPopulation.value, { datasetLabel: "overview-engagement" });
   const byId = new Map(pageFilteredDelegates.value.filter((d) => d.id).map((d) => [d.id, d]));
   const rows = new Map();
   const ensure = (delegate, fallbackKey, info = {}) => {
@@ -1584,6 +1620,10 @@ const engagementDetailRows = computed(() =>
 .mode-sub { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--text-secondary, #555); }
 .sub-swatch { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
 .sub-label { flex: 1; }
+/* Part "membres non inscrits" d'une categorie distancielle (cf. useViewerMembers). */
+.sub-members { margin-left: 6px; font-size: 11px; font-weight: 600; color: var(--purple, #6F45FF); }
+.mode-members { font-size: 12px; font-weight: 600; color: var(--purple, #6F45FF); }
+.members-note { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .sub-value { font-weight: 700; color: var(--text, #414141); font-variant-numeric: tabular-nums; }
 .mode-total-card {
   flex: 1 1 0; min-width: 150px;

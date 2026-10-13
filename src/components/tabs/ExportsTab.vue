@@ -1027,7 +1027,8 @@ function exportJourneyConsultationsCsv() {
 // ─── Délégués check-in (présents physiques au congrès) ─────────────────────
 // Source de l'info de présence : le délégué lui-même (checkedInDate). Aucun
 // croisement ES nécessaire — uniquement les données registration.
-const checkedInRows = computed(() => buildCheckedInDelegates(props.delegates));
+// Hors alias de rattachement viewers (copies de delegues, cf. useViewerMembers).
+const checkedInRows = computed(() => buildCheckedInDelegates(props.delegates.filter((d) => !d.isViewerAlias)));
 
 function exportCheckedInCsv() {
   if (checkedInRows.value.length === 0) return;
@@ -1353,8 +1354,8 @@ function formatStart(iso) {
   background: #fff; border: 1px solid var(--border);
   border-radius: 8px; padding: 14px 16px;
 }
-.journey-card-head {
 .journey-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.journey-card-head {
   display: flex; align-items: flex-start; justify-content: space-between;
   gap: 12px; margin-bottom: 12px;
 }

@@ -179,6 +179,10 @@
               :compare-scans-api="compareScansApi"
               :badge-filter="badgeFilter"
               :date-range="effectiveDateRange"
+              :extra-viewer-delegates="pageExtraViewerDelegates"
+              :compare-extra-viewer-delegates="pageCompareExtraViewerDelegates"
+              :member-counts="viewerMembers.counts.value"
+              :members-loading="viewerMembers.loading.value"
             />
             <DemographicsTab v-if="activeTab === 'demographics'" :stats="pageStats" :delegates="pageDelegates" :mobile-app-id="mobileAppId" :event-name="eventName" :date-range="effectiveDateRange" />
             <RegistrationsTab v-if="activeTab === 'registrations'" :stats="pageStats" :delegates="pageDelegates" :mobile-app-id="mobileAppId" :event-name="eventName" :date-range="effectiveDateRange" />
@@ -192,23 +196,23 @@
               :event-name="eventName"
               :compare-event-name="compareEventName"
             />
-            <ViewersTab v-if="activeTab === 'live'" kind="live" :delegates="pageDelegates" :viewer-api="liveApi" :badge-filter-active="selectedBadgeTypes.size > 0" />
+            <ViewersTab v-if="activeTab === 'live'" kind="live" :delegates="pageViewerDelegates" :viewer-api="liveApi" :badge-filter-active="badgeFilterActive" :members-api="viewerMembers" />
             <ViewersComparisonTab
               v-if="activeTab === 'liveCompare'"
               kind="live"
-              :delegates="pageDelegates"
-              :compare-delegates="pageCompareDelegates"
+              :delegates="pageViewerDelegates"
+              :compare-delegates="pageCompareViewerDelegates"
               :event-name="eventName"
               :compare-event-name="compareEventName"
               :viewer-api="liveApi"
               :compare-viewer-api="compareLiveApi"
             />
-            <ViewersTab v-if="activeTab === 'replay'" kind="replay" :delegates="pageDelegates" :viewer-api="replayApi" />
+            <ViewersTab v-if="activeTab === 'replay'" kind="replay" :delegates="pageViewerDelegates" :viewer-api="replayApi" :badge-filter-active="badgeFilterActive" :members-api="viewerMembers" />
             <ViewersComparisonTab
               v-if="activeTab === 'replayCompare'"
               kind="replay"
-              :delegates="pageDelegates"
-              :compare-delegates="pageCompareDelegates"
+              :delegates="pageViewerDelegates"
+              :compare-delegates="pageCompareViewerDelegates"
               :event-name="eventName"
               :compare-event-name="compareEventName"
               :viewer-api="replayApi"
@@ -217,7 +221,7 @@
             <DataTab v-if="activeTab === 'data'" :stats="pageStats" :delegates="pageDelegates" :mobile-app-id="mobileAppId" :event-name="eventName" :date-range="effectiveDateRange" />
             <ExportsTab
               v-if="activeTab === 'exports'"
-              :delegates="pageDelegates"
+              :delegates="pageViewerDelegates"
               :event-name="eventName"
               :live-api="liveApi"
               :replay-api="replayApi"
@@ -252,6 +256,7 @@ import { useStatistics } from "@/composables/useStatistics.js";
 import { useLive } from "@/composables/useLive.js";
 import { useReplay } from "@/composables/useReplay.js";
 import { useRoomScans } from "@/composables/useRoomScans.js";
+import { useViewerMembers } from "@/composables/useViewerMembers.js";
 import { buildQrDelegateLookup } from "@/utils/computeScanStats.js";
 import { useBadgeTypeFilter } from "@/composables/useBadgeTypeFilter.js";
 import { useDateRangeFilter } from "@/composables/useDateRangeFilter.js";
@@ -374,6 +379,28 @@ const compareScansApi = compareEventId
     })
   : null;
 
+// Viewers live/replay NON inscrits mais MEMBRES de l'organisateur de l'event
+// (droit d'acces inclus dans l'adhesion, ex. JFR). Resolus via contactByAccountId
+// + membership(organizationId). Cf. useViewerMembers. Population COMPLETE de
+// delegues (pas badge-filtree) pour determiner qui est "non rapproche".
+const viewerMembers = useViewerMembers({
+  isReady: () =>
+    !configLoading.value && !loading.value && !liveApi.viewsLoading.value && !replayApi.viewsLoading.value,
+  getHits: () => [...(liveApi.hits.value || []), ...(replayApi.hits.value || [])],
+  getDelegates: () => delegates.value,
+  getOrganizerIds: () => (eventConfig.value?.organizers || []).map((o) => o.id),
+});
+const compareViewerMembers = compareEventId
+  ? useViewerMembers({
+      isReady: () =>
+        !compareApi.configLoading.value && !compareApi.loading.value
+        && !compareLiveApi.viewsLoading.value && !compareReplayApi.viewsLoading.value,
+      getHits: () => [...(compareLiveApi.hits.value || []), ...(compareReplayApi.hits.value || [])],
+      getDelegates: () => compareDelegates.value,
+      getOrganizerIds: () => (compareApi.eventConfig.value?.organizers || []).map((o) => o.id),
+    })
+  : null;
+
 // Donnees centralisees passees aux onglets : delegues badge-filtres + stats
 // badge-filtrees. Le filtre date s'applique au CHECK-IN (perimetre consultation
 // + presence) via effectiveDateRange — les autres stats d'inscription (createdAt,
@@ -383,6 +410,33 @@ const pageCompareDelegates = computed(() => badgeFilter.filteredCompareDelegates
 const pageStats = computed(() =>
   computeAllStats(pageDelegates.value, mobileAppId.value, effectiveDateRange.value),
 );
+// Population de JOINTURE viewers (Live / Replay / Total participants / exports de
+// presence) = delegues + pseudo-delegues membres non inscrits. Jamais utilisee
+// pour les stats registration. Filtre type de badge actif -> les membres (sans
+// badge) sont exclus, comme les "Inscrit non reconnu".
+const badgeFilterActive = computed(() => selectedBadgeTypes.value.size > 0);
+const pageMemberDelegates = computed(() => (badgeFilterActive.value ? [] : viewerMembers.memberDelegates.value));
+const pageCompareMemberDelegates = computed(() =>
+  badgeFilterActive.value || !compareViewerMembers ? [] : compareViewerMembers.memberDelegates.value,
+);
+// Alias des delegues rattaches (compte Keycloak porte par un contact en doublon,
+// cf. useViewerMembers) : gardes seulement si leur delegue est dans la population
+// badge-filtree.
+function keepAliasesOf(aliases, population) {
+  const ids = new Set(population.map((d) => d.id));
+  return aliases.filter((a) => ids.has(a.id));
+}
+// Delegues "en plus" pour la jointure viewers : alias rattaches + membres non inscrits.
+const pageExtraViewerDelegates = computed(() => [
+  ...keepAliasesOf(viewerMembers.aliasDelegates.value, pageDelegates.value),
+  ...pageMemberDelegates.value,
+]);
+const pageCompareExtraViewerDelegates = computed(() => [
+  ...(compareViewerMembers ? keepAliasesOf(compareViewerMembers.aliasDelegates.value, pageCompareDelegates.value) : []),
+  ...pageCompareMemberDelegates.value,
+]);
+const pageViewerDelegates = computed(() => [...pageDelegates.value, ...pageExtraViewerDelegates.value]);
+const pageCompareViewerDelegates = computed(() => [...pageCompareDelegates.value, ...pageCompareExtraViewerDelegates.value]);
 const pageCompareStats = computed(() =>
   computeAllStats(pageCompareDelegates.value, mobileAppId.value, effectiveDateRange.value),
 );
@@ -449,6 +503,10 @@ async function handleExportMarkdown() {
     // (children SESSION) — on prend le live, repli sur le replay.
     sessions: liveApi.sessions.value?.length ? liveApi.sessions.value : replayApi.sessions.value,
     delegates: pageDelegates.value,
+    memberDelegates: pageMemberDelegates.value,
+    compareMemberDelegates: pageCompareMemberDelegates.value,
+    extraViewerDelegates: pageExtraViewerDelegates.value,
+    compareExtraViewerDelegates: pageCompareExtraViewerDelegates.value,
     stats: pageStats.value,
     compareStats: pageCompareStats.value,
     compareEventName: compareEventName.value,
@@ -514,6 +572,16 @@ const loadingSources = computed(() => {
       label: t("states.sources.scans"),
       loading: scansApi.loading.value,
       detail: scansLoaded > 0 ? t("states.sources.scansCount", { n: fmt(scansLoaded) }) : "",
+    },
+    {
+      // Viewers non inscrits -> contact + adhesion a l'organisateur (cf. useViewerMembers).
+      // Demarre apres delegues + vues : reste "en attente" tant qu'ils chargent.
+      key: "members",
+      label: t("states.sources.members"),
+      loading: viewerMembers.loading.value || loading.value || liveApi.viewsLoading.value || replayApi.viewsLoading.value,
+      detail: viewerMembers.progress.value.total > 0
+        ? `${fmt(viewerMembers.progress.value.loaded)} / ${fmt(viewerMembers.progress.value.total)}`
+        : "",
     },
   ];
 });

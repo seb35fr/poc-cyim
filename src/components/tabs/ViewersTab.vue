@@ -35,8 +35,23 @@
           <div class="kpi-value">{{ fmt(uniqueUsersWithoutCheckin) }}</div>
           <div class="kpi-sub">
             {{ L.remoteKpiSub }}
-            <span v-if="joinStats.unknown > 0">
-              {{ t("viewers.kpi.unlinkedViewers", { n: fmt(joinStats.unknown) }) }}
+            <span v-if="joinStats.members > 0" class="kpi-members">
+              {{ t("viewers.kpi.ofWhichMembers", { n: fmt(joinStats.members) }) }}
+            </span>
+            <span v-if="joinStats.relinked > 0" class="kpi-members">
+              {{ t("viewers.kpi.relinkedViewers", { n: fmt(joinStats.relinked) }) }}
+            </span>
+            <span v-if="joinStats.unknown > 0 || joinStats.relinked > 0">
+              <template v-if="joinStats.unknown > 0">{{ t("viewers.kpi.unlinkedViewers", { n: fmt(joinStats.unknown) }) }}</template>
+              <CsvButton
+                :filename="`${kind}-viewers-non-rapproches`"
+                :label="t('viewers.kpi.unlinkedCsv')"
+                :headers="UNLINKED_HEADERS"
+                :rows="unlinkedRows"
+              />
+            </span>
+            <span v-if="membersApi?.loading?.value" class="kpi-members-loading">
+              {{ t("viewers.kpi.membersResolving") }}
             </span>
           </div>
         </div>
@@ -367,6 +382,9 @@
                 <th>{{ t("viewers.table.email") }}</th>
                 <th>{{ t("viewers.table.sessionId") }}</th>
                 <th>{{ t("viewers.table.session") }}</th>
+                <th v-if="kind === 'replay'">{{ t("viewers.table.presentation") }}</th>
+                <th v-if="kind === 'replay'">{{ t("viewers.table.presentationId") }}</th>
+                <th v-if="kind === 'replay'">{{ t("viewers.table.path") }}</th>
                 <th v-if="kind === 'live'">{{ t("viewers.table.type") }}</th>
                 <th v-if="kind === 'live'">{{ t("viewers.table.sessionStart") }}</th>
                 <th v-if="kind === 'replay'">{{ t("viewers.table.origin") }}</th>
@@ -380,6 +398,9 @@
                 <td>{{ it.email || '—' }}</td>
                 <td class="mono">{{ it.sessionId || '—' }}</td>
                 <td>{{ it.sessionTitle || '—' }}</td>
+                <td v-if="kind === 'replay'">{{ it.presentationTitle || '—' }}</td>
+                <td v-if="kind === 'replay'" class="mono">{{ it.presentationId || '—' }}</td>
+                <td v-if="kind === 'replay'" class="mono path-cell" :title="it.path || ''">{{ it.path || '—' }}</td>
                 <td v-if="kind === 'live'">{{ it.sessionType || '—' }}</td>
                 <td v-if="kind === 'live'">{{ formatTimestamp(it.sessionStart) || '—' }}</td>
                 <td v-if="kind === 'replay'"><span class="origin-pill">{{ it.origin }}</span></td>
@@ -412,7 +433,7 @@ import { parisDateParts, toEpochMs, sessionDateShort } from "../../utils/parisTi
 import { fmt } from "@/utils/formatters.js";
 import { getTypeColor } from "@/utils/typeColors.js";
 import { COUNTRY_CONTINENTS, countryName } from "@/utils/countries.js";
-import { delegateBadgeType } from "@/utils/checkinByType.js";
+import { delegateBadgeType, MEMBER_BADGE_TYPE } from "@/utils/checkinByType.js";
 import { buildDelegateLookup } from "@/utils/viewerJoin.js";
 import { debug } from "@/utils/debug.js";
 import { buildPhysicalReplayByDay } from "@/utils/physicalReplay.js";
@@ -429,6 +450,9 @@ const props = defineProps({
   // segment "Inscrit non reconnu" du chart "Délégués uniques par jour" (on ne
   // veut voir que le(s) type(s) sélectionné(s)).
   badgeFilterActive: { type: Boolean, default: false },
+  // Instance useViewerMembers (StatisticsView) : etat de resolution des viewers
+  // non inscrits -> membres. `delegates` contient DEJA les pseudo-delegues membres.
+  membersApi: { type: Object, default: null },
 });
 
 const { t } = useI18n();
@@ -455,7 +479,11 @@ const META = {
 // non reconnu" localisee, sinon valeur reelle (donnee libre). Garde les cles
 // internes (data/couleur) intactes.
 const viewerTypeLbl = (type) =>
-  type === "Inscrit non reconnu" ? t("viewers.datasets.unrecognized") : type;
+  type === "Inscrit non reconnu"
+    ? t("viewers.datasets.unrecognized")
+    : type === MEMBER_BADGE_TYPE
+      ? t("viewers.datasets.member")
+      : type;
 
 const L = computed(() => {
   const k = props.kind;
@@ -629,6 +657,11 @@ const joinStats = computed(() => {
   const checkedIn = new Set();
   const noCheckin = new Set();
   const unknown = new Set();
+  // Membres non inscrits (pseudo-delegues, cf. useViewerMembers) : comptes dans
+  // noCheckin (jamais presents physiquement), exposes a part pour identification.
+  const members = new Set();
+  // Comptes rattaches a un delegue via un contact en doublon (alias, cf. useViewerMembers).
+  const relinked = new Set();
   for (const it of stats.value.items) {
     const kcId = it.userId;
     if (!kcId) continue;
@@ -636,11 +669,59 @@ const joinStats = computed(() => {
     if (!entry) unknown.add(kcId);
     else if (entry.checkedIn) checkedIn.add(kcId);
     else noCheckin.add(kcId);
+    if (entry?.delegate?.isMemberViewer) members.add(kcId);
+    if (entry?.delegate?.isViewerAlias) relinked.add(kcId);
   }
-  return { checkedIn: checkedIn.size, noCheckin: noCheckin.size, unknown: unknown.size };
+  return { checkedIn: checkedIn.size, noCheckin: noCheckin.size, unknown: unknown.size, members: members.size, relinked: relinked.size };
 });
 
 const uniqueUsersWithoutCheckin = computed(() => joinStats.value.noCheckin);
+
+// Detail des viewers NON rapproches (ni delegue, ni membre) : 1 ligne par compte
+// Keycloak, avec la raison issue de useViewerMembers (ancien membre, contact non
+// membre, contact d'un delegue = jointure ratee, compte sans contact).
+const UNLINKED_HEADERS = computed(() => [
+  t("viewers.unlinked.keycloakId"),
+  t("viewers.unlinked.fullName"),
+  t("viewers.unlinked.email"),
+  t("viewers.unlinked.reason"),
+  t("viewers.unlinked.contactId"),
+  t("viewers.unlinked.delegateId"),
+  t("viewers.unlinked.views"),
+  t("viewers.unlinked.sessions"),
+]);
+const unlinkedRows = computed(() => {
+  const lookup = delegateLookup.value;
+  const byKc = props.membersApi?.classification?.value?.byKcId;
+  const acc = new Map();
+  for (const it of stats.value.items) {
+    const kcId = it.userId;
+    if (!kcId) continue;
+    // Non rapproches + rattaches via contact en doublon (pour controle, surtout
+    // les rattachements par nom).
+    const st = byKc?.get(kcId)?.status;
+    if (lookup.get(kcId) && st !== "relinked") continue;
+    let r = acc.get(kcId);
+    if (!r) {
+      r = { fullName: "", email: "", views: 0, sessions: new Set() };
+      acc.set(kcId, r);
+    }
+    if (!r.fullName && it.fullName && it.fullName !== "—") r.fullName = it.fullName;
+    if (!r.email && it.email && it.email !== "-") r.email = it.email;
+    r.views++;
+    if (it.sessionId) r.sessions.add(it.sessionId);
+  }
+  return [...acc.entries()].map(([kcId, r]) => {
+    const c = byKc?.get(kcId);
+    const reason = !c
+      ? t("viewers.unlinked.status.pending")
+      : c.status === "relinked"
+        ? t("viewers.unlinked.status.relinkedBy", { method: t(`viewers.unlinked.method.${c.method}`) })
+        : t(`viewers.unlinked.status.${c.status}`);
+    const delegateId = c?.status === "relinked" ? c.delegate?.id || "" : "";
+    return [kcId, r.fullName, r.email, reason, c?.contactId || "", delegateId, r.views, r.sessions.size];
+  });
+});
 
 // --- Repartition geographique des delegues uniques ayant consulte ---
 // Un delegue par user_id (Keycloak) distinct, rapproche via delegateLookup. Les
@@ -1024,9 +1105,10 @@ const byDayByBadgeType = computed(() => {
     const dayMap = seen.get(p.ymd);
     if (!dayMap.has(it.userId)) {
       const entry = lookup.get(it.userId);
-      // Viewer non rapproche d'un delegue (ou delegue sans type) => cle canonique
-      // "Inscrit non reconnu" : il a regarde du live donc il EST inscrit, mais la
-      // jointure Keycloak <-> delegue echoue. Anomalie a corriger (cf. ACCOUNT).
+      // Viewer non rapproche d'un delegue NI d'un membre de l'organisateur (ou
+      // delegue sans type) => cle canonique "Inscrit non reconnu" (libelle :
+      // "Non rapproché"). Les membres non inscrits ont leur propre type "Membre"
+      // (cf. useViewerMembers + delegateBadgeType).
       const badgeT = entry?.delegate ? delegateBadgeType(entry.delegate) : "Inconnu";
       const label = badgeT === "Inconnu" ? "Inscrit non reconnu" : badgeT;
       // Filtre badge type actif : on masque les "Inscrit non reconnu" (viewers
@@ -1318,7 +1400,7 @@ function formatTimestamp(ts) {
 const detailCsvHeaders = computed(() =>
   props.kind === "live"
     ? [t("viewers.csv.delegate"), t("viewers.table.email"), t("viewers.table.sessionId"), t("viewers.csv.session"), t("viewers.csv.typeSession"), t("viewers.csv.sessionStart"), t("viewers.csv.timestampView"), t("viewers.csv.durationS")]
-    : [t("viewers.csv.delegate"), t("viewers.table.email"), t("viewers.table.sessionId"), t("viewers.csv.session"), t("viewers.csv.origin"), t("viewers.csv.timestamp"), t("viewers.csv.durationS")]
+    : [t("viewers.csv.delegate"), t("viewers.table.email"), t("viewers.table.sessionId"), t("viewers.csv.session"), t("viewers.csv.presentation"), t("viewers.csv.presentationId"), t("viewers.csv.path"), t("viewers.csv.origin"), t("viewers.csv.timestamp"), t("viewers.csv.durationS")]
 );
 
 function detailCsvRow(it) {
@@ -1331,14 +1413,19 @@ function detailCsvRow(it) {
   }
   return [
     it.fullName, it.email, it.sessionId || "", it.sessionTitle,
+    it.presentationTitle || "", it.presentationId || "", it.path || "",
     it.origin, formatTimestamp(it.timestamp) || "", Math.round(it.duration),
   ];
 }
 </script>
 
 <style scoped>
+/* Part "membres non inscrits" (cf. useViewerMembers). */
+.kpi-members { display: block; font-weight: 600; color: var(--purple, #6F45FF); }
+.kpi-members-loading { display: block; font-style: italic; }
 .viewers-state { text-align: center; padding: 60px 20px; }
 .viewers-progress { font-size: 14px; color: var(--text-muted); margin-top: 8px; }
+.path-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .viewers-hint { font-size: 13px; color: var(--text-muted); margin-top: 8px; font-style: italic; }
 .viewers-hint code {
   background: #f3f4f6; padding: 1px 5px; border-radius: 3px;

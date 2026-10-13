@@ -153,6 +153,9 @@ function sectionTotalParticipants(delegates, liveItems, replayItems, label = "md
       [t("md.participants.both"), fmtNum(c.both), fmtPct(c.both, c.total)],
       [t("md.participants.replayOnly"), fmtNum(c.replayOnly), fmtPct(c.replayOnly, c.total)],
       [t("md.participants.total"), `**${fmtNum(c.total)}**`, "**100%**"],
+      ...(c.members > 0
+        ? [[t("md.participants.ofWhichMembers"), fmtNum(c.members), fmtPct(c.members, c.total)]]
+        : []),
     ],
   );
   out += `${t("md.participants.note")}\n\n`;
@@ -891,12 +894,16 @@ function sectionFooter({ eventName, compareEventName }) {
 
 // Rend le corps complet d'UN event (toutes les sections per-event, dans le
 // meme ordre que l'event principal).
-function renderEventBody({ stats, delegates = [], liveStats = null, replayStats = null, scanStats = null, participationLabel = "md-export" }) {
+// `extraViewerDelegates` : pseudo-delegues "membres non inscrits" + alias de delegues
+// rattaches (cf. useViewerMembers), ajoutes UNIQUEMENT a la population de jointure
+// viewers (total participants + live/replay).
+function renderEventBody({ stats, delegates = [], extraViewerDelegates = [], liveStats = null, replayStats = null, scanStats = null, participationLabel = "md-export" }) {
   const liveItems = liveStats?.items || [];
   const replayItems = replayStats?.items || [];
+  const viewerPopulation = [...delegates, ...extraViewerDelegates];
   let out = "";
   out += sectionGlobal(stats, delegates);
-  out += sectionTotalParticipants(delegates, liveItems, replayItems, participationLabel);
+  out += sectionTotalParticipants(viewerPopulation, liveItems, replayItems, participationLabel);
   out += sectionDemographics(stats, delegates);
   out += sectionRegistrations(stats, delegates, liveItems, replayItems, participationLabel);
   out += sectionTemporal(stats);
@@ -904,8 +911,8 @@ function renderEventBody({ stats, delegates = [], liveStats = null, replayStats 
   out += sectionBadges(stats, delegates);
   out += sectionOnboarding(stats);
   out += sectionMobileApp(stats);
-  out += sectionLiveReplay(t("md.viewers.liveLabel"), liveStats, delegates, "live");
-  out += sectionLiveReplay(t("md.viewers.replayLabel"), replayStats, delegates, "replay");
+  out += sectionLiveReplay(t("md.viewers.liveLabel"), liveStats, viewerPopulation, "live");
+  out += sectionLiveReplay(t("md.viewers.replayLabel"), replayStats, viewerPopulation, "replay");
   out += sectionScans(scanStats);
   return out;
 }
@@ -934,6 +941,8 @@ export function useExportMarkdown() {
       eventId,
       eventName,
       delegates = [],
+      extraViewerDelegates = [],
+      compareExtraViewerDelegates = [],
       stats,
       compareStats = null,
       compareEventName = null,
@@ -961,7 +970,7 @@ export function useExportMarkdown() {
       compareEventName,
     });
 
-    md += renderEventBody({ stats, delegates, liveStats, replayStats, scanStats, participationLabel: "md-export" });
+    md += renderEventBody({ stats, delegates, extraViewerDelegates, liveStats, replayStats, scanStats, participationLabel: "md-export" });
 
     md += sectionComparison({ stats, compareStats, eventName, compareEventName });
     md += sectionAnalysis({
@@ -982,6 +991,7 @@ export function useExportMarkdown() {
       md += renderEventBody({
         stats: compareStats,
         delegates: compareDelegates || [],
+        extraViewerDelegates: compareExtraViewerDelegates,
         liveStats: compareLiveStats,
         replayStats: compareReplayStats,
         scanStats: compareScanStats,

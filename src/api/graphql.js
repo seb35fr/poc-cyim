@@ -326,6 +326,83 @@ export async function fetchLocationNames(ids) {
   return out;
 }
 
+// Resout des identifiants Keycloak (user_id ES live/replay) -> contact, via la
+// query racine `contactByAccountId` (service contacts : emailAddresses.source.id
+// type ACCOUNT, repli externalIds "/kc"), avec l'adhesion du contact a CHAQUE
+// organisateur de l'event (`membership(organizationId, includeFormer: true)`,
+// service memberships — includeFormer pour pouvoir juger l'adhesion a la date
+// de consultation, pas seulement a aujourd'hui).
+// Batch aliase (1 requete / chunk) avec variables typees, chunks executes avec
+// une concurrence limitee. Best-effort : un chunk en echec est simplement absent
+// du resultat (les ids restent "non rapproches").
+// Retourne Map<accountId, { contact, memberships: Membership[] } | null>
+// (null = aucun contact pour ce compte).
+export async function fetchContactsByAccountIds(accountIds, organizerIds = [], { chunkSize = 40, concurrency = 3, onProgress } = {}) {
+  const unique = [...new Set((accountIds || []).filter(Boolean))];
+  const orgs = [...new Set((organizerIds || []).filter(Boolean))];
+  const out = new Map();
+  if (unique.length === 0) return out;
+
+  const chunks = [];
+  for (let i = 0; i < unique.length; i += chunkSize) chunks.push(unique.slice(i, i + chunkSize));
+
+  const membershipFields = orgs
+    .map((_, k) => `m${k}: membership(organizationId: $o${k}, includeFormer: true) { type start end expired organization { id } }`)
+    .join("\n          ");
+
+  async function runChunk(chunk) {
+    const varDefs = [
+      ...chunk.map((_, j) => `$a${j}: ID!`),
+      ...orgs.map((_, k) => `$o${k}: ID!`),
+    ].join(", ");
+    const fields = chunk
+      .map(
+        (_, j) => `c${j}: contactByAccountId(accountId: $a${j}) {
+        id
+        ... on Person {
+          givenName
+          familyName
+          honorificPrefix
+          email { value }
+          emailAddresses { value }
+          address { city postalCode countryCode }
+          externalIds { value type }
+          ${membershipFields}
+        }
+      }`,
+      )
+      .join("\n      ");
+    const query = `query ViewerContacts(${varDefs}) {\n      ${fields}\n    }`;
+    const variables = {};
+    chunk.forEach((id, j) => { variables[`a${j}`] = id; });
+    orgs.forEach((id, k) => { variables[`o${k}`] = id; });
+    try {
+      const data = await gqlFetch(query, variables);
+      chunk.forEach((id, j) => {
+        const c = data?.[`c${j}`];
+        if (!c) { out.set(id, null); return; }
+        const memberships = orgs.map((_, k) => c[`m${k}`]).filter(Boolean);
+        out.set(id, { contact: c, memberships });
+      });
+    } catch (e) {
+      console.warn(`[GraphQL] fetchContactsByAccountIds — chunk de ${chunk.length} échoué:`, e?.message || e);
+    }
+  }
+
+  let next = 0;
+  let done = 0;
+  async function worker() {
+    while (next < chunks.length) {
+      const chunk = chunks[next++];
+      await runChunk(chunk);
+      done += chunk.length;
+      if (onProgress) onProgress({ loaded: done, total: unique.length });
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, chunks.length) }, worker));
+  return out;
+}
+
 export async function fetchEventConfig(eventId) {
   const query = `
     query GetConfig($eventId: ID!) {
@@ -341,6 +418,28 @@ export async function fetchEventConfig(eventId) {
   `;
   const data = await gqlFetch(query, { eventId });
   const config = data.event.config || {};
+
+  // Organisateurs de l'event (organisations porteuses des adhesions) : sert a
+  // identifier les viewers live/replay NON inscrits mais membres a jour (droit
+  // d'acces au replay inclus dans l'adhesion, ex. JFR). Requete separee et
+  // best-effort : un echec ne doit pas bloquer le chargement de la config.
+  // Repli sur l'event racine (meme regle que Principal.membership cote
+  // memberships : event { root { organizers } }).
+  try {
+    const orgQuery = `
+      query GetOrganizers($eventId: ID!) {
+        event(id: $eventId) {
+          organizers { id displayName }
+          root { organizers { id displayName } }
+        }
+      }
+    `;
+    const orgData = await gqlFetch(orgQuery, { eventId });
+    const own = orgData?.event?.organizers || [];
+    config.organizers = own.length ? own : orgData?.event?.root?.organizers || [];
+  } catch {
+    config.organizers = [];
+  }
 
   // Requete separee via getEvent pour le mobileApplicationId
   try {
