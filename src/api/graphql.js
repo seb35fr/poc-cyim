@@ -196,7 +196,7 @@ export async function fetchAllDelegates(eventId, onProgress) {
   let totalCount = 0;
   let page = 0;
 
-  const query = `
+  const buildQuery = (fields) => `
     query SearchDelegates($eventId: ID!, $limit: Int!, $pageToken: String) {
       event(id: $eventId) {
         searchDelegates(
@@ -205,20 +205,37 @@ export async function fetchAllDelegates(eventId, onProgress) {
           sort: "createdAt"
           sortDir: "asc"
         ) {
-          items { ${DELEGATE_FIELDS} }
+          items { ${fields} }
           totalCount
           nextPageToken
         }
       }
     }
   `;
+  const query = buildQuery(DELEGATE_FIELDS);
+  // Repli si le backend renvoie une erreur de non-nullite sur practiceModes
+  // (`[String!]!` alors qu'un delegue a un element null en base, ex. [null] :
+  // le resolver registration ne protege que le null global via `?? []`). Une
+  // seule erreur de ce type fait tomber TOUTE la page (non-null propage jusqu'a
+  // items). On recharge alors la page SANS ce champ plutot que de bloquer le
+  // dashboard. Correctif de fond : filtrer les null cote resolver registration.
+  const queryWithoutPracticeModes = buildQuery(DELEGATE_FIELDS.replace(/^\s*practiceModes\s*$/m, ""));
+  const isPracticeModesNullError = (e) =>
+    /non-nullable field Delegate\.practiceModes/i.test(e?.message || "");
 
   do {
-    const data = await gqlFetch(query, {
-      eventId,
-      limit: PAGE_SIZE,
-      pageToken,
-    });
+    const variables = { eventId, limit: PAGE_SIZE, pageToken };
+    let data;
+    try {
+      data = await gqlFetch(query, variables);
+    } catch (e) {
+      if (!isPracticeModesNullError(e)) throw e;
+      console.warn(
+        `[GraphQL] SearchDelegates — page ${page + 1} : practiceModes contient un null en base, ` +
+          `page rechargée SANS practiceModes (Mode d'exercice vide pour ces ${PAGE_SIZE} délégués max).`,
+      );
+      data = await gqlFetch(queryWithoutPracticeModes, variables);
+    }
     const result = data.event.searchDelegates;
     allDelegates = allDelegates.concat(result.items);
     totalCount = result.totalCount;
