@@ -704,6 +704,8 @@ export default {
       exportCsv: "Exporter CSV",
       delegateId: "Délégué ID",
       keycloakId: "Keycloak ID",
+      exportConsultations: "Détail consultations Live / Replay ({n})",
+      exportConsultationsHint: "CSV avec 1 ligne par consultation (vue) Live ou Replay, distinguées par la colonne « Type de consultation », avec la date de consultation (heure de Paris).",
       badgeType: "Type badge",
       congressCheckin: "Check-in congrès",
       yes: "Oui",

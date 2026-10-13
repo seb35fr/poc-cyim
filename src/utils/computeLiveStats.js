@@ -63,6 +63,12 @@ function normalize(hit, sessionMap) {
     // cote compute si absent.
     channelName: s.channel_name || s.channelName || null,
     timestamp,
+    // true si aucun horodatage de vue n'existe et qu'on est retombe sur
+    // session_start (dernier fallback ci-dessus) : la "date" n'est alors pas
+    // celle de la consultation mais celle du debut de session.
+    timestampIsSessionStart: !!timestamp && timestamp === s.session_start
+      && !(s.timestamp || s["@timestamp"] || s.view_timestamp || s.viewing_time || s.view_start
+        || s.start_time || s.starttime || s.start || s.event_time || s.created_at || s.date),
     duration: Number(s.view_duration ?? s.duration ?? s.live_duration ?? 0) || 0,
   };
 }

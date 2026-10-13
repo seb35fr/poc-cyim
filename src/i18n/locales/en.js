@@ -690,6 +690,8 @@ export default {
       exportCsv: "Export CSV",
       delegateId: "Delegate ID",
       keycloakId: "Keycloak ID",
+      exportConsultations: "Live / Replay views detail ({n})",
+      exportConsultationsHint: "CSV with 1 row per Live or Replay view, distinguished by the \"Type de consultation\" column, with the viewing date (Paris time).",
       badgeType: "Badge type",
       congressCheckin: "Congress check-in",
       yes: "Yes",

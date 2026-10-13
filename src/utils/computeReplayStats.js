@@ -45,6 +45,10 @@ function normalize(hit, sessionMap) {
     mediaId: s.media_id || "",
     presentationId: s.presentation_id || "",
     presentationTitle: s.presentation_title || "",
+    // Chemin materialise du contenu dans l'arborescence du programme SI-Views
+    // (colonne `events.path` de la base si-views, posee par stats_vod_views.sql
+    // depuis l'intervention rattachee au media) : /{congressId}/.../{presentationId}.
+    path: s.path || "",
   };
 }
 

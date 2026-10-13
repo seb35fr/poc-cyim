@@ -172,10 +172,15 @@ export function buildDelegateJourney({
     }
   }
 
+  // Detail des consultations (1 entree = 1 vue ES), alimente en parallele des
+  // agregats par session ci-dessous -> export "detail Live/Replay".
+  const consultations = [];
+
   // 2) Live - jointure keycloakId
   if (keycloakId) {
     for (const it of liveItems || []) {
       if (it.userId !== keycloakId) continue;
+      consultations.push({ kind: "live", item: it });
       if (!it.sessionId) continue;
       const r = ensure(it.sessionId, {
         title: it.sessionTitle,
@@ -192,6 +197,7 @@ export function buildDelegateJourney({
   if (keycloakId) {
     for (const it of replayItems || []) {
       if (it.userId !== keycloakId) continue;
+      consultations.push({ kind: "replay", item: it });
       if (!it.sessionId) continue;
       const r = ensure(it.sessionId, {
         title: it.sessionTitle,
@@ -274,7 +280,31 @@ export function buildDelegateJourney({
     replay: out.filter((r) => r.replay === "O").length,
   };
 
-  return { delegate, keycloakId, esFallback, rows: out, counts };
+  // Detail des consultations : tri chronologique (date de consultation), puis
+  // Live avant Replay a date egale. Dates au format Paris.
+  const consultationRows = consultations
+    .map(({ kind, item: it }) => ({
+      ...personFields,
+      kind,
+      _ts: toEpochMs(it.timestamp) || 0,
+      consultedAt: fmtParis(it.timestamp),
+      dateIsSessionStart: kind === "live" && !!it.timestampIsSessionStart,
+      sessionId: it.sessionId || "",
+      sessionTitle: it.sessionTitle || "",
+      sessionType: it.sessionType || "",
+      sessionStart: fmtParis(it.sessionStart),
+      sessionEnd: fmtParis(it.sessionEnd),
+      durationSec: it.duration || 0,
+      origin: it.origin || "",
+      channel: kind === "live" ? it.channelName || it.channelId || "" : "",
+      presentationTitle: kind === "replay" ? it.presentationTitle || "" : "",
+      presentationId: kind === "replay" ? it.presentationId || "" : "",
+      mediaId: kind === "replay" ? it.mediaId || "" : "",
+    }))
+    .sort((a, b) => a._ts - b._ts || (a.kind === b.kind ? 0 : a.kind === "live" ? -1 : 1))
+    .map(({ _ts, ...rest }) => rest);
+
+  return { delegate, keycloakId, esFallback, rows: out, counts, consultationRows };
 }
 
 export const JOURNEY_HEADERS = [
@@ -340,5 +370,67 @@ export function journeyRowToCsv(row) {
     yesNo(row.replay),
     row.nbVuesReplay || "",
     formatDuration(row.dureeReplaySec),
+  ];
+}
+
+// Export "detail des consultations Live / Replay" : 1 ligne = 1 vue ES.
+// La colonne "Type de consultation" (LIVE / REPLAY) distingue les deux canaux ;
+// la "Date de consultation" est :
+//   - REPLAY : l'horodatage du visionnage VOD (peut etre tres posterieur a la session) ;
+//   - LIVE   : l'horodatage de la vue s'il existe, sinon le debut de session
+//              (repli signale dans "Source de la date").
+export const CONSULTATION_HEADERS = [
+  "Délégué ID",
+  "Keycloak ID",
+  "Prénom",
+  "Nom",
+  "Email",
+  "Type badge",
+  "Type de consultation",
+  "Date de consultation",
+  "Source de la date",
+  "Session ID",
+  "Session",
+  "Type de session",
+  "Session début",
+  "Session fin",
+  "Durée vue (mm:ss)",
+  "Durée vue (s)",
+  "Origine",
+  "Chaîne live",
+  "Présentation (replay)",
+  "Présentation ID",
+  "Media ID",
+];
+
+function dateSourceLabel(row) {
+  if (!row.consultedAt) return "";
+  if (row.dateIsSessionStart) return "Début de session (horodatage de vue absent)";
+  return row.kind === "live" ? "Horodatage de la vue live" : "Horodatage du visionnage replay";
+}
+
+export function consultationRowToCsv(row) {
+  return [
+    row.delegateId,
+    row.keycloakId,
+    row.prenom,
+    row.nom,
+    row.email,
+    row.typeBadge,
+    row.kind === "live" ? "LIVE" : "REPLAY",
+    row.consultedAt,
+    dateSourceLabel(row),
+    row.sessionId,
+    row.sessionTitle,
+    row.sessionType,
+    row.sessionStart,
+    row.sessionEnd,
+    formatDuration(row.durationSec),
+    row.durationSec ? Math.round(row.durationSec) : "",
+    row.origin,
+    row.channel,
+    row.presentationTitle,
+    row.presentationId,
+    row.mediaId,
   ];
 }

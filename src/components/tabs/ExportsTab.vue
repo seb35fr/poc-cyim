@@ -284,13 +284,23 @@
                       {{ journeyResult.delegate?.email || journeyResult.esFallback?.email || journeyEmail }}
                     </div>
                   </div>
-                  <button
-                    class="btn-export big"
-                    :disabled="journeyResult.rows.length === 0"
-                    @click="exportJourneyCsv"
-                  >
-                    {{ t("exports.journey.exportCsv") }}
-                  </button>
+                  <div class="journey-actions">
+                    <button
+                      class="btn-export big"
+                      :disabled="journeyResult.rows.length === 0"
+                      @click="exportJourneyCsv"
+                    >
+                      {{ t("exports.journey.exportCsv") }}
+                    </button>
+                    <button
+                      class="btn-export big"
+                      :disabled="journeyResult.consultationRows.length === 0"
+                      :title="t('exports.journey.exportConsultationsHint')"
+                      @click="exportJourneyConsultationsCsv"
+                    >
+                      {{ t("exports.journey.exportConsultations", { n: journeyResult.consultationRows.length }) }}
+                    </button>
+                  </div>
                 </div>
 
                 <div class="journey-meta">
@@ -564,6 +574,8 @@ import {
   buildDelegateJourney,
   JOURNEY_HEADERS,
   journeyRowToCsv,
+  CONSULTATION_HEADERS,
+  consultationRowToCsv,
 } from "../../utils/buildDelegateJourney.js";
 import {
   buildCheckedInDelegates,
@@ -983,10 +995,8 @@ function resetJourney() {
   journeyResult.value = null;
 }
 
-function exportJourneyCsv() {
-  const result = journeyResult.value;
-  if (!result || result.rows.length === 0) return;
-
+// Base de nom de fichier commune aux 2 exports du parcours : {event}-{personne}.
+function journeyFileBase(result) {
   const personSlug = (journeyDisplayName.value || result.delegate?.email || journeyEmail.value)
     .replace(/[^\p{L}\p{N}_-]+/gu, "_")
     .replace(/^_+|_+$/g, "")
@@ -994,8 +1004,24 @@ function exportJourneyCsv() {
   const safeEvent = (props.eventName || eventId)
     .replace(/[^\p{L}\p{N}_-]+/gu, "_")
     .slice(0, 40);
-  const filename = `parcours_${safeEvent}-${personSlug}`;
-  downloadCsv(filename, JOURNEY_HEADERS, result.rows.map(journeyRowToCsv));
+  return `${safeEvent}-${personSlug}`;
+}
+
+function exportJourneyCsv() {
+  const result = journeyResult.value;
+  if (!result || result.rows.length === 0) return;
+  downloadCsv(`parcours_${journeyFileBase(result)}`, JOURNEY_HEADERS, result.rows.map(journeyRowToCsv));
+}
+
+// Detail des consultations Live + Replay (1 ligne = 1 vue, avec date de consultation).
+function exportJourneyConsultationsCsv() {
+  const result = journeyResult.value;
+  if (!result || result.consultationRows.length === 0) return;
+  downloadCsv(
+    `consultations-live-replay_${journeyFileBase(result)}`,
+    CONSULTATION_HEADERS,
+    result.consultationRows.map(consultationRowToCsv)
+  );
 }
 
 // ─── Délégués check-in (présents physiques au congrès) ─────────────────────
@@ -1328,6 +1354,7 @@ function formatStart(iso) {
   border-radius: 8px; padding: 14px 16px;
 }
 .journey-card-head {
+.journey-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
   display: flex; align-items: flex-start; justify-content: space-between;
   gap: 12px; margin-bottom: 12px;
 }
