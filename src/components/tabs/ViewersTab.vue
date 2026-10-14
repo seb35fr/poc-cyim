@@ -89,33 +89,6 @@
         </div>
       </div>
 
-      <!-- Repartition geographique (monde | Europe) des delegues uniques ayant
-           consulte (live/replay), rapproches a un delegue avec une adresse pays. -->
-      <div class="charts-row" v-if="geoCountries.length > 0">
-        <div class="chart-card">
-          <div class="chart-header">
-            <h3>{{ t("maps.worldTitle") }} <InfoTooltip :text="t('viewers.charts.geoHint')" /></h3>
-            <CsvButton
-              :filename="`${kind}-delegues-par-pays-monde`"
-              :headers="[t('maps.csv.countryCode'), t('maps.csv.countryName'), t('viewers.csv.uniqueDelegates')]"
-              :rows="geoCountries.map(c => [c.value, countryName(c.value), c.totalCount])"
-            />
-          </div>
-          <ChoroplethMap :key="`world-${geoCacheKey}`" :countries="geoCountries" scope="world" :show-legend="true" :height="420" />
-        </div>
-        <div class="chart-card">
-          <div class="chart-header">
-            <h3>{{ t("maps.europeTitle") }} <InfoTooltip :text="t('viewers.charts.geoHint')" /></h3>
-            <CsvButton
-              :filename="`${kind}-delegues-par-pays-europe`"
-              :headers="[t('maps.csv.countryCode'), t('maps.csv.countryName'), t('viewers.csv.uniqueDelegates')]"
-              :rows="geoCountriesEurope.map(c => [c.value, countryName(c.value), c.totalCount])"
-            />
-          </div>
-          <ChoroplethMap :key="`europe-${geoCacheKey}`" :countries="geoCountries" scope="europe" :show-legend="true" :height="420" />
-        </div>
-      </div>
-
       <!-- Delegues uniques par jour (gauche) / par chaine (droite, live) -->
       <div class="charts-row">
         <div class="chart-card">
@@ -358,6 +331,33 @@
         </div>
         <div :style="{ position: 'relative', height: '220px' }">
           <Bar :data="engagementChart" :options="engagementOptions" />
+        </div>
+      </div>
+
+      <!-- Repartition geographique (monde | Europe) des delegues uniques ayant
+           consulte (live/replay), rapproches a un delegue avec une adresse pays. -->
+      <div class="charts-row" v-if="geoCountries.length > 0">
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3>{{ t("maps.worldTitle") }} <InfoTooltip :text="t('viewers.charts.geoHint')" /></h3>
+            <CsvButton
+              :filename="`${kind}-delegues-par-pays-monde`"
+              :headers="[t('maps.csv.countryCode'), t('maps.csv.countryName'), t('viewers.csv.uniqueDelegates')]"
+              :rows="geoCountries.map(c => [c.value, countryName(c.value), c.totalCount])"
+            />
+          </div>
+          <ChoroplethMap :key="`world-${geoCacheKey}`" :countries="geoCountries" scope="world" :show-legend="true" :height="420" />
+        </div>
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3>{{ t("maps.europeTitle") }} <InfoTooltip :text="t('viewers.charts.geoHint')" /></h3>
+            <CsvButton
+              :filename="`${kind}-delegues-par-pays-europe`"
+              :headers="[t('maps.csv.countryCode'), t('maps.csv.countryName'), t('viewers.csv.uniqueDelegates')]"
+              :rows="geoCountriesEurope.map(c => [c.value, countryName(c.value), c.totalCount])"
+            />
+          </div>
+          <ChoroplethMap :key="`europe-${geoCacheKey}`" :countries="geoCountries" scope="europe" :show-legend="true" :height="420" />
         </div>
       </div>
 
