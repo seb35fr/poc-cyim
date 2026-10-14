@@ -41,6 +41,12 @@ export function useStatistics(eventId, options = {}) {
           if (c?.branding?.name) eventName.value = c.branding.name;
           else if (!eventName.value) eventName.value = eventId;
           if (c?.branding?.logoURL) eventLogo.value = c.branding.logoURL;
+          // Organisateurs + mobileAppId exposes des maintenant aussi : ce qui
+          // n'en depend que (useOrgAppUsers) demarre sans attendre les delegues.
+          if (c) {
+            mobileAppId.value = c.mobileAppId || null;
+            eventConfig.value = c;
+          }
         })
         .finally(() => { configLoading.value = false; });
 

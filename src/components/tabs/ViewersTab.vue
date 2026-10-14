@@ -27,7 +27,7 @@
       <div class="kpi-grid">
         <div class="kpi-card green">
           <div class="kpi-label">{{ L.uniqueKpi }}</div>
-          <div class="kpi-value">{{ fmt(g.uniqueUsers) }}</div>
+          <div class="kpi-value">{{ fmt(uniquePersons) }}</div>
           <div class="kpi-sub">{{ L.uniqueKpiSub }}</div>
         </div>
         <div class="kpi-card orange">
@@ -380,6 +380,7 @@
               <tr>
                 <th>{{ t("viewers.table.delegate") }}</th>
                 <th>{{ t("viewers.table.email") }}</th>
+                <th>{{ t("viewers.table.keycloakId") }}</th>
                 <th>{{ t("viewers.table.sessionId") }}</th>
                 <th>{{ t("viewers.table.session") }}</th>
                 <th v-if="kind === 'replay'">{{ t("viewers.table.presentation") }}</th>
@@ -396,6 +397,7 @@
               <tr v-for="it in pagedItems" :key="it.id">
                 <td>{{ it.fullName }}</td>
                 <td>{{ it.email || '—' }}</td>
+                <td class="mono">{{ it.userId || '—' }}</td>
                 <td class="mono">{{ it.sessionId || '—' }}</td>
                 <td>{{ it.sessionTitle || '—' }}</td>
                 <td v-if="kind === 'replay'">{{ it.presentationTitle || '—' }}</td>
@@ -434,7 +436,7 @@ import { fmt } from "@/utils/formatters.js";
 import { getTypeColor } from "@/utils/typeColors.js";
 import { COUNTRY_CONTINENTS, countryName } from "@/utils/countries.js";
 import { delegateBadgeType, MEMBER_BADGE_TYPE } from "@/utils/checkinByType.js";
-import { buildDelegateLookup } from "@/utils/viewerJoin.js";
+import { buildDelegateLookup, viewerPersonKey, countUniqueViewerPersons } from "@/utils/viewerJoin.js";
 import { debug } from "@/utils/debug.js";
 import { buildPhysicalReplayByDay } from "@/utils/physicalReplay.js";
 
@@ -662,20 +664,25 @@ const joinStats = computed(() => {
   const members = new Set();
   // Comptes rattaches a un delegue via un contact en doublon (alias, cf. useViewerMembers).
   const relinked = new Set();
+  // Compte en PERSONNES (cf. viewerPersonKey) : plusieurs comptes d'une meme
+  // personne (ex. ancien compte rattache + compte actuel) ne comptent qu'une fois.
   for (const it of stats.value.items) {
     const kcId = it.userId;
     if (!kcId) continue;
     const entry = lookup.get(kcId);
-    if (!entry) unknown.add(kcId);
-    else if (entry.checkedIn) checkedIn.add(kcId);
-    else noCheckin.add(kcId);
-    if (entry?.delegate?.isMemberViewer) members.add(kcId);
-    if (entry?.delegate?.isViewerAlias) relinked.add(kcId);
+    const key = viewerPersonKey(kcId, lookup);
+    if (!entry) unknown.add(key);
+    else if (entry.checkedIn) checkedIn.add(key);
+    else noCheckin.add(key);
+    if (entry?.delegate?.isMemberViewer) members.add(key);
+    if (entry?.delegate?.isViewerAlias) relinked.add(key);
   }
   return { checkedIn: checkedIn.size, noCheckin: noCheckin.size, unknown: unknown.size, members: members.size, relinked: relinked.size };
 });
 
 const uniqueUsersWithoutCheckin = computed(() => joinStats.value.noCheckin);
+// Personnes distinctes (= rapprochees + comptes non rapproches).
+const uniquePersons = computed(() => countUniqueViewerPersons(stats.value.items, delegateLookup.value));
 
 // Detail des viewers NON rapproches (ni delegue, ni membre) : 1 ligne par compte
 // Keycloak, avec la raison issue de useViewerMembers (ancien membre, contact non
@@ -1399,20 +1406,20 @@ function formatTimestamp(ts) {
 // Headers / rows CSV du tableau detaille — varient selon kind.
 const detailCsvHeaders = computed(() =>
   props.kind === "live"
-    ? [t("viewers.csv.delegate"), t("viewers.table.email"), t("viewers.table.sessionId"), t("viewers.csv.session"), t("viewers.csv.typeSession"), t("viewers.csv.sessionStart"), t("viewers.csv.timestampView"), t("viewers.csv.durationS")]
-    : [t("viewers.csv.delegate"), t("viewers.table.email"), t("viewers.table.sessionId"), t("viewers.csv.session"), t("viewers.csv.presentation"), t("viewers.csv.presentationId"), t("viewers.csv.path"), t("viewers.csv.origin"), t("viewers.csv.timestamp"), t("viewers.csv.durationS")]
+    ? [t("viewers.csv.delegate"), t("viewers.table.email"), t("viewers.table.keycloakId"), t("viewers.table.sessionId"), t("viewers.csv.session"), t("viewers.csv.typeSession"), t("viewers.csv.sessionStart"), t("viewers.csv.timestampView"), t("viewers.csv.durationS")]
+    : [t("viewers.csv.delegate"), t("viewers.table.email"), t("viewers.table.keycloakId"), t("viewers.table.sessionId"), t("viewers.csv.session"), t("viewers.csv.presentation"), t("viewers.csv.presentationId"), t("viewers.csv.path"), t("viewers.csv.origin"), t("viewers.csv.timestamp"), t("viewers.csv.durationS")]
 );
 
 function detailCsvRow(it) {
   if (props.kind === "live") {
     return [
-      it.fullName, it.email, it.sessionId || "", it.sessionTitle,
+      it.fullName, it.email, it.userId || "", it.sessionId || "", it.sessionTitle,
       it.sessionType, formatTimestamp(it.sessionStart) || "",
       formatTimestamp(it.timestamp) || "", Math.round(it.duration),
     ];
   }
   return [
-    it.fullName, it.email, it.sessionId || "", it.sessionTitle,
+    it.fullName, it.email, it.userId || "", it.sessionId || "", it.sessionTitle,
     it.presentationTitle || "", it.presentationId || "", it.path || "",
     it.origin, formatTimestamp(it.timestamp) || "", Math.round(it.duration),
   ];

@@ -26,7 +26,7 @@
       </button>
     </header>
 
-    <DataSourcesInfo v-if="showDataSources" @close="showDataSources = false" />
+    <DataSourcesInfo v-if="showDataSources" :event-id="eventId" :event-name="eventName" @close="showDataSources = false" />
 
 
     <div class="layout-body">
@@ -183,6 +183,10 @@
               :compare-extra-viewer-delegates="pageCompareExtraViewerDelegates"
               :member-counts="viewerMembers.counts.value"
               :members-loading="viewerMembers.loading.value"
+              :mobile-app-extra-users="pageMobileAppExtraUsers"
+              :compare-mobile-app-extra-users="pageCompareMobileAppExtraUsers"
+              :mobile-app-loading="mobileAppExtraLoading"
+              :mobile-app-progress="orgAppUsers.progress.value"
             />
             <DemographicsTab v-if="activeTab === 'demographics'" :stats="pageStats" :delegates="pageDelegates" :mobile-app-id="mobileAppId" :event-name="eventName" :date-range="effectiveDateRange" />
             <RegistrationsTab v-if="activeTab === 'registrations'" :stats="pageStats" :delegates="pageDelegates" :mobile-app-id="mobileAppId" :event-name="eventName" :date-range="effectiveDateRange" />
@@ -226,6 +230,8 @@
               :live-api="liveApi"
               :replay-api="replayApi"
               :scans-api="scansApi"
+              :mobile-app-id="mobileAppId"
+              :mobile-app-extra-users="pageMobileAppExtraUsersAll"
             />
             <ComparisonTab
               v-if="activeTab === 'comparison'"
@@ -257,6 +263,7 @@ import { useLive } from "@/composables/useLive.js";
 import { useReplay } from "@/composables/useReplay.js";
 import { useRoomScans } from "@/composables/useRoomScans.js";
 import { useViewerMembers } from "@/composables/useViewerMembers.js";
+import { useOrgAppUsers } from "@/composables/useOrgAppUsers.js";
 import { buildQrDelegateLookup } from "@/utils/computeScanStats.js";
 import { useBadgeTypeFilter } from "@/composables/useBadgeTypeFilter.js";
 import { useDateRangeFilter } from "@/composables/useDateRangeFilter.js";
@@ -389,7 +396,25 @@ const viewerMembers = useViewerMembers({
   getHits: () => [...(liveApi.hits.value || []), ...(replayApi.hits.value || [])],
   getDelegates: () => delegates.value,
   getOrganizerIds: () => (eventConfig.value?.organizers || []).map((o) => o.id),
+  getMobileAppId: () => mobileAppId.value,
 });
+// Membres des organisateurs utilisateurs de l'app (inscrits exclus), cf. useOrgAppUsers.
+// Ne depend que de la config (organisateurs + mobileApplicationId) : demarre en
+// parallele des delegues (l'exclusion des inscrits est un computed sur delegates).
+const orgAppUsers = useOrgAppUsers({
+  isReady: () => !configLoading.value,
+  getOrganizerIds: () => (eventConfig.value?.organizers || []).map((o) => o.id),
+  getMobileAppId: () => mobileAppId.value,
+  getDelegates: () => delegates.value,
+});
+const compareOrgAppUsers = compareEventId
+  ? useOrgAppUsers({
+      isReady: () => !compareApi.configLoading.value,
+      getOrganizerIds: () => (compareApi.eventConfig.value?.organizers || []).map((o) => o.id),
+      getMobileAppId: () => compareApi.mobileAppId.value,
+      getDelegates: () => compareDelegates.value,
+    })
+  : null;
 const compareViewerMembers = compareEventId
   ? useViewerMembers({
       isReady: () =>
@@ -398,6 +423,7 @@ const compareViewerMembers = compareEventId
       getHits: () => [...(compareLiveApi.hits.value || []), ...(compareReplayApi.hits.value || [])],
       getDelegates: () => compareDelegates.value,
       getOrganizerIds: () => (compareApi.eventConfig.value?.organizers || []).map((o) => o.id),
+      getMobileAppId: () => compareApi.mobileAppId.value,
     })
   : null;
 
@@ -415,6 +441,37 @@ const pageStats = computed(() =>
 // pour les stats registration. Filtre type de badge actif -> les membres (sans
 // badge) sont exclus, comme les "Inscrit non reconnu".
 const badgeFilterActive = computed(() => selectedBadgeTypes.value.size > 0);
+// Utilisateurs de l'app mobile NON inscrits, 2 sources fusionnees par contact :
+//  1) membres des organisateurs (useOrgAppUsers : organization.members -> apps),
+//     couvre les membres qui n'ont fait qu'ouvrir l'app ;
+//  2) viewers live/replay non inscrits resolus (useViewerMembers), couvre les
+//     non-membres qui ont regarde une video.
+// Reste invisible : un non-membre non inscrit qui n'a regarde aucune video.
+// Sans type de badge -> exclus quand le filtre badge est actif.
+function mergeAppUsers(...lists) {
+  const byContact = new Map();
+  for (const list of lists) for (const u of list || []) if (u?.contactId && !byContact.has(u.contactId)) byContact.set(u.contactId, u);
+  return [...byContact.values()];
+}
+const threeMonthsAgoMs = () => {
+  const d = new Date();
+  d.setMonth(d.getMonth() - 3);
+  return d.getTime();
+};
+const pageMobileAppExtraUsersAll = computed(() =>
+  badgeFilterActive.value ? [] : mergeAppUsers(orgAppUsers.users.value, viewerMembers.mobileAppUsersAll.value),
+);
+const pageMobileAppExtraUsers = computed(() => {
+  const since = threeMonthsAgoMs();
+  return pageMobileAppExtraUsersAll.value.filter((u) => u.lastUsedMs >= since);
+});
+const pageCompareMobileAppExtraUsers = computed(() => {
+  if (badgeFilterActive.value || !compareViewerMembers) return [];
+  const since = threeMonthsAgoMs();
+  return mergeAppUsers(compareOrgAppUsers?.users.value, compareViewerMembers.mobileAppUsersAll.value)
+    .filter((u) => u.lastUsedMs >= since);
+});
+const mobileAppExtraLoading = computed(() => viewerMembers.loading.value || orgAppUsers.loading.value);
 const pageMemberDelegates = computed(() => (badgeFilterActive.value ? [] : viewerMembers.memberDelegates.value));
 const pageCompareMemberDelegates = computed(() =>
   badgeFilterActive.value || !compareViewerMembers ? [] : compareViewerMembers.memberDelegates.value,
@@ -582,6 +639,18 @@ const loadingSources = computed(() => {
       detail: viewerMembers.progress.value.total > 0
         ? `${fmt(viewerMembers.progress.value.loaded)} / ${fmt(viewerMembers.progress.value.total)}`
         : "",
+    },
+    {
+      // Membres des organisateurs -> apps (cf. useOrgAppUsers). Sans
+      // mobileApplicationId ou sans organisateur, la requete n'est pas lancee.
+      key: "orgAppUsers",
+      label: t("states.sources.orgAppUsers"),
+      loading: orgAppUsers.loading.value || configLoading.value,
+      detail: !configLoading.value && (!mobileAppId.value || !(eventConfig.value?.organizers || []).length)
+        ? t("states.sources.notApplicable")
+        : orgAppUsers.progress.value.total > 0
+          ? `${fmt(orgAppUsers.progress.value.loaded)} / ${fmt(orgAppUsers.progress.value.total)}`
+          : "",
     },
   ];
 });

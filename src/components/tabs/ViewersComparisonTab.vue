@@ -15,13 +15,13 @@
         <div class="cmp-event">
           <span class="cmp-event-dot" :style="{ background: COLORS.current }"></span>
           <strong>{{ shortName(eventName) }}</strong>
-          <span class="cmp-event-meta">{{ t("viewersCompare.eventMeta", { views: fmt(statsA.global.totalViews), delegates: fmt(statsA.global.uniqueUsers) }) }}</span>
+          <span class="cmp-event-meta">{{ t("viewersCompare.eventMeta", { views: fmt(statsA.global.totalViews), delegates: fmt(personsA) }) }}</span>
         </div>
         <span class="cmp-vs">{{ t("viewersCompare.vs") }}</span>
         <div class="cmp-event">
           <span class="cmp-event-dot" :style="{ background: COLORS.compare }"></span>
           <strong>{{ shortName(compareEventName) }}</strong>
-          <span class="cmp-event-meta">{{ t("viewersCompare.eventMeta", { views: fmt(statsB.global.totalViews), delegates: fmt(statsB.global.uniqueUsers) }) }}</span>
+          <span class="cmp-event-meta">{{ t("viewersCompare.eventMeta", { views: fmt(statsB.global.totalViews), delegates: fmt(personsB) }) }}</span>
         </div>
       </div>
 
@@ -148,6 +148,7 @@ import { Bar } from "vue-chartjs";
 import {
   buildDelegateLookup,
   getRemoteOnlyDelegateIds,
+  countUniqueViewerPersons,
 } from "../../utils/viewerJoin.js";
 import { fmt, shortName } from "@/utils/formatters.js";
 import { buildPhysicalReplayByDay, buildPhysicalReplayCumulative } from "../../utils/physicalReplay.js";
@@ -219,6 +220,9 @@ function formatDuration(sec) {
 // registration (unknown).
 const lookupA = computed(() => buildDelegateLookup(props.delegates, { datasetLabel: `${props.kind}-compare-A` }));
 const lookupB = computed(() => buildDelegateLookup(props.compareDelegates, { datasetLabel: `${props.kind}-compare-B` }));
+// Personnes distinctes (plusieurs comptes d'une meme personne = 1).
+const personsA = computed(() => countUniqueViewerPersons(statsA.value.items, lookupA.value));
+const personsB = computed(() => countUniqueViewerPersons(statsB.value.items, lookupB.value));
 const remoteA = computed(() =>
   getRemoteOnlyDelegateIds(statsA.value.items, lookupA.value, { datasetLabel: `${props.kind}-compare-A` }).size,
 );
@@ -254,9 +258,9 @@ const kpis = computed(() => {
   return [
     {
       label: L.value.uniqueKpi,
-      a: { display: fmt(ga.uniqueUsers || 0) },
-      b: { display: fmt(gb.uniqueUsers || 0) },
-      delta: buildDeltaAbs(ga.uniqueUsers || 0, gb.uniqueUsers || 0, "up"),
+      a: { display: fmt(personsA.value) },
+      b: { display: fmt(personsB.value) },
+      delta: buildDeltaAbs(personsA.value, personsB.value, "up"),
     },
     {
       label: L.value.remoteKpi,

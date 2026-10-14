@@ -15,6 +15,7 @@ import { countryName } from "./countries.js";
 // En-tetes CSV (FR, non traduits — meme convention que les autres exports CSV).
 const DELEGATE_HEADERS = [
   "delegateId",
+  "Id externe",
   "badgeId",
   "Civilité",
   "Prénom",
@@ -29,6 +30,8 @@ const DELEGATE_HEADERS = [
   "Pays",
   "Pays (nom)",
   "Type de badge",
+  "Catégories",
+  "GDPR",
   "Check-in congrès",
   "Rapproché",
 ];
@@ -75,6 +78,7 @@ function delegateColumns(scan, byMongoId) {
     const f = delegateCoreFields(d);
     return {
       delegateId: f.delegateId,
+      externalId: f.externalId,
       badgeId: scan.badgeId || "",
       civilite: f.civilite,
       prenom: f.prenom,
@@ -88,12 +92,15 @@ function delegateColumns(scan, byMongoId) {
       rpps: f.rpps,
       pays: f.pays,
       typeBadge: f.typeBadge,
+      categories: f.categories,
+      gdpr: f.gdpr === "O" ? "YES" : f.gdpr === "N" ? "NO" : "",
       checkIn: f.checkInCongres,
       matched: "O",
     };
   }
   return {
     delegateId: id,
+    externalId: "",
     badgeId: scan.badgeId || "",
     civilite: "",
     prenom: "",
@@ -107,6 +114,8 @@ function delegateColumns(scan, byMongoId) {
     rpps: "",
     pays: "",
     typeBadge: scan.badgeType && scan.badgeType !== "Inconnu" ? scan.badgeType : "",
+    categories: "",
+    gdpr: "",
     checkIn: "",
     matched: "N",
   };
@@ -115,6 +124,7 @@ function delegateColumns(scan, byMongoId) {
 function delegateCsvCells(c) {
   return [
     c.delegateId,
+    c.externalId,
     c.badgeId,
     c.civilite,
     c.prenom,
@@ -129,6 +139,8 @@ function delegateCsvCells(c) {
     c.pays,
     countryName(c.pays),
     c.typeBadge,
+    c.categories,
+    c.gdpr,
     c.checkIn,
     c.matched,
   ];

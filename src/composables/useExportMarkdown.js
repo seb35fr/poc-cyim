@@ -2,7 +2,7 @@ import { ref } from "vue";
 import { buildDataDump, jsonReplacer } from "@/utils/buildDataDump.js";
 import { generateAnalysis } from "@/utils/generateAnalysis.js";
 import { buildCheckinByType } from "@/utils/checkinByType.js";
-import { buildDelegateLookup, getRemoteOnlyDelegateIds } from "@/utils/viewerJoin.js";
+import { buildDelegateLookup, getRemoteOnlyDelegateIds, countUniqueViewerPersons } from "@/utils/viewerJoin.js";
 import { computeParticipation } from "@/utils/participation.js";
 import { toEpochMs } from "@/utils/parisTime.js";
 import { zipToRegion, REGION_NAMES } from "@/utils/frenchRegions.js";
@@ -564,7 +564,8 @@ function sectionLiveReplay(label, viewerStats, delegates, labelKey) {
 
   out += h(3, t("md.viewers.global"));
   out += mdScalars([
-    [t("md.viewers.uniqueDelegates"), fmtNum(g.uniqueUsers || 0)],
+    // Personnes distinctes (plusieurs comptes d'une meme personne = 1).
+    [t("md.viewers.uniqueDelegates"), fmtNum(countUniqueViewerPersons(viewerStats.items || [], lookup))],
     [t("md.viewers.withoutPhysical", { label }), fmtNum(remoteSize)],
     [t("md.viewers.totalViews"), fmtNum(g.totalViews || 0)],
     [t("md.viewers.distinctSessions"), fmtNum(g.distinctSessions || 0)],

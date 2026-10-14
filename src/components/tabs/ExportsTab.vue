@@ -117,6 +117,7 @@
       :count-label="t('exports.physical.colCount')"
       :count-hint="t('exports.presence.hintScans')"
       :export-fn="exportPhysicalCsv"
+      :merged-export-fn="exportPhysicalMergedCsv"
       @toggle="toggleCategory('physical-attendance')"
     />
 
@@ -130,6 +131,7 @@
       :count-label="t('exports.live.colCount')"
       :count-hint="t('exports.presence.hintViews')"
       :export-fn="exportLiveCsv"
+      :merged-export-fn="exportLiveMergedCsv"
       @toggle="toggleCategory('live-attendance')"
     />
 
@@ -143,6 +145,7 @@
       :count-label="t('exports.replay.colCount')"
       :count-hint="t('exports.presence.hintViews')"
       :export-fn="exportReplayCsv"
+      :merged-export-fn="exportReplayMergedCsv"
       @toggle="toggleCategory('replay-attendance')"
     />
 
@@ -430,6 +433,45 @@
       </div>
     </section>
 
+    <!-- ═══ Catégorie : Utilisateurs de l'application mobile (< 3 mois) ═══ -->
+    <section class="export-category" :class="{ open: openCategory === 'mobile-app' }">
+      <header class="export-category-header" @click="toggleCategory('mobile-app')">
+        <div>
+          <h3>{{ t("exports.mobileApp.title", { n: MOBILE_APP_SINCE_MONTHS }) }}</h3>
+          <p>{{ t("exports.mobileApp.desc", { n: MOBILE_APP_SINCE_MONTHS }) }}</p>
+        </div>
+        <span class="chevron" :class="{ rotated: openCategory === 'mobile-app' }">▾</span>
+      </header>
+
+      <div v-if="openCategory === 'mobile-app'" class="export-category-body">
+        <div v-if="!mobileAppId" class="empty-msg">{{ t("exports.mobileApp.noApp") }}</div>
+        <template v-else>
+          <div class="info-row">
+            <div class="info-chip">
+              <span class="info-chip-label">{{ t("exports.mobileApp.count") }}</span>
+              <span class="info-chip-value">{{ fmt(mobileAppRows.length) }}</span>
+            </div>
+            <div v-if="mobileAppUnregisteredCount" class="info-chip">
+              <span class="info-chip-label">{{ t("exports.mobileApp.unregistered") }}</span>
+              <span class="info-chip-value">{{ fmt(mobileAppUnregisteredCount) }}</span>
+            </div>
+          </div>
+          <div v-if="mobileAppRows.length === 0" class="empty-msg">
+            {{ t("exports.mobileApp.empty", { n: MOBILE_APP_SINCE_MONTHS }) }}
+          </div>
+          <div v-if="mobileAppAllRows.length > 0" class="search-row">
+            <button v-if="mobileAppRows.length > 0" class="btn-primary" @click="exportMobileAppCsv">
+              {{ t("exports.mobileApp.exportCsv", { n: mobileAppRows.length }) }}
+            </button>
+            <button class="btn-primary" :title="t('exports.mobileApp.exportAllHint')" @click="exportMobileAppAllCsv">
+              {{ t("exports.mobileApp.exportAllCsv", { n: mobileAppAllRows.length }) }}
+            </button>
+          </div>
+        </template>
+        <p class="footnote" v-html="t('exports.mobileApp.footnote', { n: MOBILE_APP_SINCE_MONTHS })"></p>
+      </div>
+    </section>
+
     <!-- ═══ Catégorie : Scans de session (audience entrée de salle, à plat) ═══ -->
     <section class="export-category" :class="{ open: openCategory === 'session-scans' }">
       <header class="export-category-header" @click="toggleCategory('session-scans')">
@@ -567,6 +609,7 @@ import {
   replayAttendanceRowToCsv,
   REPLAY_VIEW_HEADERS,
   buildReplayViewRows,
+  buildAllReplayViewRows,
   replayViewRowToCsv,
   filterAttendanceBySource,
 } from "../../utils/buildSessionAttendance.js";
@@ -582,6 +625,12 @@ import {
   CHECKED_IN_HEADERS,
   checkedInRowToCsv,
 } from "../../utils/buildCheckedInDelegates.js";
+import {
+  buildMobileAppUsers,
+  MOBILE_APP_SINCE_MONTHS,
+  MOBILE_APP_USER_HEADERS,
+  mobileAppUserRowToCsv,
+} from "@/utils/buildMobileAppUsers.js";
 import {
   ZONE_SCAN_HEADERS,
   buildZoneScanRows,
@@ -600,6 +649,11 @@ const props = defineProps({
   liveApi: { type: Object, required: true },
   replayApi: { type: Object, required: true },
   scansApi: { type: Object, required: true },
+  // config.mobileApplicationId de l'event (export « app mobile »).
+  mobileAppId: { type: String, default: null },
+  // Utilisateurs de l'app NON inscrits (minimum, via les viewers live/replay),
+  // toutes dates : la borne < 3 mois est appliquee par buildMobileAppUsers.
+  mobileAppExtraUsers: { type: Array, default: () => [] },
 });
 
 const { t, locale } = useI18n();
@@ -855,6 +909,34 @@ const exportLiveCsv = (session) =>
     rowToCsv: liveAttendanceRowToCsv,
     prefix: "live",
   });
+// Export complet mono-source : UN seul CSV, toutes les sessions (filtrees)
+// concatenees, 1 ligne = 1 personne x 1 session (memes colonnes que l'export
+// par session, colonnes session incluses), dans l'ordre de la liste affichee.
+function exportSourceMergedCsv(sessionList, { source, headers, rowToCsv, prefix }, { filtersActive }) {
+  const rows = sessionList.flatMap((session) => filterAttendanceBySource(buildRowsForSession(session), source));
+  if (rows.length === 0) {
+    alert(t("exports.presence.noParticipant"));
+    return;
+  }
+  const suffix = filtersActive ? "selection" : "complet";
+  downloadCsv(`${prefix}_${slug(props.eventName || eventId, 40)}-${suffix}`, headers, rows.map(rowToCsv));
+}
+
+const exportPhysicalMergedCsv = (sessionList, opts) =>
+  exportSourceMergedCsv(sessionList, {
+    source: "physique",
+    headers: PHYSICAL_ATTENDANCE_HEADERS,
+    rowToCsv: physicalAttendanceRowToCsv,
+    prefix: "presentiel",
+  }, opts);
+const exportLiveMergedCsv = (sessionList, opts) =>
+  exportSourceMergedCsv(sessionList, {
+    source: "live",
+    headers: LIVE_ATTENDANCE_HEADERS,
+    rowToCsv: liveAttendanceRowToCsv,
+    prefix: "live",
+  }, opts);
+
 // Replay autonome : export PAR VUE (1 ligne = 1 vue VOD), aligne sur xlsx-stats
 // (media/presentation/view date/origin par vue). N'utilise donc PAS
 // exportSourceCsv (qui agrege par personne) mais le builder dedie.
@@ -866,6 +948,23 @@ function exportReplayCsv(session) {
     return;
   }
   downloadCsv(buildFilename("replay", session), REPLAY_VIEW_HEADERS, rows.map(replayViewRowToCsv));
+}
+
+// Replay complet : UN seul CSV toutes sessions (filtrees) confondues, meme
+// format par vue. Sans filtre actif, inclut aussi les vues sans session connue.
+function exportReplayMergedCsv(sessionList, { filtersActive }) {
+  const rows = buildAllReplayViewRows({
+    sessions: sessionList,
+    replayItems: replay.stats.value.items || [],
+    delegates: props.delegates,
+    includeOrphans: !filtersActive,
+  });
+  if (rows.length === 0) {
+    alert(t("exports.presence.noParticipant"));
+    return;
+  }
+  const suffix = filtersActive ? "selection" : "complet";
+  downloadCsv(`replay_${slug(props.eventName || eventId, 40)}-${suffix}`, REPLAY_VIEW_HEADERS, rows.map(replayViewRowToCsv));
 }
 
 async function exportAllSessionsCsv() {
@@ -1037,6 +1136,28 @@ function exportCheckedInCsv() {
     CHECKED_IN_HEADERS,
     checkedInRows.value.map(checkedInRowToCsv),
   );
+}
+
+// ─── Utilisateurs de l'application mobile (derniers mois) ─────────────────────
+// Meme regle que le KPI « App mobile » (computeStats) : contact.apps[id =
+// mobileApplicationId].lastUsed recent, dedoublonne par contact.
+const mobileAppRows = computed(() =>
+  buildMobileAppUsers(props.delegates, props.mobileAppId, MOBILE_APP_SINCE_MONTHS, props.mobileAppExtraUsers),
+);
+const mobileAppUnregisteredCount = computed(() => mobileAppRows.value.filter((r) => r.inscrit === "N").length);
+// Variante sans borne de date : toute personne dont le contact porte l'app.
+const mobileAppAllRows = computed(() =>
+  buildMobileAppUsers(props.delegates, props.mobileAppId, null, props.mobileAppExtraUsers),
+);
+
+function exportMobileAppCsv() {
+  if (mobileAppRows.value.length === 0) return;
+  downloadCsv(`app-mobile_${safeEventName()}`, MOBILE_APP_USER_HEADERS, mobileAppRows.value.map(mobileAppUserRowToCsv));
+}
+
+function exportMobileAppAllCsv() {
+  if (mobileAppAllRows.value.length === 0) return;
+  downloadCsv(`app-mobile-toutes-dates_${safeEventName()}`, MOBILE_APP_USER_HEADERS, mobileAppAllRows.value.map(mobileAppUserRowToCsv));
 }
 
 function safeEventName() {

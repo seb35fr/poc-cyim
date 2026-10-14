@@ -45,9 +45,15 @@
         <span v-if="deltaOnboardingKpi" class="formula-delta" :class="deltaOnboardingKpi.cls" :title="tipOnboardingKpi">{{ deltaOnboardingKpi.arrow }} {{ deltaOnboardingKpi.text }}</span>
       </div>
       <div v-if="props.mobileAppId" class="kpi-card purple">
-        <div class="kpi-label">{{ t("overview.kpi.mobileApp") }}</div>
-        <div class="kpi-value">{{ fmt(fs.global.mobileAppCount) }}</div>
+        <div class="kpi-label">{{ t("overview.kpi.mobileApp") }} <InfoTooltip :text="t('overview.kpi.mobileAppHint')" /></div>
+        <div class="kpi-value">{{ fmt(mobileAppTotal) }}</div>
         <div class="kpi-sub">{{ t("overview.kpi.ofRegisteredMobile", { pct: pct(fs.global.mobileAppCount, registeredCount) }) }}</div>
+        <div v-if="mobileAppLoading" class="kpi-sub">
+          {{ t("overview.kpi.mobileAppResolving") }}<template v-if="mobileAppProgress?.total"> ({{ fmt(mobileAppProgress.loaded) }} / {{ fmt(mobileAppProgress.total) }})</template>
+        </div>
+        <div v-else-if="mobileAppExtraUsers.length" class="kpi-sub kpi-members">
+          {{ t("overview.kpi.mobileAppUnregistered", { n: fmt(mobileAppExtraUsers.length), reg: fmt(fs.global.mobileAppCount) }) }}
+        </div>
         <span v-if="deltaMobileKpi" class="formula-delta" :class="deltaMobileKpi.cls" :title="tipMobileKpi">{{ deltaMobileKpi.arrow }} {{ deltaMobileKpi.text }}</span>
       </div>
       <div class="kpi-card blue">
@@ -518,7 +524,7 @@ import { makeDateLabeler } from "../../utils/formatDateLabel.js";
 import { getTypeColor, getTypeColors } from "../../utils/typeColors.js";
 import { delegateBadgeType } from "@/utils/checkinByType.js";
 import { computeParticipation } from "@/utils/participation.js";
-import { buildDelegateLookup } from "@/utils/viewerJoin.js";
+import { buildDelegateLookup, countUniqueViewerPersons } from "@/utils/viewerJoin.js";
 import { computeAllStats } from "@/utils/computeStats.js";
 import { sessionDateShort } from "@/utils/parisTime.js";
 import { fmt, pct } from "@/utils/formatters.js";
@@ -555,6 +561,13 @@ const props = defineProps({
   // relinked / formerMember / notFound / pending) + resolution en cours.
   memberCounts: { type: Object, default: null },
   membersLoading: { type: Boolean, default: false },
+  // Utilisateurs de l'app mobile NON inscrits (viewers live/replay resolus,
+  // cf. useViewerMembers.mobileAppUsers) — minimum, ajoutes au KPI App mobile.
+  mobileAppExtraUsers: { type: Array, default: () => [] },
+  compareMobileAppExtraUsers: { type: Array, default: () => [] },
+  // Lecture en cours des membres des organisateurs / des viewers (+ progression membres).
+  mobileAppLoading: { type: Boolean, default: false },
+  mobileAppProgress: { type: Object, default: null },
 });
 
 // Population de jointure viewers = delegues (badge-filtres) + alias rattaches + membres non inscrits.
@@ -568,8 +581,12 @@ const liveB = props.compareLiveApi;
 const replayB = props.compareReplayApi;
 const hasCompare = !!liveB;
 
-const liveUniqueUsers = computed(() => liveStats.value?.global?.uniqueUsers || 0);
-const replayUniqueUsers = computed(() => replayStats.value?.global?.uniqueUsers || 0);
+// KPI Live / Replay en PERSONNES distinctes (plusieurs comptes Keycloak d'une
+// meme personne = 1, cf. viewerPersonKey), pas en comptes ES.
+const viewerLookupA = computed(() => buildDelegateLookup(viewerPopulation.value, { datasetLabel: "overview-kpi" }));
+const viewerLookupB = computed(() => buildDelegateLookup(viewerPopulationB.value, { datasetLabel: "overview-kpi-compare" }));
+const liveUniqueUsers = computed(() => countUniqueViewerPersons(liveStats.value?.items, viewerLookupA.value));
+const replayUniqueUsers = computed(() => countUniqueViewerPersons(replayStats.value?.items, viewerLookupA.value));
 
 // --- Filtre global badge type : etat partage avec Badges/Comparison via
 // StatisticsView (cf. useBadgeTypeFilter). Applique sur les 2 cotes (A et B)
@@ -837,21 +854,27 @@ const compareStats = computed(() =>
 );
 const checkedInGlobalB = computed(() => compareStats.value?.global.checkedInCount || 0);
 const onboardingB = computed(() => compareStats.value?.global.onboardingCount || 0);
-const mobileAppB = computed(() => compareStats.value?.global.mobileAppCount || 0);
-const liveUniqueUsersB = computed(() => liveB?.stats.value?.global?.uniqueUsers || 0);
-const replayUniqueUsersB = computed(() => replayB?.stats.value?.global?.uniqueUsers || 0);
+const mobileAppB = computed(() =>
+  (compareStats.value?.global.mobileAppCount || 0) + props.compareMobileAppExtraUsers.length,
+);
+// KPI App mobile = inscrits (computeStats) + non inscrits reperes via les viewers.
+// Un filtre cross-clic porte sur des delegues : les non inscrits sont alors ecartes.
+const mobileAppExtraUsers = computed(() => (activeFilters.value.length ? [] : props.mobileAppExtraUsers));
+const mobileAppTotal = computed(() => (fs.value.global.mobileAppCount || 0) + mobileAppExtraUsers.value.length);
+const liveUniqueUsersB = computed(() => countUniqueViewerPersons(liveB?.stats.value?.items, viewerLookupB.value));
+const replayUniqueUsersB = computed(() => countUniqueViewerPersons(replayB?.stats.value?.items, viewerLookupB.value));
 
 const deltaRegisteredKpi = computed(() => buildDeltaPct(registeredCount.value, registeredCountB.value));
 const deltaCheckinKpi = computed(() => buildDeltaPct(fs.value.global.checkedInCount, checkedInGlobalB.value));
 const deltaOnboardingKpi = computed(() => buildDeltaPct(fs.value.global.onboardingCount, onboardingB.value));
-const deltaMobileKpi = computed(() => buildDeltaPct(fs.value.global.mobileAppCount, mobileAppB.value));
+const deltaMobileKpi = computed(() => buildDeltaPct(mobileAppTotal.value, mobileAppB.value));
 const deltaLiveKpi = computed(() => buildDeltaPct(liveUniqueUsers.value, liveUniqueUsersB.value));
 const deltaReplayKpi = computed(() => buildDeltaPct(replayUniqueUsers.value, replayUniqueUsersB.value));
 
 const tipRegisteredKpi = computed(() => makeTooltip(registeredCount.value, registeredCountB.value));
 const tipCheckinKpi = computed(() => makeTooltip(fs.value.global.checkedInCount, checkedInGlobalB.value));
 const tipOnboardingKpi = computed(() => makeTooltip(fs.value.global.onboardingCount, onboardingB.value));
-const tipMobileKpi = computed(() => makeTooltip(fs.value.global.mobileAppCount, mobileAppB.value));
+const tipMobileKpi = computed(() => makeTooltip(mobileAppTotal.value, mobileAppB.value));
 const tipLiveKpi = computed(() => makeTooltip(liveUniqueUsers.value, liveUniqueUsersB.value));
 const tipReplayKpi = computed(() => makeTooltip(replayUniqueUsers.value, replayUniqueUsersB.value));
 

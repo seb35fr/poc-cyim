@@ -39,12 +39,21 @@ function buildDelegateLookup(delegates) {
   return { byMongoId, byKeycloakId };
 }
 
+// Categories d'inscription (registrations[].categories), dedupliquees sur
+// toutes les inscriptions du delegue.
+function registrationCategories(d) {
+  const set = new Set();
+  for (const r of d?.registrations || []) for (const c of r?.categories || []) if (c) set.add(c);
+  return [...set].join(", ");
+}
+
 export function delegateCoreFields(d) {
   const practiceModes = Array.isArray(d.practiceModes)
     ? d.practiceModes.filter(Boolean).join(", ")
     : "";
   return {
     delegateId: d.id || "",
+    externalId: d.externalId || "",
     civilite: d.title || "",
     prenom: d.givenName || "",
     nom: d.familyName || "",
@@ -57,6 +66,9 @@ export function delegateCoreFields(d) {
     rpps: getRpps(d),
     pays: d.primaryAddress?.country?.code || d.primaryAddress?.countryCode || "",
     typeBadge: delegateBadgeType(d) || "",
+    categories: registrationCategories(d),
+    // Consentement RGPD du delegue (Boolean) ; null/absent = non renseigne.
+    gdpr: d.gdpr === true ? "O" : d.gdpr === false ? "N" : "",
     checkInCongres: hasValidCheckin(d) ? "O" : "N",
     matched: true,
   };
@@ -65,6 +77,7 @@ export function delegateCoreFields(d) {
 function unmatchedCoreFields(es) {
   return {
     delegateId: "",
+    externalId: "",
     civilite: "",
     prenom: "",
     nom: es?.fullName || "",
@@ -77,6 +90,8 @@ function unmatchedCoreFields(es) {
     rpps: "",
     pays: "",
     typeBadge: "",
+    categories: "",
+    gdpr: "",
     checkInCongres: "",
     matched: false,
   };
@@ -212,6 +227,7 @@ export const ATTENDANCE_HEADERS = [
   "Session début",
   "Session fin",
   "Délégué ID",
+  "Id externe",
   "Civilité",
   "Prénom",
   "Nom",
@@ -225,6 +241,8 @@ export const ATTENDANCE_HEADERS = [
   "Pays",
   "Pays (nom)",
   "Type badge",
+  "Catégories",
+  "GDPR",
   "Check-in congrès",
   "Présent physique (session)",
   "Nb scans physiques",
@@ -244,6 +262,7 @@ export function attendanceRowToCsv(row) {
     row.sessionStart,
     row.sessionEnd,
     row.delegateId,
+    row.externalId,
     row.civilite,
     row.prenom,
     row.nom,
@@ -257,6 +276,8 @@ export function attendanceRowToCsv(row) {
     row.pays,
     countryName(row.pays),
     row.typeBadge,
+    row.categories,
+    yesNo(row.gdpr),
     yesNo(row.checkInCongres),
     yesNo(row.physiquePresent),
     row.nbScansPhysiques || "",
@@ -284,6 +305,7 @@ const IDENTITY_HEADERS = [
   "Session début",
   "Session fin",
   "Délégué ID",
+  "Id externe",
   "Civilité",
   "Prénom",
   "Nom",
@@ -297,6 +319,8 @@ const IDENTITY_HEADERS = [
   "Pays",
   "Pays (nom)",
   "Type badge",
+  "Catégories",
+  "GDPR",
   "Check-in congrès",
 ];
 
@@ -308,6 +332,7 @@ function identityCols(row) {
     row.sessionStart,
     row.sessionEnd,
     row.delegateId,
+    row.externalId,
     row.civilite,
     row.prenom,
     row.nom,
@@ -321,6 +346,8 @@ function identityCols(row) {
     row.pays,
     countryName(row.pays),
     row.typeBadge,
+    row.categories,
+    yesNo(row.gdpr),
     yesNo(row.checkInCongres),
   ];
 }
@@ -382,6 +409,7 @@ export const REPLAY_VIEW_HEADERS = [
   "View date",
   "Origin",
   "Délégué ID",
+  "Id externe",
   "Civilité",
   "Prénom",
   "Nom",
@@ -395,6 +423,8 @@ export const REPLAY_VIEW_HEADERS = [
   "Pays",
   "Pays (nom)",
   "Type badge",
+  "Catégories",
+  "GDPR",
   "Check-in congrès",
   "Durée de la vue (mm:ss)",
 ];
@@ -409,28 +439,8 @@ export const REPLAY_VIEW_HEADERS = [
  */
 export function buildReplayViewRows({ session = {}, replayItems = [], delegates = [] } = {}) {
   const lookup = buildDelegateLookup(delegates);
-  const sessionFields = {
-    sessionId: session.id || "",
-    sessionOrganizer: session.organizer || "",
-    sessionTitle: session.title || "",
-    sessionStart: fmtParis(session.start),
-    sessionEnd: fmtParis(session.end),
-  };
-
-  const rows = (replayItems || []).map((it) => {
-    const delegate = it.userId ? lookup.byKeycloakId.get(it.userId) : null;
-    const core = delegate ? delegateCoreFields(delegate) : unmatchedCoreFields(it);
-    return {
-      ...sessionFields,
-      mediaId: it.mediaId || "",
-      presentationId: it.presentationId || "",
-      presentationTitle: it.presentationTitle || "",
-      viewDate: fmtParis(it.timestamp),
-      origin: it.origin || "",
-      ...core,
-      dureeSec: it.duration || 0,
-    };
-  });
+  const sessionFields = replaySessionFields(session);
+  const rows = (replayItems || []).map((it) => replayViewRow(it, sessionFields, lookup));
 
   // Tri : delegues rapproches d'abord, puis par nom, puis par date de vue.
   return rows.sort((a, b) => {
@@ -440,6 +450,60 @@ export function buildReplayViewRows({ session = {}, replayItems = [], delegates 
     if (an !== bn) return an.localeCompare(bn);
     return (a.viewDate || "").localeCompare(b.viewDate || "");
   });
+}
+
+function replaySessionFields(session = {}) {
+  return {
+    sessionId: session.id || "",
+    sessionOrganizer: session.organizer || "",
+    sessionTitle: session.title || "",
+    sessionStart: fmtParis(session.start),
+    sessionEnd: fmtParis(session.end),
+  };
+}
+
+function replayViewRow(it, sessionFields, lookup) {
+  const delegate = it.userId ? lookup.byKeycloakId.get(it.userId) : null;
+  const core = delegate ? delegateCoreFields(delegate) : unmatchedCoreFields(it);
+  return {
+    ...sessionFields,
+    mediaId: it.mediaId || "",
+    presentationId: it.presentationId || "",
+    presentationTitle: it.presentationTitle || "",
+    viewDate: fmtParis(it.timestamp),
+    viewTs: toEpochMs(it.timestamp) || 0,
+    origin: it.origin || "",
+    ...core,
+    dureeSec: it.duration || 0,
+  };
+}
+
+/**
+ * Export replay COMPLET, toutes sessions confondues (1 ligne = 1 vue VOD) :
+ * memes colonnes que l'export par session (REPLAY_VIEW_HEADERS), lookup delegues
+ * construit une seule fois. Les vues dont la session n'est pas dans `sessions`
+ * sont ecartees, sauf `includeOrphans` (vues sans sessionId ou session inconnue,
+ * colonnes session alors reprises de l'item ES).
+ * Tri chronologique par date de vue.
+ * @param {object} args
+ * @param {Array}  args.sessions     - [{ id, organizer, title, start, end }]
+ * @param {Array}  args.replayItems  - tous les items replay normalises
+ * @param {Array}  args.delegates    - tous les delegues (enrichissement identite)
+ * @param {boolean} [args.includeOrphans=false]
+ */
+export function buildAllReplayViewRows({ sessions = [], replayItems = [], delegates = [], includeOrphans = false } = {}) {
+  const lookup = buildDelegateLookup(delegates);
+  const fieldsById = new Map(sessions.map((s) => [s.id, replaySessionFields(s)]));
+  const rows = [];
+  for (const it of replayItems || []) {
+    let fields = it.sessionId ? fieldsById.get(it.sessionId) : null;
+    if (!fields) {
+      if (!includeOrphans) continue;
+      fields = replaySessionFields({ id: it.sessionId, title: it.sessionTitle, start: it.sessionStart, end: it.sessionEnd });
+    }
+    rows.push(replayViewRow(it, fields, lookup));
+  }
+  return rows.sort((a, b) => a.viewTs - b.viewTs);
 }
 
 export function replayViewRowToCsv(row) {
@@ -455,6 +519,7 @@ export function replayViewRowToCsv(row) {
     row.viewDate,
     row.origin,
     row.delegateId,
+    row.externalId,
     row.civilite,
     row.prenom,
     row.nom,
@@ -468,6 +533,8 @@ export function replayViewRowToCsv(row) {
     row.pays,
     countryName(row.pays),
     row.typeBadge,
+    row.categories,
+    yesNo(row.gdpr),
     yesNo(row.checkInCongres),
     formatDuration(row.dureeSec),
   ];

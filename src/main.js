@@ -36,17 +36,19 @@ Chart.defaults.plugins.datalabels.display = false;
 const router = createRouter({
   history: createWebHistory(),
   routes: [
+    // Sans eventId : ecran de selection (saisie de l'id ou liste des congres recents).
+    {
+      path: "/",
+      name: "event-picker",
+      component: () => import("./views/EventPickerView.vue"),
+    },
+    // Ancienne URL de repli conservee pour les favoris existants.
+    { path: "/no-event", redirect: { name: "event-picker" } },
     {
       path: "/:eventId",
       name: "statistics",
       component: () => import("./views/StatisticsView.vue"),
       props: true,
-    },
-    {
-      path: "/",
-      redirect: () => {
-        return { path: "/no-event" };
-      },
     },
   ],
 });

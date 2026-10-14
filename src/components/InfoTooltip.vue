@@ -84,6 +84,10 @@ const plainText = computed(() => props.text.replace(/<[^>]+>/g, ""));
   transition: opacity 0.15s, transform 0.15s, visibility 0.15s;
   pointer-events: none;
   white-space: normal;
+  /* Neutralise le style du parent (ex. .kpi-label en majuscules). */
+  text-transform: none;
+  letter-spacing: normal;
+  text-align: left;
 }
 .info-tip--right .info-tip-bubble { right: 0; }
 .info-tip--left .info-tip-bubble { left: 0; }

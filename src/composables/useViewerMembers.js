@@ -72,7 +72,7 @@ const normName = (v) => {
   return words.length >= 2 ? words.sort().join(" ") : "";
 };
 
-export function useViewerMembers({ isReady, getHits, getDelegates, getOrganizerIds }) {
+export function useViewerMembers({ isReady, getHits, getDelegates, getOrganizerIds, getMobileAppId = () => null }) {
   const loading = ref(false);
   const progress = ref({ loaded: 0, total: 0 });
   const error = ref(null);
@@ -345,7 +345,54 @@ export function useViewerMembers({ isReady, getHits, getDelegates, getOrganizerI
     { immediate: true },
   );
 
+  // Utilisateurs de l'app mobile de l'event NON inscrits : parmi les viewers
+  // live/replay sans delegue (hors rattaches a un delegue en doublon, deja
+  // couverts par leur delegue), ceux dont le contact resolu a une entree
+  // `apps` = mobileApplicationId avec lastUsed < 3 mois (meme regle que le KPI
+  // inscrits de computeStats). Dedoublonne par contact. MINIMUM : un
+  // utilisateur de l'app qui n'a consulte ni live ni replay reste invisible
+  // (aucune requete ne liste les utilisateurs d'une app).
+  // mobileAppUsersAll : toute utilisation connue (sans borne de date, pour
+  // l'export « toutes dates ») ; mobileAppUsers : < 3 mois (KPI).
+  const mobileAppUsersAll = computed(() => {
+    const appId = getMobileAppId();
+    if (!appId) return [];
+    const byContact = new Map();
+    for (const kcId of unmatchedIds.value) {
+      const status = classification.value.byKcId.get(kcId)?.status;
+      if (!status || status === "relinked") continue;
+      const c = resolved.value.get(kcId)?.contact;
+      if (!c?.id || byContact.has(c.id)) continue;
+      const app = (c.apps || []).find((a) => a?.id === appId && a.lastUsed);
+      const lastUsedMs = app ? toEpochMs(app.lastUsed) : null;
+      if (!lastUsedMs) continue;
+      byContact.set(c.id, {
+        kcId,
+        contactId: c.id,
+        status, // member | formerMember | contact
+        givenName: c.givenName || "",
+        familyName: c.familyName || "",
+        title: c.honorificPrefix || "",
+        email: c.email?.value || c.emailAddresses?.[0]?.value || "",
+        countryCode: c.address?.countryCode || "",
+        externalIds: c.externalIds || [],
+        lastUsed: app.lastUsed,
+        lastUsedMs,
+        version: app.version || "",
+        platform: app.platform || "",
+      });
+    }
+    return [...byContact.values()];
+  });
+  const mobileAppUsers = computed(() => {
+    const since = new Date();
+    since.setMonth(since.getMonth() - 3);
+    return mobileAppUsersAll.value.filter((u) => u.lastUsedMs >= since.getTime());
+  });
+
   return {
+    mobileAppUsers,
+    mobileAppUsersAll,
     loading: readonly(loading),
     progress: readonly(progress),
     error: readonly(error),

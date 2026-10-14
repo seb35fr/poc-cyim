@@ -96,4 +96,12 @@ export async function fetchReplayViews(congressId, onProgress) {
   return fetchAllHits(INDEX.replay, query, onProgress);
 }
 
+// Contenu BRUT d'un index pour l'event (téléchargement depuis DataSourcesInfo).
+// Seul filtre : congress_id — contrairement à fetchLiveViews/fetchReplayViews,
+// les comptes internes @cyim.com ne sont PAS exclus (reflet fidèle de l'index).
+export async function fetchRawIndex(key, congressId, onProgress) {
+  if (!INDEX[key]) throw new Error(`Index ES inconnu : ${key}`);
+  return fetchAllHits(INDEX[key], termCongress(congressId), onProgress);
+}
+
 export { INDEX };

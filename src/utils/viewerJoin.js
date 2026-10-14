@@ -242,6 +242,24 @@ export function getMatchedViewerDelegateIds(items, lookup) {
   return set;
 }
 
+// Cle "personne" d'un viewer : une meme personne peut regarder avec PLUSIEURS
+// comptes Keycloak (contact multi-emails, ancien compte rattache a son delegue
+// via un contact en doublon / changement d'email, membre multi-comptes). Un
+// compte rapproche compte pour son delegue (ou pseudo-delegue membre), un
+// compte non rapproche pour lui-meme.
+export function viewerPersonKey(kcId, lookup) {
+  const id = lookup?.get(kcId)?.delegate?.id;
+  return id ? `d:${id}` : `kc:${kcId}`;
+}
+
+// Nombre de PERSONNES distinctes parmi des items live/replay (vs comptes :
+// stats.global.uniqueUsers compte des user_id ES).
+export function countUniqueViewerPersons(items, lookup) {
+  const set = new Set();
+  for (const it of items || []) if (it?.userId) set.add(viewerPersonKey(it.userId, lookup));
+  return set.size;
+}
+
 // Set<delegate.id Mongo> des delegues physiquement checked-in (date valide).
 export function getCheckedInDelegateIds(delegates) {
   const set = new Set();

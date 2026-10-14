@@ -46,6 +46,15 @@
               ? t("exports.presence.exportAllProgress", { done: exportAllProgress, total: filtered.length })
               : t("exports.presence.exportAll", { n: filtered.length }) }}
           </button>
+          <button
+            v-if="mergedExportFn"
+            class="btn-primary"
+            :disabled="filtered.length === 0 || exportingAll"
+            :title="t('exports.presence.exportMergedHint')"
+            @click="exportMerged"
+          >
+            {{ t("exports.presence.exportMerged", { n: filtered.length }) }}
+          </button>
         </div>
 
         <div v-if="filtered.length === 0" class="empty-msg">
@@ -108,6 +117,9 @@ const props = defineProps({
   countHint: { type: String, default: "" },
   // (session) => void : construit + telecharge le CSV de la session.
   exportFn: { type: Function, required: true },
+  // (sessions, { filtersActive }) => void : export complet en UN seul CSV, non
+  // groupe par session, sur les sessions filtrees. Bouton masque si absent.
+  mergedExportFn: { type: Function, default: null },
 });
 
 defineEmits(["toggle"]);
@@ -157,6 +169,11 @@ async function exportAll() {
     exportingAll.value = false;
     exportAllProgress.value = 0;
   }
+}
+
+function exportMerged() {
+  const filtersActive = !!(search.value.trim() || selectedType.value || selectedOrganizer.value);
+  props.mergedExportFn(filtered.value, { filtersActive });
 }
 
 function formatStart(iso) {
@@ -234,7 +251,7 @@ function formatStart(iso) {
 }
 .info-chip-value { font-size: 14px; font-weight: 700; color: var(--primary); }
 
-.search-row { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; }
+.search-row { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; flex-wrap: wrap; }
 .search-input {
   flex: 1; padding: 7px 12px; font-size: 14px;
   border: 1px solid var(--border); border-radius: 6px;

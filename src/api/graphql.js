@@ -1,5 +1,13 @@
+import { version as APP_VERSION } from "../../package.json";
 const GRAPHQL_URL = import.meta.env.DEV ? "/api/graphql" : import.meta.env.VITE_GRAPHQL_URL;
 const AUTH_TOKEN = import.meta.env.VITE_AUTH_TOKEN;
+
+// Identification du client aupres du router GraphQL (REG-1402) : en-tetes Apollo
+// standard sur tout appel sortant. Identification seulement, pas d'auth.
+const CLIENT_HEADERS = {
+  "apollographql-client-name": "poc-stats-congres",
+  "apollographql-client-version": APP_VERSION,
+};
 
 // Extrait "OpName" depuis "query OpName(...)" / "mutation OpName(...)".
 // Utilise dans les logs pour identifier la requete fautive sans dump le body.
@@ -29,6 +37,7 @@ async function gqlFetch(query, variables = {}) {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${AUTH_TOKEN}`,
+        ...CLIENT_HEADERS,
       },
       body: JSON.stringify({ query, variables }),
     });
@@ -335,6 +344,10 @@ export async function fetchLocationNames(ids) {
 // Batch aliase (1 requete / chunk) avec variables typees, chunks executes avec
 // une concurrence limitee. Best-effort : un chunk en echec est simplement absent
 // du resultat (les ids restent "non rapproches").
+// Le contact porte aussi `apps` (usage de l'app mobile, cf. setApplicationInUse
+// cote app) : sert a compter les utilisateurs de l'app NON inscrits. Champ servi
+// par un subgraph tiers -> si la requete echoue avec `apps`, le chunk est rejoue
+// sans (la resolution des membres ne doit pas en dependre).
 // Retourne Map<accountId, { contact, memberships: Membership[] } | null>
 // (null = aucun contact pour ce compte).
 export async function fetchContactsByAccountIds(accountIds, organizerIds = [], { chunkSize = 40, concurrency = 3, onProgress } = {}) {
@@ -350,6 +363,7 @@ export async function fetchContactsByAccountIds(accountIds, organizerIds = [], {
     .map((_, k) => `m${k}: membership(organizationId: $o${k}, includeFormer: true) { type start end expired organization { id } }`)
     .join("\n          ");
 
+  let withApps = true;
   async function runChunk(chunk) {
     const varDefs = [
       ...chunk.map((_, j) => `$a${j}: ID!`),
@@ -367,6 +381,7 @@ export async function fetchContactsByAccountIds(accountIds, organizerIds = [], {
           emailAddresses { value }
           address { city postalCode countryCode }
           externalIds { value type }
+          ${withApps ? "apps { id lastUsed version platform }" : ""}
           ${membershipFields}
         }
       }`,
@@ -385,6 +400,11 @@ export async function fetchContactsByAccountIds(accountIds, organizerIds = [], {
         out.set(id, { contact: c, memberships });
       });
     } catch (e) {
+      if (withApps) {
+        console.warn("[GraphQL] fetchContactsByAccountIds — échec avec `apps`, nouvel essai sans :", e?.message || e);
+        withApps = false;
+        return runChunk(chunk);
+      }
       console.warn(`[GraphQL] fetchContactsByAccountIds — chunk de ${chunk.length} échoué:`, e?.message || e);
     }
   }
@@ -401,6 +421,104 @@ export async function fetchContactsByAccountIds(accountIds, organizerIds = [], {
   }
   await Promise.all(Array.from({ length: Math.min(concurrency, chunks.length) }, worker));
   return out;
+}
+
+// Membres d'une organisation (organisateur de l'event) avec l'usage de leurs
+// applications : `organization(id).members` (service memberships, Dgraph,
+// pagination par curseur, pas de controle de permission) -> `Member.contact`
+// (Person federe) -> `Person.apps` (service contacts-apps, collection `apps` :
+// { contactId, application{id,...}, lastUsed }). Seule voie GraphQL pour
+// atteindre les utilisateurs de l'app NON inscrits : contacts-apps n'expose
+// aucune requete de liste (uniquement Person.apps + setApplicationInUse).
+// includeFormer : anciens membres inclus (ils peuvent garder l'app).
+// Retourne [{ contact, membership }] (contact null si non resolu).
+export async function fetchOrganizationMembersWithApps(organizationId, { pageSize = 200, onProgress } = {}) {
+  const query = `
+    query OrgMembersApps($id: ID!, $first: Int!, $pageToken: ID) {
+      organization(id: $id) {
+        members(first: $first, pageToken: $pageToken, includeFormer: true) {
+          totalCount
+          nextPageToken
+          items {
+            membership { type start end expired }
+            contact {
+              id
+              givenName
+              familyName
+              honorificPrefix
+              email { value }
+              emailAddresses { value }
+              address { countryCode }
+              externalIds { value type }
+              apps { id lastUsed version platform }
+            }
+          }
+        }
+      }
+    }
+  `;
+  const out = [];
+  let pageToken = null;
+  let total = 0;
+  do {
+    const data = await gqlFetch(query, { id: organizationId, first: pageSize, pageToken });
+    const page = data?.organization?.members;
+    if (!page) break;
+    total = page.totalCount || total;
+    for (const it of page.items || []) out.push({ contact: it.contact || null, membership: it.membership || null });
+    pageToken = page.nextPageToken || null;
+    if (onProgress) onProgress({ loaded: out.length, total });
+  } while (pageToken);
+  return out;
+}
+
+// Liste des congres pour l'ecran de selection (route "/" sans eventId).
+// `events.filter` est un filtre Mongo brut cote event-microservice (caste par
+// Mongoose, d'ou des dates ISO en string). Sans recherche : events en cours ou
+// termines depuis `sinceMonths` mois (start <= maintenant, end >= maintenant - N
+// mois). Avec recherche : regex sur le titre, toutes dates. Meme requete que la
+// liste d'events de registration-admin (type CONGRESS, tri start desc,
+// checkPermissions "event:delegates:view" pour masquer les events non visibles).
+export async function fetchRecentEvents({ sinceMonths = 3, search = "", first = 50, pageToken = null } = {}) {
+  const now = new Date();
+  const since = new Date(now);
+  since.setMonth(since.getMonth() - sinceMonths);
+  const term = search.trim();
+  const filter = term
+    ? { title: { $regex: term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, ".*"), $options: "i" } }
+    : { start: { $lte: now.toISOString() }, end: { $gte: since.toISOString() } };
+
+  const buildQuery = (withPermissions) => `
+    query RecentEvents($filter: Filter, $sortBy: Filter, $first: Int, $pageToken: ID${withPermissions ? ", $actions: [String!]" : ""}) {
+      events(type: [CONGRESS], filter: $filter, sortBy: $sortBy, first: $first, pageToken: $pageToken) {
+        items {
+          id
+          title
+          picture
+          start
+          end
+          ${withPermissions ? "checkPermissions(actions: $actions)" : ""}
+        }
+        totalCount
+        nextPageToken
+      }
+    }
+  `;
+  const variables = { filter, first, pageToken, sortBy: [["start", "desc"]] };
+
+  let data;
+  let filtered = true;
+  try {
+    data = await gqlFetch(buildQuery(true), { ...variables, actions: ["event:delegates:view"] });
+  } catch (err) {
+    // checkPermissions (Cerbos) indisponible : on liste sans filtrer les droits.
+    console.warn("[GraphQL] RecentEvents — checkPermissions indisponible, liste non filtrée :", err?.message);
+    data = await gqlFetch(buildQuery(false), variables);
+    filtered = false;
+  }
+  const result = data?.events || {};
+  const items = (result.items || []).filter((e) => !filtered || e.checkPermissions?.length);
+  return { items, nextPageToken: result.nextPageToken || null, totalCount: result.totalCount ?? items.length };
 }
 
 export async function fetchEventConfig(eventId) {
